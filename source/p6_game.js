@@ -2,9 +2,22 @@
 const BASE_POS={player:V3(), bot:V3()};
 function applyMap(id){ setMap(id); bakeLoad(id); bakeUse(id); detailApply(curMap.group); bakeHook(scene); lookMap(id); const sx=curMap.spawnX*curMap.scale; BASE_POS.player.set(-sx,1,0); BASE_POS.bot.set(sx,1,0); }
 applyQuality(settings.quality==='auto'?'high':settings.quality);
-applyMap(settings.map);
-const player=new Fighter('YOU',true), bot=new Fighter('BOT',false);
-const other=f=>f===player?bot:player;
+applyMap(settings.gm==='ffa'?'ffa':settings.map);
+const player=new Fighter('YOU',true,TEAM.player), bot=new Fighter('BOT',false,TEAM.bot);
+const other=f=>f===player?bot:player; // 1v1 only
+const fighters=[player,bot]; // everyone in the current match (2 in 1v1, up to 4 in FFA)
+let matchKind='1v1'; // '1v1' | 'ffa'
+const ffaPool=[]; // extra fighters for FFA seats 3 and 4, made on first use
+const BOT_NAMES=['Bolt','Nova','Pixel','Rumble','Zip','Fizz','Comet','Dash'];
+function seatFighter(i){ if(i===0) return player; if(i===1) return bot; while(ffaPool.length<i-1){ const f=new Fighter('BOT',false,TEAM[SLOT_TEAMS[ffaPool.length+2]]); f.setActive(false); ffaPool.push(f); } return ffaPool[i-2]; }
+function myName(){ return (settings.name||'').trim()||'You'; }
+// seats: [{ctl:'local'|'ai'|'net', name}] in seat order; seat 0 is always this screen's own fighter in solo play
+function setRoster(seats){ for(const f of ffaPool) f.setActive(false); fighters.length=0;
+  seats.forEach((s,i)=>{ const f=s.f||seatFighter(i); f.slot=s.slot!==undefined?s.slot:i; f.ctl=s.ctl; f.name=s.name; f.peer=s.peer||null; f.setTeam(TEAM[SLOT_TEAMS[f.slot]]); f.setActive(true); f.score=0; fighters.push(f); });
+  if(!fighters.includes(bot)){ bot.setActive(false); } }
+function roster1v1(){ matchKind='1v1'; player.name='YOU'; setRoster([{f:player,ctl:'local',name:'YOU',slot:0},{f:bot,ctl:'ai',name:'BOT',slot:1}]); }
+function rosterFFASolo(){ matchKind='ffa'; const n=settings.ffaBots==='2'?2:3; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
+  const seats=[{f:player,ctl:'local',name:myName(),slot:0}]; for(let i=1;i<=n;i++) seats.push({f:seatFighter(i),ctl:'ai',name:names[i-1],slot:i}); setRoster(seats); }
 
 // ================= STATE =================
 let state='menu'; // menu, countdown, fight, roundover, draft, picked, matchover
@@ -16,7 +29,7 @@ let camHold=false, botHold=false, killMarkT=0, shakeT=0, hitMarkerT=0, hurtT=0, 
 const botLevel=()=> mode==='sandbox' ? (DIFF[sandbox.bot]||DIFF.easy) : (DIFF[settings.diff]||DIFF.easy);
 
 // ================= DOM =================
-const UI={}; ['roundClock','draftClock','loading','hud','pipsYou','pipsBot','roundPill','roundSub','hpBot','hpBotT','cardsBot','youFace','botFace','hpYou','hpYouGhost','hpYouT','statusYou','ammo','cardsYou','blockCd','dashCd','crosshair','reloadRing','hitmark','vignette','hurt','toasts','botTag','botTagFill','banner','bannerSplat','bannerText','countdown','cdSplat','cdText','start','startBtn','sandboxBtn','pause','resumeBtn','quitBtn','pauseStats','pauseCards','draft','draftTitle','draftSub','cards','coach','statbar','steer','tips','dmgdir','botPanel','matchover','moTitle','moSub','moStats','moCards','againBtn','menuBtn','logoSplat','howBtn','how','fsBtn','sandbox','sbxCards','sbxGo','sbxClear','sbxQuit','sbxBuild'].forEach(k=>UI[k]=$(k));
+const UI={}; ['roundClock','draftClock','loading','hud','pipsYou','pipsBot','roundPill','roundSub','hpBot','hpBotT','cardsBot','youFace','botFace','hpYou','hpYouGhost','hpYouT','statusYou','ammo','cardsYou','blockCd','dashCd','crosshair','reloadRing','hitmark','vignette','hurt','toasts','botTag','botTagFill','banner','bannerSplat','bannerText','countdown','cdSplat','cdText','start','startBtn','sandboxBtn','pause','resumeBtn','quitBtn','pauseStats','pauseCards','draft','draftTitle','draftSub','cards','coach','statbar','steer','tips','dmgdir','botPanel','matchover','moTitle','moSub','moStats','moCards','againBtn','menuBtn','logoSplat','howBtn','how','fsBtn','sandbox','sbxCards','sbxGo','sbxClear','sbxQuit','sbxBuild','ffaBoard','tagLayer','specMsg'].forEach(k=>UI[k]=$(k));
 function domBurst(seed,color,o={}){ const rng=RNG(seed), N=o.n||13, sx=o.sx||1; let d=''; for(let i=0;i<N*2;i++){ const a=i/(N*2)*Math.PI*2-0.3; const rr=(i%2? 92+rng()*10 : 124+rng()*22); d+=(i?'L':'M')+(Math.cos(a)*rr*sx).toFixed(1)+' '+(Math.sin(a)*rr).toFixed(1)+' '; }
   const w=160*sx; return `<svg viewBox="${-w} -160 ${2*w} 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><path d="${d}Z" fill="${color}" stroke="#0b1026" stroke-width="8" stroke-linejoin="round"/></svg>`; }
 UI.logoSplat.innerHTML=domBurst(4,'#2460e6',{sx:1.9,n:17});
@@ -32,7 +45,8 @@ function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ c
   document.querySelectorAll('[data-seg]').forEach(seg=>{ const k=seg.dataset.seg; const v=k==='sbot'?sandbox.bot:settings[k]; seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }); }
 document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?'high':settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
-  if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; } }
+  if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
+    if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
   syncSettingsUI(); }); });
 syncSettingsUI();
 UI.howBtn.addEventListener('click',()=>{ UI.how.classList.toggle('open'); });
@@ -87,36 +101,42 @@ function pollPad(dt){
 
 // ================= FLOW =================
 function placeAtBases(){
+  if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   const sw=NET.on&&NET.role==='guest'; // the guest spawns at the far base so both screens agree on the world
   player.pos.copy(sw?BASE_POS.bot:BASE_POS.player); player.vel.set(0,0,0); player.yaw=sw?Math.PI/2:-Math.PI/2; player.pitch=0; player.onGround=true;
-  bot.pos.copy(sw?BASE_POS.player:BASE_POS.bot); bot.vel.set(0,0,0); bot.yaw=sw?-Math.PI/2:Math.PI/2; bot.pitch=0; bot.onGround=true; if(NET.on) NET.rs=null;
+  bot.pos.copy(sw?BASE_POS.player:BASE_POS.bot); bot.vel.set(0,0,0); bot.yaw=sw?-Math.PI/2:Math.PI/2; bot.pitch=0; bot.onGround=true; if(NET.on){ NET.rs=null; bot.rs=null; }
+  player.spawn.copy(player.pos); bot.spawn.copy(bot.pos);
 }
 function clearProjectiles(){ for(let i=bullets.length-1;i>=0;i--) removeBullet(i); for(const b of bombs) scene.remove(b.m); bombs.length=0; for(const e of explosions){ scene.remove(e.m); scene.remove(e.m2); } explosions.length=0; clearFields(); clearCardFx(); remoteCtl.b=null; }
 function resetInputs(){ fireHeld=false; firePressed=false; blockBuf=0; wantDash=false; jumpBuffer=0; }
 function beginRound(){ bakeHook(scene);
-  clearProjectiles(); player.resetRound(); bot.resetRound(); placeAtBases(); botState.reset(); resetInputs();
+  clearProjectiles(); for(const f of fighters){ f.resetRound(); aiReset(f); } placeAtBases(); resetInputs();
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; roundInfo.botHpFrac=1;
-  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
+  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind==='ffa'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
 }
 function startMatch(){
-  mode='match'; sandbox.open=false; show(UI.sandbox,false); { const mp=(NET.on&&NET.role==='guest'&&NET.hostMap)?NET.hostMap:settings.map; if(curMapId!==mp) applyMap(mp); } document.getElementById('online').classList.remove('open');
-  score.player=0; score.bot=0; roundNum=1; player.setCards([]); bot.setCards([]); matchOverPending=false; lastWinner=null;
+  mode='match'; sandbox.open=false; show(UI.sandbox,false); if(!NET.on){ if(settings.gm==='ffa') rosterFFASolo(); else roster1v1(); }
+  { const mp=matchKind==='ffa'?'ffa':((NET.on&&NET.role==='guest'&&NET.hostMap)?NET.hostMap:settings.map); if(curMapId!==mp) applyMap(mp); } document.getElementById('online').classList.remove('open');
+  score.player=0; score.bot=0; roundNum=1; for(const f of fighters){ f.setCards([]); f.score=0; } matchOverPending=false; lastWinner=null; ffaBoardKey='';
   for(const k in matchStats) matchStats[k]=0;
-  UI.roundSub.textContent= NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
+  UI.roundSub.textContent= matchKind==='ffa'? (NET.on?'FREE FOR ALL · FIRST TO 5 · ROOM '+NET.code:'FREE FOR ALL · FIRST TO 5') : NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
-function toMenu(){ if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); player.setCards([]); bot.setCards([]); player.resetRound(); bot.resetRound(); if(curMapId!==settings.map) applyMap(settings.map); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
+function toMenu(){ if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
-function timeUp(){ const pf=player.hp/player.maxHp(), bf=bot.hp/bot.maxHp(); const loser= pf<bf?player:(bf<pf?bot:(Math.random()<0.5?player:bot)); toast(`<b>TIME!</b> Most health left takes the round`,'status'); if(loser===player) roundInfo.cause='time'; killFighter(loser,other(loser)); }
+function timeUp(){ if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
+  const pf=player.hp/player.maxHp(), bf=bot.hp/bot.maxHp(); const loser= pf<bf?player:(bf<pf?bot:(Math.random()<0.5?player:bot)); toast(`<b>TIME!</b> Most health left takes the round`,'status'); if(loser===player) roundInfo.cause='time'; killFighter(loser,other(loser)); }
 const CAUSE={time:'Time ran out and the bot had more health left.',fall:'You fell off the edge.',shot:'The bot\'s shot finished you.',blast:'You were caught in an explosion.',bomb:'A bomb got you.',aura:'The bot\'s aura drained you.',dome:'The bot\'s dome effect got you.',poison:'Poison finished you.',cloud:'A toxic cloud finished you.',nova:'The supernova got you.'};
 function onRoundEnd(winner){
+  if(matchKind==='ffa'){ const youWon=winner===player; if(youWon){ showBanner('ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner(winner?winner.name.toUpperCase()+' WINS IT':'NOBODY WINS','#e0364f','lose'); SFX.lose(); }
+    if(fighters.some(f=>f.score>=CFG.winsToTakeMatch)) matchOverPending=true; ffaBoardKey=''; updateHUD(); return; }
   const youWon=winner.isPlayer;
   if(youWon){ showBanner('ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner('KNOCKED OUT!','#e0364f','lose'); SFX.lose(); }
   const foe=NET.on?'Rival':'Bot'; toast(youWon? `<b class="you">You</b> knocked out <b class="bot">${foe}</b>` : (CAUSE[roundInfo.cause]||'The bot knocked you out.').replace(/bot/g,NET.on?'rival':'bot'), youWon?'you':'bot');
   if(score.player>=CFG.winsToTakeMatch||score.bot>=CFG.winsToTakeMatch) matchOverPending=true;
   buildPips(); updateHUD();
 }
-function pause(){ if(paused) return; paused=!NET.on; exitLock(); fillStats(UI.pauseStats,UI.pauseCards); show(UI.pause,true,'block'); }
+function pause(){ /*DEBUG-START*/window.__ps=(window.__ps||[]).concat([new Error().stack.split("\n").slice(1,5).join(" | ")]);/*DEBUG-END*/ if(paused) return; paused=!NET.on; exitLock(); fillStats(UI.pauseStats,UI.pauseCards); show(UI.pause,true,'block'); }
 function resume(){ if(sandbox.open) return; paused=false; show(UI.pause,false); requestLock(); last=performance.now(); }
 function togglePause(){ if(paused) resume(); else pause(); }
 UI.resumeBtn.addEventListener('click',()=>resume());
@@ -126,7 +146,7 @@ UI.startBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); 
 UI.againBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on){ if(NET.role==='host'){ requestLock(); netHostStart(); } else toast('Waiting for the room host to start the rematch…','status'); return; } requestLock(); startMatch(); });
 function fillStats(statsEl,cardsEl){
   const acc=matchStats.shots? Math.round(matchStats.hits/matchStats.shots*100):0;
-  statsEl.innerHTML=[['Score',mode==='sandbox'?'–':score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
+  statsEl.innerHTML=[['Score',mode==='sandbox'?'–':matchKind==='ffa'?fighters.map(f=>f.score).join(' · '):score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
   cardsEl.innerHTML=stripHTML(player)||'<span class="none">No cards yet.</span>';
 }
 
@@ -145,11 +165,11 @@ UI.sandboxBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave()
 UI.sbxGo.addEventListener('click',()=>{ SFX.unlock(); if(mode==='sandbox'&&state==='fight'&&!sandbox.remap) closeSandbox(); else startSandbox(); });
 function openSandbox(){ sandbox.open=true; if(state==='fight') paused=true; exitLock(); show(UI.pause,false); show(UI.start,false); renderSandbox(); syncSettingsUI(); UI.sbxGo.textContent=(mode==='sandbox'&&state==='fight')?'BACK TO TRAINING':'START TRAINING'; show(UI.sandbox,true,'block'); }
 function sandboxBotSpot(){ const sx=BASE_POS.player.x+9; const g=groundAt(sx,0,3,0.3); return V3(sx,g===null?0:g,0); }
-function setupSandboxBot(){ bot.setCards([]); bot.resetRound(); botState.reset(); if(sandbox.bot==='none'){ bot.dead=true; bot.mesh.visible=false; bot.respawnT=0; } else if(sandbox.bot==='dummy'){ bot.pos.copy(sandboxBotSpot()); bot.yaw=Math.PI/2; } else { bot.pos.copy(BASE_POS.bot); bot.yaw=Math.PI/2; } bot.vel.set(0,0,0); show(UI.botPanel,sandbox.bot!=='none'); }
+function setupSandboxBot(){ bot.setCards([]); bot.resetRound(); aiReset(bot); if(sandbox.bot==='none'){ bot.dead=true; bot.mesh.visible=false; bot.respawnT=0; } else if(sandbox.bot==='dummy'){ bot.pos.copy(sandboxBotSpot()); bot.yaw=Math.PI/2; } else { bot.pos.copy(BASE_POS.bot); bot.yaw=Math.PI/2; } bot.vel.set(0,0,0); show(UI.botPanel,sandbox.bot!=='none'); }
 function applySandboxLoadout(){ const hpFrac=1; player.setCards(sandbox.cards); player.hp=player.maxHp()*hpFrac; player.ammo=player.stats.ammo; player.reloading=false; player.blockCdT=0; updateCardStrips(); }
 function closeSandbox(){ sandbox.open=false; paused=false; show(UI.sandbox,false); applySandboxLoadout(); if(sandbox.botWas!==sandbox.bot){ sandbox.botWas=sandbox.bot; setupSandboxBot(); } requestLock(); last=performance.now(); toast('Loadout updated. <b>TAB</b> to change it again.','you'); }
 function startSandbox(){
-  mode='sandbox'; sandbox.open=false; sandbox.remap=false; paused=false; if(curMapId!==settings.map) applyMap(settings.map);
+  roster1v1(); UI.hud.classList.remove('ffamode'); mode='sandbox'; sandbox.open=false; sandbox.remap=false; paused=false; if(curMapId!==settings.map) applyMap(settings.map);
   show(UI.sandbox,false); show(UI.start,false); show(UI.matchover,false); show(UI.draft,false); show(UI.pause,false); show(UI.countdown,false);
   for(const k in matchStats) matchStats[k]=0; score.player=0; score.bot=0; roundNum=1; clearProjectiles(); resetInputs();
   player.setCards(sandbox.cards); player.resetRound(); placeAtBases(); sandbox.botWas=sandbox.bot; setupSandboxBot();
@@ -161,7 +181,8 @@ function respawn(f){ const keepCd=f.dashCdT; f.resetRound(); if(f.isPlayer){ f.p
 const TYPE_ICON={ gun:'<circle cx="13" cy="12" r="6" fill="currentColor"/><path d="M2 12h4M3 7h3M3 17h3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>', dome:'<path d="M3 18a9 9 0 0 1 18 0Z" fill="currentColor"/>', aura:'<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="4 3"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/>', body:'<path d="M12 20C4 13 3 6 8.5 5c2-.3 3.2 1.4 3.5 2.4.3-1 1.5-2.7 3.5-2.4C21 6 20 13 12 20Z" fill="currentColor"/>' };
 const typeIcon=t=>`<svg viewBox="0 0 24 24">${TYPE_ICON[t]}</svg>`;
 function pick3(){ const pool=ALL_CARDS.slice(), out=[]; for(let k=0;k<3&&pool.length;k++){ out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); } return out; } // every card has the same odds
-function botPick(){ const opts=pick3(); const w=opts.map(id=>({id,w:(['glasscannon','remote','demonicpact'].includes(id)?0.4:1)+Math.random()})); w.sort((a,b)=>b.w-a.w); const id=w[0].id; bot.addCard(id); toast(`<b class="bot">Bot</b> took <b>${CARDS[id].name}</b>`,'bot'); return id; }
+function botPick(f){ f=f||bot; const opts=pick3(); const w=opts.map(id=>({id,w:(['glasscannon','remote','demonicpact'].includes(id)?0.4:1)+Math.random()})); w.sort((a,b)=>b.w-a.w); const id=w[0].id; f.addCard(id); toast(matchKind==='ffa'?`<b style="color:${f.team.css}">${esc(f.name)}</b> took <b>${CARDS[id].name}</b>`:`<b class="bot">Bot</b> took <b>${CARDS[id].name}</b>`,'bot'); return id; }
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function coachPick(opts,playerLost){
   const s=player.stats, bs=bot.stats, ri=roundInfo; const acc=ri.shots>=3? ri.hits/ri.shots : null; const domeCount=player.cards.filter(c=>CARDS[c].type==='dome').length;
   const G={ dmg:['combine','windup','carefulplanning','glasscannon','poison','parasite','explosive','grow','timeddetonation'], easy:['bigbullets','buckshot','barrage','spray','explosive','toxiccloud','timeddetonation','quickshot','fastball','steadyshot','remote'],
@@ -197,12 +218,14 @@ function renderStatbar(previewId){ const cur=statRows(player.stats); const nxt=p
 function cardHTML(id,i,owned,coach){ const c=CARDS[id];
   return `${coach?'<div class="coachtag">★ COACH PICK</div>':''}<div class="card-in"><div class="face back"><div class="backlogo">DOME<br>ROUNDS</div></div><div class="face front"><i class="br tl"></i><i class="br tr"></i><i class="br bl"></i><i class="br brr"></i><div class="ctitle">${c.name}</div><div class="cmeta"><span class="ctype">${typeIcon(c.type)}${TYPE_LABEL[c.type]}</span></div><div class="art">${ART.svg(id)}<div class="glare"></div></div><div class="cdesc">${c.tag}</div><div class="lines">${c.lines.map(l=>`<div><b class="${l[2]?'good':'bad'}">${l[0]}</b> ${l[1]}</div>`).join('')}</div><div class="cfoot"><span class="ckey">${i+1}</span>${owned?`<span class="owned">STACK ×${owned+1}</span>`:'<span class="new">NEW</span>'}</div></div></div>`; }
 function startDraft(){
-  state='draft'; clearProjectiles(); player.resetRound(); bot.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner'; SFX.music('draft');
-  const playerLost = lastWinner===bot; player.setMood(playerLost?'worried':'happy',999); bot.setMood(playerLost?'happy':'worried',999);
-  if(!playerLost&&!NET.on) botPick();
+  state='draft'; clearProjectiles(); for(const f of fighters) f.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner'; SFX.music('draft');
+  const ffa=matchKind==='ffa';
+  const playerLost = ffa? lastWinner!==player : lastWinner===bot; for(const f of fighters) f.setMood(f===lastWinner?'happy':'worried',999);
+  if(ffa){ for(const f of fighters) if(f.ctl==='ai'&&(!NET.on||NET.role==='host')) botPick(f); }
+  else if(!playerLost&&!NET.on) botPick();
   const opts=pick3(); const rec=coachPick(opts,playerLost); pad.focus=Math.max(0,opts.indexOf(rec.id));
   UI.draftTitle.textContent='PICK A CARD'; draftT=DRAFT_LIMIT; draftTick=-1; UI.draftClock.textContent=DRAFT_LIMIT+'s'; UI.draftClock.classList.remove('warn');
-  UI.draftSub.textContent= NET.on? (playerLost?'You lost that round. Pick a card, your rival is picking too.':'You won that round. Pick a card, your rival is picking too.') : playerLost? 'You lost that round, so you pick first.' : 'You won! The bot picked first. Your turn.';
+  UI.draftSub.textContent= ffa? (lastWinner===player?'You won that round! Everyone picks a card.':'Everyone picks a card. Make it count.') : NET.on? (playerLost?'You lost that round. Pick a card, your rival is picking too.':'You won that round. Pick a card, your rival is picking too.') : playerLost? 'You lost that round, so you pick first.' : 'You won! The bot picked first. Your turn.';
   UI.coach.innerHTML=`<b>COACH:</b> take <em style="color:${CARDS[rec.id].c}">${CARDS[rec.id].name}</em>. ${rec.why}`;
   UI.cards.innerHTML=''; renderStatbar(null);
   opts.forEach((id,i)=>{ const c=CARDS[id]; const el=document.createElement('div'); el.className=`card t-${c.type}`+(id===rec.id?' rec':''); el.style.setProperty('--c',c.c); el.style.setProperty('--i',i);
@@ -211,14 +234,14 @@ function startDraft(){
     el.addEventListener('mousemove',ev=>{ const r=el.getBoundingClientRect(); const px=(ev.clientX-r.left)/r.width, py=(ev.clientY-r.top)/r.height; el.style.setProperty('--ry',((px-0.5)*14).toFixed(1)+'deg'); el.style.setProperty('--rx',((0.5-py)*12).toFixed(1)+'deg'); el.style.setProperty('--gx',(px*100).toFixed(0)+'%'); el.style.setProperty('--gy',(py*100).toFixed(0)+'%'); });
     el.addEventListener('mouseenter',()=>{ SFX.hover(); el._hover(); });
     el.addEventListener('mouseleave',()=>{ el.style.setProperty('--ry','0deg'); el.style.setProperty('--rx','0deg'); UI.statbar._id=null; renderStatbar(null); });
-    el.addEventListener('click',()=>{ if(state!=='draft'||el.classList.contains('picked')) return; el.classList.add('picked'); for(const o of UI.cards.children) if(o!==el) o.classList.add('gone'); player.addCard(id); SFX.pick(); toast(`<b class="you">You</b> took <b>${c.name}</b>`,'you'); if(playerLost&&!NET.on) botPick(); state='picked'; if(NET.on){ netAfterPick(); return; } const go=()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); }; if(testMode) go(); else setTimeout(go,650); });
+    el.addEventListener('click',()=>{ if(state!=='draft'||el.classList.contains('picked')) return; el.classList.add('picked'); for(const o of UI.cards.children) if(o!==el) o.classList.add('gone'); player.addCard(id); SFX.pick(); toast(`<b class="you">You</b> took <b>${c.name}</b>`,'you'); if(playerLost&&!NET.on&&!ffa) botPick(); state='picked'; if(NET.on){ netAfterPick(); return; } const go=()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); }; if(testMode) go(); else setTimeout(go,650); });
     UI.cards.appendChild(el); setTimeout(()=>SFX.deal(),120+i*130); });
   UI.statbar._id=null; show(UI.draft,true); updateCardStrips();
 }
 function endMatch(){
   state='matchover'; exitLock(); SFX.music('menu');
-  const won=score.player>score.bot; UI.moTitle.textContent=won?'YOU WIN!':'BOT WINS'; UI.moTitle.className='title stroke '+(won?'win':'lose');
-  UI.moSub.textContent=won?'Champion of the arena. Try a harder bot next?':'So close. Try the Easy bot, or practise your build in the sandbox.';
+  let won=score.player>score.bot; if(matchKind==='ffa'){ const top=fighters.slice().sort((a,b)=>b.score-a.score)[0]; won=top===player; UI.moTitle.textContent=won?'YOU WIN!':esc(top.name).toUpperCase()+' WINS'; UI.moSub.textContent=fighters.slice().sort((a,b)=>b.score-a.score).map((f,i)=>`${i+1}. ${f===player?myName():f.name}  ${f.score}`).join('   '); }
+  else { UI.moTitle.textContent=won?'YOU WIN!':(NET.on?'RIVAL WINS':'BOT WINS'); UI.moSub.textContent=won?'Champion of the arena. Try a harder bot next?':'So close. Try the Easy bot, or practise your build in the sandbox.'; } UI.moTitle.className='title stroke '+(won?'win':'lose');
   fillStats(UI.moStats,UI.moCards); player.setMood(won?'happy':'worried',999); show(UI.matchover,true,'block'); show(UI.hud,false);
 }
 
@@ -245,21 +268,48 @@ function updateHUD(){
   UI.vignette.style.opacity=String(clamp((0.35-ph)*2.4,0,0.85)); UI.hurt.style.opacity=String(clamp(hurtT*2.5,0,0.8));
   UI.hitmark.style.opacity=hitMarkerT>0?'1':'0'; UI.hitmark.classList.toggle('kill',killMarkT>0); UI.hitmark.style.transform=`translate(-50%,-50%) rotate(45deg) scale(${(1+hitMarkerT*3).toFixed(2)})`;
   UI.crosshair.style.setProperty('--k',(crossKick*10).toFixed(1)+'px');
+  if(matchKind==='ffa') updateFFAHud(); else if(UI.specMsg._on){ UI.specMsg._on=false; UI.specMsg.style.display='none'; }
   const steering=!!remoteCtl.b; if(UI.steer._on!==steering){ UI.steer._on=steering; UI.steer.style.display=steering?'block':'none'; }
   const tips=tipsT>0&&state==='fight'; if(UI.tips._on!==tips){ UI.tips._on=tips; UI.tips.style.display=tips?'block':'none'; }
   if(dmgDirT>0&&!player.dead){ const to=V3().subVectors(dmgFrom,player.pos); const a=Math.atan2(-to.x,-to.z)-player.yaw; UI.dmgdir.style.opacity=String(Math.min(1,dmgDirT*1.6)); UI.dmgdir.style.transform=`translate(-50%,-50%) rotate(${(-a*180/Math.PI).toFixed(1)}deg)`; } else UI.dmgdir.style.opacity='0';
   if(!bot.dead&&bot.mesh.visible&&(state==='fight'||state==='countdown')){ _proj.copy(bot.center()); _proj.y+=1.1; _proj.project(camera); if(_proj.z<1&&Math.abs(_proj.x)<1.1&&Math.abs(_proj.y)<1.1){ UI.botTag.style.display='block'; UI.botTag.style.opacity=hasLOS(camera.position,bot.center())?'1':'0.45'; UI.botTag.style.transform=`translate(-50%,-100%) translate(${((_proj.x+1)/2*window.innerWidth).toFixed(1)}px,${((1-_proj.y)/2*window.innerHeight).toFixed(1)}px)`; } else UI.botTag.style.display='none'; } else UI.botTag.style.display='none';
 }
 
+// ---- FFA scoreboard + name tags over every rival ----
+let ffaBoardKey=''; const ffaRows=new Map(), tagEls=new Map();
+function updateFFAHud(){
+  const key=fighters.map(f=>f.id+':'+f.score+':'+(f.dead?1:0)+':'+f.name).join('|');
+  if(key!==ffaBoardKey){ ffaBoardKey=key; UI.ffaBoard.innerHTML=fighters.slice().sort((a,b)=>b.score-a.score).map(f=>`<div class="fb-row${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}" data-id="${f.id}"><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?myName():f.name)}${f===player&&myName()!=='You'?' <small>(you)</small>':''}</span><span class="fb-pp">${Array.from({length:CFG.winsToTakeMatch},(_,k)=>`<i class="${k<f.score?'on':''}"></i>`).join('')}</span><span class="fb-hp"><b></b></span></div>`).join('');
+    ffaRows.clear(); for(const el of UI.ffaBoard.children) ffaRows.set(+el.dataset.id,el.querySelector('.fb-hp b')); }
+  for(const f of fighters){ const b=ffaRows.get(f.id); if(b) b.style.width=(f.dead?0:clamp(f.hp/f.maxHp(),0,1)*100).toFixed(1)+'%'; }
+  const live=new Set(), on=state==='fight'||state==='countdown';
+  for(const f of fighters){ if(f===player||f.dead||f.active===false||!f.mesh.visible||!on) continue; _proj.copy(f.center()); _proj.y+=1.1; _proj.project(camera); if(!(_proj.z<1&&Math.abs(_proj.x)<1.1&&Math.abs(_proj.y)<1.1)) continue;
+    let el=tagEls.get(f); if(!el){ el=document.createElement('div'); el.className='ntag'; el.innerHTML='<b></b><div class="tb"><i></i></div>'; UI.tagLayer.appendChild(el); tagEls.set(f,el); }
+    const nb=el.firstChild; if(nb._t!==f.name){ nb._t=f.name; nb.textContent=f.name; } el.style.setProperty('--c',f.team.css); el.lastChild.firstChild.style.width=(clamp(f.hp/f.maxHp(),0,1)*100).toFixed(1)+'%';
+    el.style.display='block'; el.style.opacity=hasLOS(camera.position,f.center())?'1':'0.45'; el.style.transform=`translate(-50%,-100%) translate(${((_proj.x+1)/2*window.innerWidth).toFixed(1)}px,${((1-_proj.y)/2*window.innerHeight).toFixed(1)}px)`; live.add(f); }
+  for(const [f,el] of tagEls) if(!live.has(f)) el.style.display='none';
+  const spec=player.dead&&state==='fight'; if(UI.specMsg._on!==spec){ UI.specMsg._on=spec; UI.specMsg.style.display=spec?'block':'none'; }
+  if(spec){ const w=camFighter(); const t=w&&w!==player?'Watching '+w.name+' · you\'re back next round':'You\'re back next round'; if(UI.specMsg._t!==t){ UI.specMsg._t=t; UI.specMsg.textContent=t; } } }
+function hideTags(){ for(const el of tagEls.values()) el.style.display='none'; }
+function ffaKnockout(f,by,left){ const nm=x=>x===player?'You':esc(x.name);
+  toast(by?`<b style="color:${by.team.css}">${nm(by)}</b> knocked out <b style="color:${f.team.css}">${nm(f)}</b>`:`<b style="color:${f.team.css}">${nm(f)}</b> ${f===player?'are':'is'} out`, f===player?'bot':(by===player?'you':'status'));
+  if(f===player&&left>1){ showBanner('KNOCKED OUT!','#e0364f','lose'); SFX.lose(); specT=null; }
+  if(by===player){ hitMarkerT=0.45; killMarkT=0.45; } ffaBoardKey=''; }
+// the menu shows the line-up for the mode you've picked
+function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa') rosterFFASolo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); }
+
 // ================= BOT AI =================
-const botState={ strafe:1, strafeT:0, shootT:0, shooting:false, jumpT:2, reactT:0, stuckT:0, lastPos:V3(),
-  reset(){ this.strafe=Math.random()<0.5?-1:1; this.strafeT=rand(1,2); this.shootT=rand(1.2,2.0); this.shooting=false; this.jumpT=rand(1.5,3); this.reactT=0; this.stuckT=0; this.lastPos.set(0,0,0); } };
-function botThink(dt){
-  const b=bot, p=player, D=botLevel(); if(b.dead||p.dead) return {wish:V3(),jump:false};
+// each bot keeps its own plan and picks who to fight: the closest enemy it can see, with a grudge against whoever hit it last
+function aiReset(f){ f.ai={ strafe:Math.random()<0.5?-1:1, strafeT:rand(1,2), shootT:rand(1.2,2.0), shooting:false, jumpT:rand(1.5,3), reactT:0, stuckT:0, lastPos:V3(), decided:false, tgt:null, tgtT:0 }; }
+function aiTarget(b,dt){ const A=b.ai; A.tgtT-=dt; const list=enemies(b); if(A.tgt&&list.includes(A.tgt)&&A.tgtT>0) return A.tgt;
+  let best=null, bs=1e9; for(const e of list){ let sc=e.pos.distanceTo(b.pos); if(!hasLOS(b.center(),e.center())) sc+=14; if(e===A.tgt) sc-=4; if(e===b.lastHitBy) sc-=7; if(e.hp<e.maxHp()*0.35) sc-=3; if(sc<bs){ bs=sc; best=e; } }
+  A.tgt=best; A.tgtT=rand(1.4,3.2); return best; }
+function botThink(b,dt){
+  const D=botLevel(); if(!b.ai) aiReset(b); const botState=b.ai; const p=b.dead?null:aiTarget(b,dt); if(b.dead||!p) return {wish:V3(),jump:false};
   const toP=V3().subVectors(p.pos,b.pos); toP.y=0; const dist=toP.length(); const dir=dist>0.01?toP.clone().normalize():V3(1,0,0);
   const los=hasLOS(b.center(),p.center());
   const aimTarget=p.center(); const tFly=clamp(dist/b.stats.speed,0,1.2); aimTarget.addScaledVector(p.vel,tFly*(D===DIFF.easy?0.35:0.8));
-  const err=D.err+(bot.dazzleN>0?0.3:0); aimTarget.x+=rand(-err,err)*dist; aimTarget.y+=rand(-err,err)*dist*0.6; aimTarget.z+=rand(-err,err)*dist;
+  const err=D.err+(b.dazzleN>0?0.3:0); aimTarget.x+=rand(-err,err)*dist; aimTarget.y+=rand(-err,err)*dist*0.6; aimTarget.z+=rand(-err,err)*dist;
   const faceDir=V3().subVectors(p.center(),b.center()); b.yaw=Math.atan2(-faceDir.x,-faceDir.z);
   const aimDir=V3().subVectors(aimTarget,b.center()); if(aimDir.lengthSq()<0.01) aimDir.set(1,0,0); aimDir.normalize(); b.botAim=aimDir; b.pitch=clamp(Math.asin(clamp(aimDir.y,-1,1)),-1,1);
   botState.strafeT-=dt; if(botState.strafeT<=0){ botState.strafe*=-1; botState.strafeT=rand(0.8,2.2); }
@@ -267,7 +317,7 @@ function botThink(dt){
   const closeBuild=b.stats.hasAura||b.stats.domeFx>0; const want=closeBuild?4.5:10; if(dist>want+3) wish.add(dir); else if(dist<want-3) wish.sub(dir); if(!los) wish.addScaledVector(dir,0.7);
   wish.addScaledVector(right,botState.strafe*(los?0.9:1.2));
   let threat=null, tdist=99;
-  for(const bl of bullets){ if(bl.owner!==p) continue; const rel=V3().subVectors(b.center(),bl.pos); const sp=Math.max(0.01,bl.vel.length()); const along=rel.dot(bl.vel)/sp; if(along<0||along>10) continue; const perp=rel.clone().addScaledVector(bl.vel,-along/sp).length(); if(perp<2.2&&along<tdist){ tdist=along; threat=bl; } }
+  for(const bl of bullets){ if(bl.owner===b) continue; const rel=V3().subVectors(b.center(),bl.pos); const sp=Math.max(0.01,bl.vel.length()); const along=rel.dot(bl.vel)/sp; if(along<0||along>10) continue; const perp=rel.clone().addScaledVector(bl.vel,-along/sp).length(); if(perp<2.2&&along<tdist){ tdist=along; threat=bl; } }
   if(threat){ botState.reactT+=dt; if(botState.reactT>D.react&&!botState.decided){ botState.decided=true; if(b.blockCdT<=0&&!b.blockActive&&b.silenceT<=0&&Math.random()<D.block) tryBlock(b,true); else if(b.dashCdT<=0&&b.onGround&&Math.random()<D.dodge){ b.dashDir.copy(right).multiplyScalar(botState.strafe); b.dashT=CFG.dashTime; b.dashCdT=CFG.dashCd; SFX.dash(); } } } else { botState.reactT=0; botState.decided=false; }
   if(dist<b.domeR()+0.3&&b.blockCdT<=0&&b.stats.domeFx>0&&Math.random()<dt*3*D.block) tryBlock(b,true);
   const nx=b.pos.x+wish.x*2.2, nz=b.pos.z+wish.z*2.2; if(Math.abs(nx)>HX-1.2) wish.x=-Math.sign(b.pos.x)*0.8; if(Math.abs(nz)>HZ-1.2) wish.z=-Math.sign(b.pos.z)*0.8;
@@ -283,12 +333,11 @@ function botThink(dt){
 
 // ================= PHYSICS / UPDATE =================
 function moveFighter(f,dt,wish,wantJump){ if(dt>0.02){ moveFighter(f,dt*0.5,wish,wantJump); moveFighter(f,dt*0.5,wish,false); return; }
-  const e=other(f);
-  f.chasing=false; if(f.stats.chase>0&&!e.dead&&wish.lengthSq()>0.1){ const d=V3().subVectors(e.pos,f.pos); d.y=0; if(d.lengthSq()>0.01&&wish.dot(d.normalize())>0.45&&hasLOS(f.center(),e.center())) f.chasing=true; }
+  f.chasing=false; if(f.stats.chase>0&&wish.lengthSq()>0.1){ for(const e of enemies(f)){ const d=V3().subVectors(e.pos,f.pos); d.y=0; if(d.lengthSq()>0.01&&wish.dot(d.normalize())>0.45&&hasLOS(f.center(),e.center())){ f.chasing=true; break; } } }
   const sp=CFG.moveSpeed*f.speedFactor();
   if(f.dashT>0){ f.vel.x=f.dashDir.x*CFG.dashSpeed; f.vel.z=f.dashDir.z*CFG.dashSpeed; f.dashT-=dt; if(Math.random()<0.3) ghostAt(f.center(),f.team.light); if(Math.random()<0.7) burst(f.center(),f.team.light,1,1.5,0.1,0.3,0); }
   else { if(f.knockT>0) f.knockT-=dt; const acc=(f.onGround?44:22)*(f.thrusters.length?0.5:1)*(f.knockT>0?0.22:1); f.vel.x=approach(f.vel.x,wish.x*sp,acc*dt); f.vel.z=approach(f.vel.z,wish.z*sp,acc*dt); }
-  for(let i=f.thrusters.length-1;i>=0;i--){ const th=f.thrusters[i]; if(!th) continue; th.t-=dt; f.vel.addScaledVector(th.dir,th.f*dt*2.4); if(th.dir.y>0.1&&f.vel.y>1) f.onGround=false; if(th.t<=0) f.thrusters.splice(i,1); }
+  for(let i=f.thrusters.length-1;i>=0;i--){ const th=f.thrusters[i]; if(!th) continue; th.t-=dt; if(th.local) thrAim(f,th); f.vel.addScaledVector(th.dir,th.f*dt*2.4); if(th.dir.y>0.1&&f.vel.y>1) f.onGround=false; if(th.t<=0) f.thrusters.splice(i,1); }
   f.coyote=f.onGround?0.12:Math.max(0,(f.coyote||0)-dt); if(wantJump&&(f.onGround||f.coyote>0)&&f.vel.y<=0.5&&f.stunT<=0){ f.coyote=0; f.vel.y=CFG.jumpVel*Math.sqrt(f.stats.jump); f.onGround=false; if(f.isPlayer){ jumpBuffer=0; SFX.jump(); } shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),0xffffff,1.1,0.3); burst(V3(f.pos.x,f.pos.y+0.1,f.pos.z),0xffffff,5,2.2,0.08,0.3,0.2); }
   f.vel.y-=CFG.gravity*dt;
   f.pos.x+=f.vel.x*dt; f.pos.z+=f.vel.z*dt; resolveWalls(f);
@@ -297,42 +346,45 @@ function moveFighter(f,dt,wish,wantJump){ if(dt>0.02){ moveFighter(f,dt*0.5,wish
   f.wasGround=f.onGround;
   if(g!==null&&f.vel.y<=0&&(f.pos.y<=g+0.01||(f.wasGround&&f.pos.y-g<0.35))){ if(!f.wasGround&&f.vel.y<-7){ f.squash=Math.min(1,-f.vel.y/18); burst(V3(f.pos.x,g+0.1,f.pos.z),0xe9edf3,7,2.8,0.09,0.35,0.3); shockRing(V3(f.pos.x,g+0.06,f.pos.z),0xffffff,1.3,0.3); if(f.isPlayer) SFX.land(); } f.pos.y=g; f.vel.y=0; f.onGround=true; } else f.onGround=false;
   if(f.pos.y+f.height>18){ f.pos.y=18-f.height; f.vel.y=Math.min(f.vel.y,0); }
-  if((f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)&&!f.dead&&state==='fight'){ const wet=curMapId==='dock'; if(wet){ burst(V3(f.pos.x,-1,f.pos.z),0xbfe6ff,24,7,0.16,0.9); burst(V3(f.pos.x,-1,f.pos.z),0xffffff,12,5,0.12,0.7); } floatText(V3(f.pos.x,0.6,f.pos.z),wet?'SPLASH!':'FELL!','status'); f.invulnT=0; fatal(f,other(f),'fall'); }
+  if((f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)&&!f.dead&&state==='fight'){ const wet=curMapId==='dock'; if(wet){ burst(V3(f.pos.x,-1,f.pos.z),0xbfe6ff,24,7,0.16,0.9); burst(V3(f.pos.x,-1,f.pos.z),0xffffff,12,5,0.12,0.7); } floatText(V3(f.pos.x,0.6,f.pos.z),wet?'SPLASH!':'FELL!','status'); f.invulnT=0; fatal(f,f.lastHitBy,'fall'); }
 }
-function separateFighters(){ if(player.dead||bot.dead) return; if(Math.abs(player.pos.y-bot.pos.y)>1.8) return; const d=V3().subVectors(bot.pos,player.pos); d.y=0; const L=d.length(); const min=player.radius+bot.radius+0.1; if(L<min&&L>0.001){ d.multiplyScalar((min-L)/L*0.5); bot.pos.add(d); player.pos.sub(d); } }
+function separateFighters(){ const L0=fighters.filter(f=>!f.dead&&f.active!==false); for(let i=0;i<L0.length;i++) for(let j=i+1;j<L0.length;j++){ const a=L0[i], b=L0[j]; if(Math.abs(a.pos.y-b.pos.y)>1.8) continue; const d=V3().subVectors(b.pos,a.pos); d.y=0; const L=d.length(); const min=a.radius+b.radius+0.1; if(L<min&&L>0.001){ d.multiplyScalar((min-L)/L*0.5); if(b.ctl!=='net') b.pos.add(d); if(a.ctl!=='net') a.pos.sub(d); } } }
 function tickDamage(f,key,dps,dt,target,cause,colr){ f[key]=(f[key]||0)+dps*dt; if(f[key]>=3){ const n=Math.floor(f[key]); f[key]-=n; applyDamage(target,n,f,{tick:true,cause}); if(colr) burst(target.center(),colr,2,1.5,0.08,0.5,-0.3); return n; } return 0; }
 function updateFighterTimers(f,dt){
-  const s=f.stats, e=other(f);
+  const s=f.stats;
   if(f.fireCd>0) f.fireCd-=dt; if(f.blockCdT>0) f.blockCdT-=dt; if(f.dashCdT>0) f.dashCdT-=dt; if(f.slowT>0) f.slowT-=dt; if(f.stunT>0) f.stunT-=dt; if(f.coldT>0) f.coldT-=dt; if(f.blinkPending>0){ f.blinkPending-=dt; if(f.blinkPending<=0&&!f.dead&&state==='fight') doBlock(f,false,true); }
   if(f.tasteT>0) f.tasteT-=dt; if(f.refreshCd>0) f.refreshCd-=dt; if(f.silenceT>0) f.silenceT-=dt; if(f.invulnT>0) f.invulnT-=dt;
   if(f.brawlT>0){ f.brawlT-=dt; if(f.brawlT<=0) f.hp=Math.min(f.hp,s.hp); }
   if(f.reloading){ f.reloadT-=dt; if(f.reloadT<=0){ f.reloading=false; f.ammo=s.ammo; if(f.isPlayer) SFX.tick(); } }
   if(f.blockActive){ f.blockT-=dt; if(f.blockT<=0){ f.blockActive=false; if(f.sawT<=0){ shatterDome(f.domeC(),f.domeR(),f.team.light,26,4.5); SFX.shatter(); } } }
-  if(f.sawT>0){ f.sawT-=dt; if(!e.dead&&e.center().distanceTo(f.domeC())<f.domeR()+0.5){ tickDamage(f,'sawAcc',24*s.saw,dt,e,'dome',0xff5252); } if(f.sawT<=0&&!f.blockActive){ shatterDome(f.domeC(),f.domeR(),0xff6b6b,22,5); SFX.shatter(); } }
+  if(f.sawT>0){ f.sawT-=dt; for(const e of enemies(f)) if(e.center().distanceTo(f.domeC())<f.domeR()+0.5){ tickDamage(f,'sawAcc'+e.id,24*s.saw,dt,e,'dome',0xff5252); } if(f.sawT<=0&&!f.blockActive){ shatterDome(f.domeC(),f.domeR(),0xff6b6b,22,5); SFX.shatter(); } }
   if(f.echoT>0){ f.echoT-=dt; if(f.echoT<=0&&!f.dead&&state==='fight'&&f.silenceT<=0){ doBlock(f,true); f.echoCount--; if(f.echoCount>0) f.echoT=0.65; } }
   if(f.burstQueue>0){ f.burstT-=dt; if(f.burstT<=0){ if(!f.dead&&state==='fight') firePellets(f); f.burstQueue--; f.burstT=0.07; } }
   if(f.dazzleN>0){ f.dazzleT-=dt; if(f.dazzleT<=0){ f.dazzleN--; f.dazzleT=0.6; f.stunT=Math.max(f.stunT,0.25); burst(f.center().add(V3(0,0.9,0)),0xffe45c,6,3,0.09,0.4,0); } }
-  if(f.decayPool>0){ const d=Math.min(f.decayPool,Math.max(2,f.decayRate||0)*dt); f.decayPool-=d; f.decayAcc+=d; if(f.decayAcc>=2||f.decayPool<=0.001){ const n=Math.round(f.decayAcc); f.decayAcc-=n; if(n>0) applyDamage(f,n,f.decaySrc||e,{tick:true,fromDecay:true}); } if(f.decayPool<=0.001){ f.decayPool=0; f.decayRate=0; } }
+  if(f.decayPool>0){ const d=Math.min(f.decayPool,Math.max(2,f.decayRate||0)*dt); f.decayPool-=d; f.decayAcc+=d; if(f.decayAcc>=2||f.decayPool<=0.001){ const n=Math.round(f.decayAcc); f.decayAcc-=n; if(n>0) applyDamage(f,n,f.decaySrc||null,{tick:true,fromDecay:true}); } if(f.decayPool<=0.001){ f.decayPool=0; f.decayRate=0; } }
   for(let i=f.poisons.length-1;i>=0;i--){ const p=f.poisons[i]; if(!p) continue; p.t-=dt; p.acc=(p.acc||0)+p.dps*dt; if(p.acc>=4){ const n=Math.floor(p.acc); p.acc-=n; applyDamage(f,n,p.src,{tick:true,cause:'poison'}); burst(f.center(),p.col||0x5dff9b,2,1.5,0.08,0.5,-0.3); } if(p.t<=0&&f.poisons[i]===p) f.poisons.splice(i,1); }
-  f.auraSlow=0; f.chillIn=false; const aR=e.auraR(); if(!e.dead&&aR>0&&!f.dead&&f.center().distanceTo(e.domeC())<aR+0.3){ const es=e.stats;
-    if(es.chill){ f.auraSlow=Math.max(f.auraSlow,Math.min(0.78,0.45+0.12*(es.chill-1))); f.chillIn=true; } if(es.staticf){ f.auraSlow=Math.max(f.auraSlow,0.15+0.05*es.staticf); if(tickDamage(e,'staticAcc',6*es.staticf,dt,f,'aura',0xffe066)) SFX.zap(); }
-    if(es.drain){ lifeWorm(f,e,'aura'+(e.isPlayer?'p':'b'),0.12,1.15); const n=tickDamage(e,'drainAcc',9*es.drain,dt,f,'aura',0xff6b9d); if(n&&e.hp<e.maxHp()){ e.hp=Math.min(e.maxHp(),e.hp+n); floatText(e.center().add(V3(0,1,0)),'+'+n,'heal'); } }
+  f.auraSlow=0; f.chillIn=false; for(const e of enemies(f)){ const aR=e.auraR(); if(!(aR>0&&!f.dead&&f.center().distanceTo(e.domeC())<aR+0.3)) continue; const es=e.stats;
+    if(es.chill){ f.auraSlow=Math.max(f.auraSlow,Math.min(0.78,0.45+0.12*(es.chill-1))); f.chillIn=true; } if(es.staticf){ f.auraSlow=Math.max(f.auraSlow,0.15+0.05*es.staticf); if(tickDamage(e,'staticAcc'+f.id,6*es.staticf,dt,f,'aura',0xffe066)) SFX.zap(); }
+    if(es.drain){ lifeWorm(f,e,'aura'+e.id+'_'+f.id,0.12,1.15); const n=tickDamage(e,'drainAcc'+f.id,9*es.drain,dt,f,'aura',0xff6b9d); if(n&&e.hp<e.maxHp()){ e.hp=Math.min(e.maxHp(),e.hp+n); floatText(e.center().add(V3(0,1,0)),'+'+n,'heal'); } }
     if(Math.random()<dt*7) burst(f.center().add(V3(rand(-0.5,0.5),rand(-0.3,0.6),rand(-0.5,0.5))),e.auraColor(gameT).getHex(),1,0.6,0.07,0.7,-0.2); }
 }
+function homeTarget(b){ let best=null, ba=9; const d=b.vel.clone().normalize(); for(const e of enemies(b.owner)){ const a=d.angleTo(V3().subVectors(e.center(),b.pos)); if(a<ba){ ba=a; best=e; } } return best; }
 function updateBullets(dt){
   for(let i=bullets.length-1;i>=0;i--){
     const b=bullets[i]; b.life-=dt; b.age+=dt; if(b.life<=0){ burst(b.pos,b.tint,4,2,0.07,0.3,0); removeBullet(i); continue; }
     const speed=b.vel.length();
     if(b.remote){ if(b.owner.isPlayer&&remoteCtl.b===b){ const cp=Math.cos(remoteCtl.pitch); b.vel.set(-Math.sin(remoteCtl.yaw)*cp,Math.sin(remoteCtl.pitch),-Math.cos(remoteCtl.yaw)*cp).multiplyScalar(speed); }
-      else if(!b.owner.isPlayer){ const e=other(b.owner); if(!e.dead){ const want=V3().subVectors(e.center(),b.pos).normalize(); const cur=b.vel.clone().normalize(); const ang=cur.angleTo(want); const k=ang<1e-4?1:Math.min(1,1.3*b.s.remote*dt/ang); b.vel.copy(cur.lerp(want,k).normalize().multiplyScalar(speed)); } } }
+      else if(!b.owner.isPlayer){ const e=homeTarget(b); if(e){ const want=V3().subVectors(e.center(),b.pos).normalize(); const cur=b.vel.clone().normalize(); const ang=cur.angleTo(want); const k=ang<1e-4?1:Math.min(1,1.3*b.s.remote*dt/ang); b.vel.copy(cur.lerp(want,k).normalize().multiplyScalar(speed)); } } }
+    if(b.follow){ const L=b.follow; if(L.gone||L.owner!==b.owner) b.follow=null; else b.vel.copy(L.vel).normalize().applyQuaternion(b.fq).multiplyScalar(speed); }
     if(b.s.grow>0) b.k=Math.min(4.2,1+b.dist*0.075*b.s.grow);
     const steps=Math.max(1,Math.ceil(speed*dt/0.35)); const sdt=dt/steps; let done=false; const br=b.r*b.k;
     for(let s=0;s<steps&&!done;s++){
       b.pos.addScaledVector(b.vel,sdt); b.dist+=speed*sdt;
-      const e=other(b.owner);
-      if(!e.dead){
-        if(e.blockActive&&b.pos.distanceTo(e.domeC())<e.domeR()+br&&b.pos.y>e.pos.y-0.3){ e.domeHitDir.copy(b.pos).sub(e.domeC()).normalize(); e.domeHitAge=0; burst(b.pos,0xffffff,8,5,0.08,0.35,0); for(let k=0;k<5;k++) spawnShard(b.pos.clone(),V3(rand(-1,1),rand(0,1),rand(-1,1)).multiplyScalar(4),e.team.light,0.2,0.35,0.6); flashAt(b.pos,e.team.light,2.4,0.2); SFX.blocked(); if(e.isPlayer){ floatText(b.pos.clone(),'BLOCKED','status'); matchStats.blocked++; } else roundInfo.botBlocked++; removeBullet(i); done=true; break; }
+      let refl=false;
+      for(const e of fighters){ if(e===b.owner||e.dead||e.active===false) continue;
+        if(e.blockActive&&b.pos.distanceTo(e.domeC())<e.domeR()+br&&b.pos.y>e.pos.y-0.3){ for(let k=0;k<5;k++) spawnShard(b.pos.clone(),V3(rand(-1,1),rand(0,1),rand(-1,1)).multiplyScalar(4),e.team.light,0.2,0.35,0.6); reflectBullet(b,e); refl=true; break; }
         if(e.distTo(b.pos)<e.hitR+br){ hitFighter(b,e); removeBullet(i); done=true; break; } }
+      if(done||refl) break;
       if(b.bounced&&b.age>0.25&&!b.owner.dead&&b.owner.distTo(b.pos)<b.owner.hitR+br){ hitFighter(b,b.owner); removeBullet(i); done=true; break; }
       const hit=pointVsWorld(b.pos,br);
       if(hit){ if(b.bounces>0){ b.bounces--; b.bounced=true; b.pos.addScaledVector(hit.n,hit.depth+0.01); const vn=b.vel.dot(hit.n); b.vel.addScaledVector(hit.n,-2*vn); if(b.s.ricochet>0) b.vel.multiplyScalar(0.5); burst(b.pos,b.tint,4,3,0.07,0.3,0); shockRing(b.pos.clone(),b.tint,0.7,0.25,0.08,hit.n); if(b.remote&&remoteCtl.b===b){ const d=b.vel.clone().normalize(); remoteCtl.yaw=Math.atan2(-d.x,-d.z); remoteCtl.pitch=Math.asin(clamp(d.y,-1,1)); } } else { bulletImpact(b,hit); removeBullet(i); done=true; break; } }
@@ -346,22 +398,25 @@ function computeAimPoint(){
   const dir=player.aimDir(); const cam=camera.position; const pivot=V3(player.pos.x,player.pos.y+1.9,player.pos.z);
   const startOff=Math.max(0,V3().subVectors(pivot,cam).dot(dir)); const from=cam.clone().addScaledVector(dir,startOff); const far=cam.clone().addScaledVector(dir,95);
   const t=segmentHitsBoxes(from,far); let dist=startOff+(t===null?1:t)*(95-startOff); let onTarget=false;
-  if(!bot.dead&&bot.mesh.visible){ for(const [c,r] of [[bot.center(),0.8],[V3(bot.pos.x,bot.pos.y+1.85,bot.pos.z),0.4],[V3(bot.pos.x,bot.pos.y+0.55,bot.pos.z),0.5]]){ const oc=V3().subVectors(cam,c); const bq=2*oc.dot(dir), cc=oc.dot(oc)-r*r; const disc=bq*bq-4*cc; if(disc>0){ const tE=(-bq-Math.sqrt(disc))/2; if(tE>startOff&&tE<dist){ dist=tE; onTarget=true; } } } }
+  for(const e of enemies(player)){ if(!e.mesh.visible) continue; for(const [c,r] of [[e.center(),0.8],[V3(e.pos.x,e.pos.y+1.85,e.pos.z),0.4],[V3(e.pos.x,e.pos.y+0.55,e.pos.z),0.5]]){ const oc=V3().subVectors(cam,c); const bq=2*oc.dot(dir), cc=oc.dot(oc)-r*r; const disc=bq*bq-4*cc; if(disc>0){ const tE=(-bq-Math.sqrt(disc))/2; if(tE>startOff&&tE<dist){ dist=tE; onTarget=true; } } } }
   aimPoint.copy(cam).addScaledVector(dir,dist);
   UI.crosshair.classList.toggle('onTarget',onTarget);
 }
-let camDist=1;
+let camDist=1, specT=null;
+// knocked out in FFA: watch whoever knocked you out (or anyone still standing)
+function camFighter(){ if(!(matchKind==='ffa'&&player.dead&&(state==='fight'||state==='roundover'))) return player; if(specT&&!specT.dead&&specT.active!==false) return specT; specT=(player.lastHitBy&&!player.lastHitBy.dead)?player.lastHitBy:fighters.find(f=>!f.dead&&f.active!==false)||player; return specT; }
 function updateCamera(dt){ if(camHold) return;
   const t=gameT;
   if(state==='menu'){ const p=player.pos; camera.fov=50; camera.updateProjectionMatrix(); camera.position.set(p.x+4.3+Math.sin(t*0.3)*0.15,p.y+1.6,p.z-1.9+Math.cos(t*0.25)*0.12); camera.lookAt(p.x,p.y+1.2,p.z+1.3); return; }
   if(state==='draft'||state==='picked'||state==='matchover'){ const a=t*0.12+0.7; camera.fov=55; camera.updateProjectionMatrix(); camera.position.set(Math.cos(a)*(HX+10),17,Math.sin(a)*(HZ+12)); camera.lookAt(0,0.5,0); return; }
   if(remoteCtl.b&&state==='fight'){ const b=remoteCtl.b; const d=b.vel.clone().normalize(); if(Math.abs(camera.fov-80)>0.1){ camera.fov=lerp(camera.fov,80,Math.min(1,dt*10)); camera.updateProjectionMatrix(); } camera.position.copy(b.pos).addScaledVector(d,-1.7).add(V3(0,0.3,0)); camera.lookAt(b.pos.clone().addScaledVector(d,5)); return; }
-  const fovT=68+(player.dashT>0?7:0); if(Math.abs(camera.fov-fovT)>0.05){ camera.fov=lerp(camera.fov,fovT,Math.min(1,dt*12)); camera.updateProjectionMatrix(); }
-  const pivot=player.pos.clone().add(V3(0,1.95,0)); if(player.visY!==undefined&&player.onGround) pivot.y=player.visY+1.95; const dir=player.aimDir(); const right=V3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
+  const cf=camFighter();
+  const fovT=68+(cf.dashT>0?7:0); if(Math.abs(camera.fov-fovT)>0.05){ camera.fov=lerp(camera.fov,fovT,Math.min(1,dt*12)); camera.updateProjectionMatrix(); }
+  const pivot=cf.pos.clone().add(V3(0,1.95,0)); if(cf.visY!==undefined&&cf.onGround) pivot.y=cf.visY+1.95; const dir=cf.aimDir(); const right=V3(Math.cos(cf.yaw),0,-Math.sin(cf.yaw));
   const desired=pivot.clone().addScaledVector(right,1.0).addScaledVector(dir,-5.2).add(V3(0,0.4,0));
   let th=segmentHitsBoxes(pivot,desired,0.28,true); if(th!==null&&th<=0.001) th=segmentHitsBoxes(pivot,desired,0,true); camDist=th===null? Math.min(1,camDist+dt*3) : Math.min(camDist,Math.max(0.08,th-0.02)); const pos=pivot.clone().lerp(desired,camDist); pos.y+=(1-camDist)*0.7;
   if(pos.y<0.3&&Math.abs(pos.x)<HX&&Math.abs(pos.z)<HZ) pos.y=0.3; if(pos.y<-0.8) pos.y=-0.8;
-  camera.position.copy(pos); camera.quaternion.setFromEuler(new T.Euler(player.pitch,player.yaw,0,'YXZ'));
+  camera.position.copy(pos); camera.quaternion.setFromEuler(new T.Euler(cf.pitch,cf.yaw,0,'YXZ'));
   if(shakeT>0){ shakeT-=dt; const k=Math.min(0.3,shakeT)*0.13; camera.position.x+=rand(-k,k); camera.position.y+=rand(-k,k); }
 }
 function fxUpdate(dt){ updateCardFx(dt); updateParticles(dt); updateExplosions(dt); updateRings(dt); updateFlashes(dt); updateGhosts(dt); updateShards(dt); updateFloats(dt); }
@@ -370,25 +425,26 @@ function update(dt){
   if(paused) return;
   gameT+=dt; const t=gameT;
   for(const fn of animated) fn(t,dt);
-  if(state==='menu'){ player.yaw=-Math.PI/2-0.05+Math.sin(t*0.7)*0.22; player.pitch=0.1+Math.sin(t*0.9)*0.1; const cyc=Math.floor(t/2.6)%4; player.mood=['normal','happy','angry','normal'][cyc]; player.moodT=1; player.updateVisual(dt,t); bot.updateVisual(dt,t); updateCamera(dt); fxUpdate(dt); return; }
+  const vis=()=>{ for(const f of fighters) if(f.active!==false) f.updateVisual(dt,t); };
+  if(state==='menu'){ player.yaw=-Math.PI/2-0.05+Math.sin(t*0.7)*0.22; player.pitch=0.1+Math.sin(t*0.9)*0.1; const cyc=Math.floor(t/2.6)%4; player.mood=['normal','happy','angry','normal'][cyc]; player.moodT=1; vis(); updateCamera(dt); fxUpdate(dt); return; }
   if(crossKick>0) crossKick=Math.max(0,crossKick-dt*6); if(hurtT>0) hurtT-=dt; if(hitMarkerT>0) hitMarkerT-=dt; if(killMarkT>0) killMarkT-=dt; if(dmgDirT>0) dmgDirT-=dt;
   const lk=(keys.ArrowLeft?1:0)-(keys.ArrowRight?1:0), lv=(keys.ArrowUp?1:0)-(keys.ArrowDown?1:0);
   if(state==='fight'||state==='countdown'){ if(lk||lv) look(-lk*2.6*dt,-(settings.invertY?-1:1)*lv*1.6*dt);  }
   if(state==='countdown'){
     countdownT-=dt; const step=Math.ceil(countdownT-0.2); if(step!==countdownStep){ countdownStep=step; show(UI.countdown,true,'block'); UI.cdSplat.innerHTML=domBurst(step+11,step>0?'#ffc71f':'#27c46b',{sx:step>0?1.1:1.6}); UI.cdText.textContent= step>0? String(step):'GO!'; UI.countdown.classList.remove('pop'); void UI.countdown.offsetWidth; UI.countdown.classList.add('pop'); if(step>0) SFX.tick(); else SFX.go(); }
     if(countdownT<=0){ state='fight'; show(UI.countdown,false); firePressed=false; blockBuf=0; wantDash=false; }
-    player.updateVisual(dt,t); bot.updateVisual(dt,t); updateCamera(dt); computeAimPoint(); fxUpdate(dt); updateHUD(); return;
+    vis(); updateCamera(dt); computeAimPoint(); fxUpdate(dt); updateHUD(); return;
   }
   if(state==='roundover'){
     roundOverT-=dt; let sdt=dt; if(slowMoT>0){ slowMoT-=dt; sdt=dt*0.28; }
     updateBullets(sdt); updateBombs(sdt); updateFields(sdt,t); fxUpdate(sdt);
-    if(NET.on) netApplyRemote(sdt); for(const f of [player,bot]) if(!f.dead){ if(!(NET.on&&f===bot)) moveFighter(f,sdt,V3(),false); f.updateVisual(sdt,t); }
+    for(const f of fighters){ if(f.active===false) continue; if(f.ctl==='net') netApplyRemote(f,sdt); else if(!f.dead) moveFighter(f,sdt,V3(),false); if(!f.dead) f.updateVisual(sdt,t); }
     updateCamera(dt); updateHUD();
     if(roundOverT<=0){ if(matchOverPending) endMatch(); else startDraft(); }
     return;
   }
   if(state==='draft'&&!testMode){ draftT-=dt; const sl=Math.max(0,Math.ceil(draftT)); UI.draftClock.textContent=sl+'s'; UI.draftClock.classList.toggle('warn',sl<=10); if(sl<=10&&sl!==draftTick&&sl>0){ draftTick=sl; SFX.tick(); } if(draftT<=0){ const left=[...UI.cards.children].filter(c=>!c.classList.contains('picked')); if(left.length){ toast('Time up! A random card was picked for you','status'); left[Math.floor(Math.random()*left.length)].click(); } } }
-  if(state==='draft'||state==='picked'||state==='matchover'){ fxUpdate(dt); updateCamera(dt); player.updateVisual(dt,t); bot.updateVisual(dt,t); return; }
+  if(state==='draft'||state==='picked'||state==='matchover'){ fxUpdate(dt); updateCamera(dt); vis(); return; }
   // ---- fight ----
   roundInfo.t+=dt; if(mode!=='sandbox'){ const left=ROUND_LIMIT-roundInfo.t; if(left<=10&&Math.ceil(left)!==clockTick&&left>0){ clockTick=Math.ceil(left); SFX.tick(); } if(left<=0&&!(NET.on&&NET.role==='guest')){ timeUp(); return; } } if(jumpBuffer>0) jumpBuffer-=dt; if(tipsT>0) tipsT-=dt;
   const sbx=mode==='sandbox';
@@ -400,11 +456,15 @@ function update(dt){
   if(blockBuf>0){ if(steering){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } if(tryBlock(player,!blockFresh)) blockBuf=0; else { if(blockFresh&&player.blockCdT>0.5&&!player.blockActive){ UI.blockCd.classList.remove('deny'); void UI.blockCd.offsetWidth; UI.blockCd.classList.add('deny'); SFX.hover(); } blockBuf-=dt; } blockFresh=false; }
   if((fireHeld||keys.KeyF||pad.fire||firePressed)&&!steerLatch&&!player.dead) tryFire(player,firePressed); firePressed=false;
   if(!player.dead){ updateFighterTimers(player,dt); moveFighter(player,dt,wish,jumpBuffer>0&&!steering); }
-  if(NET.on){ if(!bot.dead) updateFighterTimers(bot,dt); netApplyRemote(dt); } else if(!bot.dead&&botHold){ updateFighterTimers(bot,dt); } else if(!bot.dead){ updateFighterTimers(bot,dt); const ai=!sbx||(sandbox.bot!=='dummy'&&sandbox.bot!=='none'); if(ai&&!player.dead){ const bt=botThink(dt); moveFighter(bot,dt,bt.wish,bt.jump); } else { if(!player.dead){ const fd=V3().subVectors(player.pos,bot.pos); bot.yaw=Math.atan2(-fd.x,-fd.z); } moveFighter(bot,dt,V3(),false); } }
+  for(const f of fighters){ if(f===player||f.active===false) continue;
+    if(f.ctl==='net'){ if(!f.dead) updateFighterTimers(f,dt); netApplyRemote(f,dt); continue; }
+    if(f.dead) continue; updateFighterTimers(f,dt); if(botHold) continue;
+    const ai=!sbx||(sandbox.bot!=='dummy'&&sandbox.bot!=='none');
+    if(ai&&enemies(f).length){ const bt=botThink(f,dt); moveFighter(f,dt,bt.wish,bt.jump); } else { if(!player.dead&&f===bot){ const fd=V3().subVectors(player.pos,bot.pos); bot.yaw=Math.atan2(-fd.x,-fd.z); } moveFighter(f,dt,V3(),false); } }
   separateFighters();
   updateBullets(dt); if(steering&&!remoteCtl.b) steerLatch=true;
   updateBombs(dt); updateFields(dt,t); fxUpdate(dt);
-  player.updateVisual(dt,t); bot.updateVisual(dt,t); updateCamera(dt); if(!remoteCtl.b) computeAimPoint(); updateHUD();
+  vis(); updateCamera(dt); if(!remoteCtl.b) computeAimPoint(); updateHUD();
 }
 
 // ================= LOOP =================
@@ -413,12 +473,12 @@ let perfAcc=0, perfN=0, perfLevel=0;
 function frame(now){ requestAnimationFrame(frame); const raw=Math.max(0,(now-last)/1000); const dt=Math.min(0.05,raw); last=now; frames++; if(autoRun){ pollPad(dt); update(dt); } if(doRender) drawFrame();
   // auto quality: drop detail when the frame rate stays low
   if(settings.quality==='auto'&&autoRun&&!paused&&!document.hidden&&raw<0.5){ perfAcc+=raw; perfN++; if(perfN>=90){ const avg=perfAcc/perfN; perfAcc=0; perfN=0; if(avg>0.028&&perfLevel<2){ perfLevel++; applyQuality(perfLevel===1?'medium':'low'); toast('Graphics lowered to keep the game smooth. Change it in settings.','you'); } } } }
-placeAtBases(); buildPips(); updateCardStrips(); updateHUD(); update(0.016);
+menuRoster(); placeAtBases(); buildPips(); updateCardStrips(); updateHUD(); update(0.016);
 show(UI.start,true,'block'); { const el=UI.loading; let gone=false; const go=()=>{ if(gone) return; gone=true; el.classList.add('out'); setTimeout(()=>show(el,false),650); }; const left=Math.max(1400,2700-(performance.now()-(window.__t0||0))); if(testMode||!autoRun) go(); else { setTimeout(go,left); addEventListener('keydown',go,{once:true}); el.addEventListener('pointerdown',go,{once:true}); } }
 requestAnimationFrame(frame);
 
 // debug / test hooks
-/*DEBUG-START*/window.__game={ look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
+/*DEBUG-START*/window.__game={ look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
   step(dt){ update(dt); }, setAuto(v){ autoRun=v; testMode=!v; }, setRender(v){ doRender=v; }, startMatch, beginRound, startDraft, startSandbox, openSandbox, tryFire, tryBlock, firePellets, doBlock, give(f,id){ (f==='bot'?bot:player).addCard(id); updateCardStrips(); }, clearCards(){ player.setCards([]); bot.setCards([]); },
   forceFight(){ state='fight'; show(UI.countdown,false); }, keys, setMouse(v){ fireHeld=v; if(v){ firePressed=true; steerLatch=false; } }, block(){ pressBlock(); }, dash(){ wantDash=true; }, jump(){ jumpBuffer=0.15; }, get frames(){return frames;}, art:ART.svg, killFighter, hasLOS, render(){ drawFrame(); }, get paused(){return paused;}, pause, camera, explode, endMatch, coachPick, applyDamage, applyMap, applyQuality, toMenu, get map(){return curMapId;} };
 /*DEBUG-END*/

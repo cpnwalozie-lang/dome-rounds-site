@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dome Rounds: free 3D card-stacking arena shooter you play in your browser</title>
-<meta name="description" content="Dome Rounds is a free 3D arena shooter. Blast, block with your dome, lose a round, grab a power-up card and stack the chaos. 54 cards, two maps, bots and online 1v1 with room codes. Play in your browser.">
+<meta name="description" content="Dome Rounds is a free 3D arena shooter. Blast, block with your dome, lose a round, grab a power-up card and stack the chaos. 54 cards, three maps, bots, online 1v1 and 4-player free-for-all with room codes. Play in your browser.">
 <link rel="canonical" href="https://dome-rounds.netlify.app/">
 <meta name="theme-color" content="#14081f">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Dome Rounds">
 <meta property="og:title" content="Dome Rounds: lose a round, grab a card, stack the chaos">
-<meta property="og:description" content="A free 3D arena shooter with 54 stacking power-up cards, two maps and online 1v1. Play it in your browser.">
+<meta property="og:description" content="A free 3D arena shooter with 54 stacking power-up cards, online 1v1 and 4-player free-for-all. Play it in your browser.">
 <meta property="og:url" content="https://dome-rounds.netlify.app/">
 <meta property="og:image" content="https://dome-rounds.netlify.app/media/og.jpg">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
@@ -22,7 +22,7 @@
 <meta name="twitter:image" content="https://dome-rounds.netlify.app/media/og.jpg">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"VideoGame","name":"Dome Rounds","url":"https://dome-rounds.netlify.app/","image":"https://dome-rounds.netlify.app/media/og.jpg",
-"description":"A free 3D third-person arena shooter. Lose a round, pick a power-up card, and stack effects. 54 cards, two maps, bots and online 1v1 with room codes.",
+"description":"A free 3D third-person arena shooter. Lose a round, pick a power-up card, and stack effects. 54 cards, three maps, bots, online 1v1 and 4-player free-for-all with room codes.",
 "genre":["Arena shooter","Action","Card game"],"gamePlatform":"Web browser","applicationCategory":"Game","operatingSystem":"Any","playMode":["SinglePlayer","MultiPlayer"],"numberOfPlayers":{"@type":"QuantitativeValue","minValue":1,"maxValue":2},
 "author":{"@type":"Organization","name":"Nitor Digital"},"publisher":{"@type":"Organization","name":"Nitor Digital"},
 "offers":{"@type":"Offer","price":"0","priceCurrency":"GBP","availability":"https://schema.org/InStock"},
@@ -124,6 +124,7 @@ section{padding:110px 0}
 @media (max-width:880px){.fx-grid{grid-template-columns:1fr}.fx-grid figure:first-child{grid-column:auto;aspect-ratio:16/9}}
 /* ---------- maps ---------- */
 .maps .pair{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.map.wide{grid-column:1/-1;min-height:460px}.map.ffa h3{color:#b88bff}
 .map{position:relative;overflow:hidden;min-height:420px;display:flex;align-items:flex-end;border:3px solid var(--ink);background:var(--plum)}
 .map img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .5s}
 .map:hover img{transform:scale(1.04)}
@@ -131,7 +132,7 @@ section{padding:110px 0}
 .map h3{font-family:var(--disp);font-weight:400;font-size:34px;margin:0 0 4px}
 .map.dock h3{color:var(--coral)}.map.neon h3{color:var(--cy)}
 .map p{margin:0;max-width:38ch}
-@media (max-width:880px){.maps .pair{grid-template-columns:1fr}.map{min-height:320px}}
+@media (max-width:880px){.maps .pair{grid-template-columns:1fr}.map,.map.wide{min-height:320px}}
 /* ---------- online ---------- */
 .online .split{display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center}
 .steps{list-style:none;margin:0;padding:0;counter-reset:s}
@@ -226,10 +227,11 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 
   <section class="maps" aria-labelledby="h-maps">
     <div class="wrap">
-      <h2 class="slam" id="h-maps">Two arenas</h2>
+      <h2 class="slam" id="h-maps">Three arenas</h2>
       <div class="pair">
         <article class="map dock"><img src="media/shots/dockside.jpg" alt="Dockside arena at sunset" loading="lazy"><div class="t"><h3>Dockside</h3><p>A sunset harbour full of containers, ramps and a long drop into the sea.</p></div></article>
         <article class="map neon"><img src="media/shots/neon.jpg" alt="Neon City rooftop arena at night" loading="lazy"><div class="t"><h3>Neon City</h3><p>A rooftop arena above a glowing city. Mind the edge.</p></div></article>
+        <article class="map ffa wide"><img src="media/shots/crossroads.jpg" alt="Neon Crossroads, a square rooftop with four coloured corner bases and a raised cross in the middle" loading="lazy"><div class="t"><h3>Neon Crossroads</h3><p>The free-for-all map. Four corner bases, one tower in the middle, and only one of you walks away.</p></div></article>
       </div>
     </div>
   </section>
@@ -244,7 +246,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
           <li><span>Send your friend the 5-character code.</span></li>
           <li><span>They type it in and the fight starts.</span></li>
         </ol>
-        <p class="small">Or play the bot on Easy, Normal or Hard, or try every card in the training sandbox.</p>
+        <p class="small">Want more chaos? Switch to <b>Free for all</b>: 3 or 4 players on one rooftop, last one standing wins the round. Short a player? The host can fill the seat with a bot.</p>
+        <p class="small">Or play bots on Easy, Normal or Hard, or try every card in the training sandbox.</p>
       </div>
       <div class="roomcard" aria-label="Example room screen">
         <p class="h">Your room code</p>

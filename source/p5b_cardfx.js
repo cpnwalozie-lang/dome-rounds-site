@@ -35,17 +35,15 @@ function thrGeos(){ if(thrG) return thrG; const fl=new T.ConeGeometry(0.1,0.6,14
     mCan:new T.MeshStandardMaterial({color:col(0xd5dbe8),roughness:0.3,metalness:0.7}), mBand:basic({color:0xff8a2a}), mNoz:new T.MeshStandardMaterial({color:col(0x262c40),roughness:0.5,metalness:0.6,side:T.DoubleSide}),
     mFl:new T.MeshBasicMaterial({color:col(0xff6a1a),transparent:true,opacity:0.9,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}), mFi:new T.MeshBasicMaterial({color:col(0xfff1a8),transparent:true,opacity:0.95,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}),
     mGl:new T.SpriteMaterial({map:TX.glow,color:col(0xff8a2a),blending:T.AdditiveBlending,transparent:true,depthWrite:false,opacity:0.8})}; return thrG; }
-function addThrusterFx(f,th,dir){ const G=thrGeos(); const g=new T.Group();
+function addThrusterFx(f,th){ const G=thrGeos(); const g=new T.Group();
   const mk=(geo,mat,y)=>{ const m=new T.Mesh(geo,mat); m.position.y=y; g.add(m); return m; };
   mk(G.can,G.mCan,0).castShadow=true; mk(G.cap,G.mCan,0.12); const b1=mk(G.band,G.mBand,0.06); b1.rotation.x=Math.PI/2; const b2=mk(G.band,G.mBand,-0.05); b2.rotation.x=Math.PI/2; mk(G.noz,G.mNoz,-0.17);
   const fl=mk(G.fl,G.mFl,-0.22), fi=mk(G.fi,G.mFi,-0.22); const gl=new T.Sprite(G.mGl); gl.position.y=-0.4; gl.scale.setScalar(1.1); g.add(gl);
-  g.quaternion.setFromUnitVectors(UPV,dir); // nozzle faces back toward the shooter, so the flame shoves the target away
-  const dh=V3(dir.x,0,dir.z); if(dh.lengthSq()<1e-3) dh.set(1,0,0); dh.normalize(); const side=V3(-dh.z,0,dh.x);
-  const off=dh.clone().multiplyScalar(-0.46).addScaledVector(side,rand(-0.28,0.28)).add(V3(0,rand(-0.25,0.42),0));
-  scene.add(g); thrFx.push({f,th,g,fl,fi,gl,off,t:0}); burst(f.center().add(off),0xffc070,6,3,0.08,0.3,0); }
+  g.quaternion.setFromUnitVectors(UPV,th.dir); // nozzle points out of the body, so the flame drives them away from where it stuck
+  scene.add(g); thrFx.push({f,th,g,fl,fi,gl,t:0}); burst(f.center().add(th.world),0xffc070,6,3,0.08,0.3,0); }
 function updateThrusterFx(dt){ for(let i=thrFx.length-1;i>=0;i--){ const x=thrFx[i]; x.t+=dt; const f=x.f;
     if(f.dead||!f.thrusters.includes(x.th)){ burst(x.g.position,0x9aa3b8,6,1.6,0.12,0.6,-0.4); scene.remove(x.g); thrFx.splice(i,1); continue; }
-    const m=f.mesh.position; x.g.position.set(m.x,m.y+f.bodyY,m.z).add(x.off);
+    thrAim(f,x.th); const m=f.mesh.position; x.g.position.set(m.x,m.y+f.bodyY,m.z).add(x.th.world).addScaledVector(x.th.dir,-0.1); x.g.quaternion.setFromUnitVectors(UPV,x.th.dir);
     const pop=Math.min(1,x.t*10), sp=x.th.t<0.15? (Math.random()<0.5?0.3:1) : 1; x.g.scale.setScalar(pop*(1+Math.max(0,0.15-x.t)*3));
     const fk=(0.85+Math.random()*0.45)*sp; x.fl.scale.set(1,fk,1); x.fi.scale.set(1,fk*(0.8+Math.random()*0.3),1); x.gl.scale.setScalar(0.9+fk*0.5);
     if(Math.random()<dt*30){ _wq.set(0,-0.5,0).applyQuaternion(x.g.quaternion).add(x.g.position); burst(_wq,Math.random()<0.6?0xff9a3d:0x8a8f9e,1,1.6,0.1,0.35,-0.2); } } }
@@ -68,22 +66,21 @@ function updateBlinkFx(dt){ for(const p of tpBits){ if(!p.active) continue; p.t+
     else if(t<0.36){ const k=(t-0.15)/0.21, e=k<0.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2; const s=_wq.copy(p.a).add(p.out); p.m.position.copy(s).lerp(p.b,e); p.m.position.y+=Math.sin(e*Math.PI)*p.arc; p.m.scale.setScalar(p.s*(1-0.4*Math.sin(e*Math.PI))); }
     else { p.active=false; p.m.visible=false; continue; }
     p.m.rotation.x+=p.spin.x*dt; p.m.rotation.y+=p.spin.y*dt; p.m.rotation.z+=p.spin.z*dt; }
-  for(const f of [player,bot]){ if(f.tpHide>0){ f.tpHide-=dt; if(f.tpHide<=0){ f.tpPop=0.0001; const c=f.center(); flashAt(c,f.team.light,4.5,0.22); flashAt(c,0xffffff,2.4,0.12); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.6,0.4,0.3); burst(c,0xffffff,10,5,0.07,0.35,0); burst(c,f.team.light,14,4,0.09,0.45,0); } } } }
-function clearBlinkFx(){ for(const p of tpBits){ p.active=false; p.m.visible=false; } for(const f of [player,bot]){ f.tpHide=0; f.tpPop=0; } }
+  for(const f of fighters){ if(f.tpHide>0){ f.tpHide-=dt; if(f.tpHide<=0){ f.tpPop=0.0001; const c=f.center(); flashAt(c,f.team.light,4.5,0.22); flashAt(c,0xffffff,2.4,0.12); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.6,0.4,0.3); burst(c,0xffffff,10,5,0.07,0.35,0); burst(c,f.team.light,14,4,0.09,0.45,0); } } } }
+function clearBlinkFx(){ for(const p of tpBits){ p.active=false; p.m.visible=false; } for(const f of fighters){ f.tpHide=0; f.tpPop=0; } }
 function blinkScale(f,dt){ if(f.tpHide>0) return 0.001; if(f.tpPop>0&&f.tpPop<0.34){ f.tpPop+=dt; const k=Math.min(1,f.tpPop/0.34), c=2.4; return 1+(c+1)*Math.pow(k-1,3)+c*Math.pow(k-1,2); } return 1; }
 
 // ---------- EMP: the dome bursts into energy shards that keep flying outward ----------
 const empBolts=[]; let empGeo=null, empMat=null, empGlow=null;
 function empBurst(f,c,n){ if(!empGeo){ empGeo=new T.OctahedronGeometry(0.4,0); empGeo.scale(0.5,0.22,1); empMat=new T.MeshBasicMaterial({color:col(0x7ff7ea),transparent:true,blending:T.AdditiveBlending,depthWrite:false}); empGlow=new T.SpriteMaterial({map:TX.glow,color:col(0x46e0d0),blending:T.AdditiveBlending,transparent:true,depthWrite:false}); }
-  const cast={hit:false,owner:f,n}; const reach=13+4*(n-1); const rings=[[0.9,14,0],[1.5,9,0.38]];
+  const cast={hit:new Set(),owner:f,n}; const reach=13+4*(n-1); const rings=[[0.9,14,0],[1.5,9,0.38]];
   for(const [h,cnt,el] of rings){ const a0=rand(0,6.28); for(let i=0;i<cnt;i++){ const a=a0+i/cnt*Math.PI*2; const dir=V3(Math.cos(a)*Math.cos(el),Math.sin(el),Math.sin(a)*Math.cos(el));
       const m=new T.Mesh(empGeo,empMat); m.position.set(c.x,c.y+h,c.z); m.quaternion.setFromUnitVectors(V3(0,0,1),dir); const gl=new T.Sprite(empGlow); gl.scale.setScalar(1.6); m.add(gl); scene.add(m);
       empBolts.push({m,dir,pos:m.position.clone(),d:0,reach,cast,spin:rand(-12,12)}); } }
   shockRing(V3(c.x,c.y+0.9,c.z),0x7ff7ea,reach*0.35,0.35,0.3,V3(0,1,0)); }
 function updateEmpBolts(dt){ for(let i=empBolts.length-1;i>=0;i--){ const b=empBolts[i]; const sp=17; b.pos.addScaledVector(b.dir,sp*dt); b.d+=sp*dt; b.m.position.copy(b.pos); b.m.rotateZ(b.spin*dt);
     const k=b.d/b.reach; b.m.scale.setScalar(1+k*0.6); empMat.opacity=1; if(Math.random()<dt*20) burst(b.pos,0x7ff7ea,1,0.6,0.06,0.3,0);
-    const e=other(b.cast.owner);
-    if(!b.cast.hit&&!e.dead&&state==='fight'&&e.distTo(b.pos)<0.95){ b.cast.hit=true; const n=b.cast.n; applySlow(e,0.6,2.2+0.6*n); applyDamage(e,8*n,b.cast.owner,{cause:'dome'}); burst(e.center(),0x46e0d0,16,5,0.1,0.5,0); flashAt(e.center(),0x7ff7ea,2.6,0.2); floatText(e.center().add(V3(0,1.2,0)),'EMP!','status'); SFX.zap(); }
+    for(const e of (state==='fight'?enemies(b.cast.owner):[])){ if(b.cast.hit.has(e)||e.distTo(b.pos)>=0.95) continue; b.cast.hit.add(e); const n=b.cast.n; applySlow(e,0.6,2.2+0.6*n); applyDamage(e,8*n,b.cast.owner,{cause:'dome'}); burst(e.center(),0x46e0d0,16,5,0.1,0.5,0); flashAt(e.center(),0x7ff7ea,2.6,0.2); floatText(e.center().add(V3(0,1.2,0)),'EMP!','status'); SFX.zap(); }
     if(b.d>=b.reach){ burst(b.pos,0x7ff7ea,4,2,0.07,0.3,0); scene.remove(b.m); empBolts.splice(i,1); } } }
 function clearEmpBolts(){ for(const b of empBolts) scene.remove(b.m); empBolts.length=0; }
 
@@ -96,7 +93,7 @@ function ensureIce(f){ if(f.ice) return f.ice; const R=iceResources();
   const mShell=new T.MeshStandardMaterial({color:col(0xd9f4ff),emissive:col(0x5fbfff),emissiveIntensity:0.55,roughness:0.06,metalness:0.2,transparent:true,opacity:0,depthWrite:false,flatShading:true});
   const mSpike=new T.MeshStandardMaterial({color:col(0xf2fcff),emissive:col(0x8fdcff),emissiveIntensity:0.55,roughness:0.05,metalness:0.1,transparent:true,opacity:0,flatShading:true});
   const g=new T.Group(); f.mesh.add(g); const shell=new T.Mesh(R.shell,mShell); shell.position.y=1.13; shell.scale.set(0.64,1.0,0.6); shell.renderOrder=5; g.add(shell);
-  const spikes=[]; const rr=RNG(f.isPlayer?7:9); for(let i=0;i<22;i++){ const a=i/22*Math.PI*2*3+rr()*0.5, y=0.3+rr()*1.7; const yy=(y-1.13)/1.0; const rad=Math.sqrt(Math.max(0.05,1-yy*yy));
+  const spikes=[]; const rr=RNG(f.id*7); for(let i=0;i<22;i++){ const a=i/22*Math.PI*2*3+rr()*0.5, y=0.3+rr()*1.7; const yy=(y-1.13)/1.0; const rad=Math.sqrt(Math.max(0.05,1-yy*yy));
     const s=new T.Mesh(R.spike,mSpike); s.position.set(Math.cos(a)*0.6*rad,y,Math.sin(a)*0.56*rad); const out=V3(Math.cos(a),yy*0.9+(rr()-0.5)*0.4,Math.sin(a)).normalize(); s.quaternion.setFromUnitVectors(UPV,out); s.userData.h=0.26+rr()*0.4; s.userData.w=1.0+rr()*0.9; g.add(s); spikes.push(s); }
   g.visible=false; f.ice={g,shell,spikes,mShell,mSpike,amt:0,prevCold:0}; return f.ice; }
 function updateIce(f,dt){ const I=ensureIce(f); const tgt=f.dead?0:(f.coldT>0?1:(f.chillIn?0.62:0));
@@ -111,7 +108,7 @@ function iceHit(target,pos){ const c=target.center(); burst(pos,0xd9f4ff,14,5,0.
   for(let i=0;i<6;i++) spawnShard(pos.clone(),V3(rand(-3,3),rand(1,4),rand(-3,3)),0xd9f4ff,rand(0.08,0.15),0.5,1);
   if((target.coldT||0)<0.4){ SFX.freeze(); floatText(c.add(V3(0,1.3,0)),'FROZEN','status'); } }
 
-function updateCardFx(dt){ updateWorms(dt); updateThrusterFx(dt); updateBlinkFx(dt); updateEmpBolts(dt); for(const f of [player,bot]){ updateIce(f,dt); updateStars(f,dt,gameT); } updateDazzleView(dt,gameT); }
+function updateCardFx(dt){ updateWorms(dt); updateThrusterFx(dt); updateBlinkFx(dt); updateEmpBolts(dt); for(const f of fighters){ if(f.active===false) continue; updateIce(f,dt); updateStars(f,dt,gameT); } updateDazzleView(dt,gameT); }
 function clearCardFx(){ clearWorms(); clearThrusterFx(); clearBlinkFx(); clearEmpBolts(); }
 
 // ---------- dazzle: stars spin round your head, and your view narrows and goes hazy ----------

@@ -20,11 +20,15 @@ const BASE = { hp:100, dmg:40, ammo:3, reload:1.6, fireInt:0.38, speed:42, size:
 const TEAM = {
   player:{ body:0x19c8ff, light:0x8fe9ff, dark:0x0b5c88, band:0xffffff, cannon:0x2460e6, ink:0x19b4ff, css:'#19c8ff' },
   bot:   { body:0xff7a1a, light:0xffc27a, dark:0x8a3604, band:0x1b2340, cannon:0xc2301c, ink:0xff7a1a, css:'#ff7a1a' },
+  green: { body:0x35d977, light:0xa8ffc9, dark:0x0d6b33, band:0xffffff, cannon:0x15964a, ink:0x35d977, css:'#35d977' },
+  purple:{ body:0xa46bff, light:0xd9c4ff, dark:0x45208e, band:0x1b2340, cannon:0x6a35d6, ink:0xa46bff, css:'#a46bff' },
 };
+for(const k in TEAM) TEAM[k].id=k;
+const SLOT_TEAMS=['player','bot','green','purple']; // FFA seat colours, same on every screen
 const INK = 0x0b1026;
 
 // ================= SETTINGS =================
-const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true };
+const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'' };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
 function saveSettings(){ try{ localStorage.setItem('domeRoundsSettings4',JSON.stringify(settings)); }catch(e){} }

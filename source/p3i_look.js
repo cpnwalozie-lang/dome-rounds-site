@@ -5,6 +5,7 @@
 const LOOK={ q:'high', env:{}, pmrem:null, grade:null, mirrors:[] };
 const LOOK_MAP={
   dock:{ exp:1.0, envI:1.0, hemi:0.4, sun:1.3, grade:{sat:1.12,con:0.26,vig:0.32,warm:[1.03,1.0,0.96],cool:[0.94,0.98,1.06]} },
+  ffa:{ exp:1.10, envI:1.35, hemi:0.55, sun:1.0, grade:{sat:1.16,con:0.2,vig:0.42,warm:[1.04,0.98,1.03],cool:[0.92,0.96,1.1]} },
   neon:{ exp:1.10, envI:1.35, hemi:0.55, sun:1.0,  grade:{sat:1.16,con:0.2,vig:0.42,warm:[1.04,0.98,1.03],cool:[0.92,0.96,1.1]} } };
 renderer.toneMapping=T.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
 // Lights, signs and glow sprites keep their full colour: only lit surfaces go through the film curve.

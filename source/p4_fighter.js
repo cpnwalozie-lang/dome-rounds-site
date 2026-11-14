@@ -27,8 +27,8 @@ const AURA_COL={chill:0x9fd8ff,staticf:0xffe066,drain:0xff6b9d};
 
 // ================= FIGHTER (round buddy) =================
 class Fighter{
-  constructor(name,isPlayer){
-    this.name=name; this.isPlayer=isPlayer; this.team=isPlayer?TEAM.player:TEAM.bot; this.color=this.team.ink;
+  constructor(name,isPlayer,team){
+    this.name=name; this.isPlayer=isPlayer; this.team=team||(isPlayer?TEAM.player:TEAM.bot); this.color=this.team.ink; this.id=Fighter.N=(Fighter.N||0)+1; this.ctl=isPlayer?'local':'ai'; this.score=0; this.slot=isPlayer?0:1; this.spawn=V3(); this.lastHitBy=null;
     this.pos=V3(); this.vel=V3(); this.yaw=0; this.pitch=0; this.onGround=false; this.wasGround=false;
     this.radius=0.5; this.height=2.05; this.bodyY=1.3; this.hitR=0.58;
     this.cards=[]; this.stats=computeStats([]);
@@ -41,14 +41,14 @@ class Fighter{
     const root=new T.Group(); this.mesh=root; scene.add(root);
     const std=(c,r=0.45,m=0.3)=>new T.MeshStandardMaterial({color:col(c),roughness:r,metalness:m});
     const armour=std(tc.body,0.38,0.35), armour2=std(tc.dark,0.45,0.4), suit=std(0x151a2e,0.85,0.1), trim=basic({color:tc.light}), visorMat=std(0x070a16,0.12,0.85), white=std(0xe9eef8,0.5,0.2);
-    this.armour=armour; this.armour2=armour2; this.body={material:armour};
+    this.armour=armour; this.armour2=armour2; this.body={material:armour}; this.mTrim=trim;
     const add=(parent,geo,mat,x=0,y=0,z=0)=>{ const m=new T.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; parent.add(m); return m; };
     // ---- simple round buddy: big ball head with a headband, bean body, stubby limbs ----
     const HIP=0.78; this.hipY=HIP; this.L1=0.34; this.L2=0.34; this.gait=0;
     const soft=(c,r=0.6)=>new T.MeshStandardMaterial({color:c,roughness:r,metalness:0.02});
     armour.roughness=0.55; armour.metalness=0.04; armour2.roughness=0.6; armour2.metalness=0.04;
     const headMat=soft(col(tc.body).lerp(col(0xffffff),0.15),0.55), band=soft(col(tc.band),0.7), dark=basic({color:0x0b1026});
-    this.headMat=headMat;
+    this.headMat=headMat; this.mBand=band;
     const rig=new T.Group(); rig.position.y=HIP; root.add(rig); this.rig=rig;
     const torso=add(rig,new T.SphereGeometry(0.36,32,24),armour,0,0.36,0); torso.scale.set(1,1.12,0.88);
     const shorts=add(rig,new T.SphereGeometry(0.366,32,12,0,Math.PI*2,Math.PI*0.64,Math.PI*0.36),suit,0,0.36,0); shorts.scale.set(1.02,1.12,0.9);
@@ -73,7 +73,7 @@ class Fighter{
     const mouth=add(head,new T.TorusGeometry(0.06,0.013,6,16,Math.PI),dark,0,-0.17,-0.362); mouth.rotation.z=Math.PI; mouth.rotation.x=0.42; mouth.castShadow=false;
     this.tails=[]; for(const sx of [-1,1]){ const piv=new T.Group(); piv.position.set(sx*0.04,0.13,0.43); const tl=add(piv,new T.BoxGeometry(0.1,0.02,0.4),band,0,0,0.2); piv.rotation.y=sx*0.3; head.add(piv); this.tails.push(piv); }
     // arms: left has a mitten, right carries the blaster
-    const cuff=soft(col(tc.light),0.6), sole=soft(col(0xf2f5fb),0.7);
+    const cuff=soft(col(tc.light),0.6), sole=soft(col(0xf2f5fb),0.7); this.mCuff=cuff;
     for(const sx of [-1,1]) add(rig,new T.SphereGeometry(0.115,18,14),armour,sx*0.37,0.6,0);
     const lsh=new T.Group(); lsh.position.set(-0.38,0.6,0); rig.add(lsh); this.lArm=lsh;
     add(lsh,new T.CylinderGeometry(0.1,0.085,0.26,16),armour,0,-0.13,0);
@@ -85,7 +85,7 @@ class Fighter{
     const rUp=add(rig,new T.CylinderGeometry(0.09,0.085,0.2,14),armour,0.4,0.55,-0.02); rUp.rotation.z=0.5;
     const cg=new T.Group(); cg.position.set(0.44,0.5,-0.02); rig.add(cg); this.cannon=cg; add(cg,new T.SphereGeometry(0.12,14,10),armour2);
     const bg=new T.Group(); bg.rotation.x=-Math.PI/2; bg.scale.setScalar(0.62); cg.add(bg); this.barrel=bg;
-    const cMat=soft(col(tc.cannon),0.45);
+    const cMat=soft(col(tc.cannon),0.45); this.mCannon=cMat;
     const prof=[[0.001,-0.14],[0.15,-0.11],[0.22,0.02],[0.27,0.22],[0.28,0.45],[0.26,0.66],[0.22,0.8],[0.24,0.86],[0.24,0.95],[0.16,0.95],[0.14,0.8]].map(p=>new T.Vector2(p[0],p[1]));
     add(bg,new T.LatheGeometry(prof,28),cMat);
     add(bg,new T.CylinderGeometry(0.288,0.284,0.1,28,1,true),soft(col(0xffd23f),0.5),0,0.45,0);
@@ -117,12 +117,17 @@ class Fighter{
     // a soft team-coloured marker so each fighter is easy to find
     const mk=new T.Mesh(ringGeo,new T.MeshBasicMaterial({color:col(tc.body),transparent:true,opacity:0.55,depthWrite:false,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})); mk.rotation.x=-Math.PI/2; mk.scale.setScalar(0.75); scene.add(mk); this.marker=mk;
   }
+  // repaint in another seat colour (FFA seats keep the same colour on every screen)
+  setTeam(tc){ if(this.team===tc) return; this.team=tc; this.color=tc.ink; this.armour.color.copy(col(tc.body)); this.armour2.color.copy(col(tc.dark)); this.headMat.color.copy(col(tc.body).lerp(col(0xffffff),0.15)); this.mBand.color.copy(col(tc.band));
+    this.mTrim.color.copy(col(tc.light)); this.mCuff.color.copy(col(tc.light)); this.mCannon.color.copy(col(tc.cannon)); this.muzzleGlow.material.color.copy(col(tc.light)); this.flash.material.color.copy(col(tc.light));
+    this.domeRing.material.color.copy(col(tc.light)); this.marker.material.color.copy(col(tc.body)); this.setCards(this.cards.slice()); }
+  setActive(on){ this.active=on; if(!on){ this.dead=true; this.mesh.visible=false; for(const k of ['dome','dome2','domeRing','sawRing','aura','auraRing','shadow','statusRing','marker']) if(this[k]) this[k].visible=false; if(this.ice) this.ice.g.visible=false; if(this.stars) this.stars.g.visible=false; } }
   resetRound(){
     this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.reloading=false; this.reloadT=0; this.fireCd=0;
     this.blockCdT=0; this.blockActive=false; this.blockT=0; this.dashCdT=0; this.dashT=0;
     this.slowT=0; this.slowAmt=0; this.stunT=0; this.poisons=[]; this.dead=false; this.vel.set(0,0,0);
     this.burstQueue=0; this.burstT=0; this.echoT=-1; this.echoCount=0; this.mood='normal'; this.moodT=0; this.hitFlash=0; this.auraSlow=0; this.squash=0;
-    this.brawlT=0; this.tasteT=0; this.refreshCd=0; this.silenceT=0; this.invulnT=0; this.sawT=0; this.decayPool=0; this.decayAcc=0; this.dazzleN=0; this.dazzleT=0; this.thrusters=[]; this.phoenixUsed=0; this.chasing=false; this.domeHitAge=9; this.respawnT=0; this.coldT=0; this.blinkPending=0; this.chillIn=false; this.knockT=0; this.tpHide=0; this.tpPop=0;
+    this.brawlT=0; this.tasteT=0; this.refreshCd=0; this.silenceT=0; this.invulnT=0; this.sawT=0; this.decayPool=0; this.decayAcc=0; this.dazzleN=0; this.dazzleT=0; this.thrusters=[]; this.phoenixUsed=0; this.chasing=false; this.domeHitAge=9; this.respawnT=0; this.lastHitBy=null; this.coldT=0; this.blinkPending=0; this.chillIn=false; this.knockT=0; this.tpHide=0; this.tpPop=0;
     this.mesh.visible=true; this.dome.visible=false; this.dome2.visible=false; this.domeRing.visible=false; this.sawRing.visible=false;
   }
   center(){ return V3(this.pos.x,this.pos.y+this.bodyY,this.pos.z); }
@@ -131,7 +136,7 @@ class Fighter{
   domeR(){ return this.stats.dome; }
   auraR(){ return this.silenceT>0?0:this.stats.auraR; }
   addCard(id){ this.cards.push(id); this.stats=computeStats(this.cards); this.hp=this.stats.hp; this.ammo=this.stats.ammo;
-    const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.domePal= pc.length===0?[team]: pc.length===1?[team,pc[0]]: pc.slice(0,4); }
+    const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.domePal= pc.length===0?[team]: pc.slice(0,4); }
   auraPal(){ const s=this.stats,l=[]; if(s.chill) l.push(AURA_PAL.chill); if(s.staticf) l.push(AURA_PAL.staticf); if(s.drain) l.push(AURA_PAL.drain); return l; }
   setCards(ids){ this.cards=[]; this.stats=computeStats([]); if(ids.length){ for(const id of ids.slice(0,-1)) this.cards.push(id); this.addCard(ids[ids.length-1]); } else { this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.domePal=[new T.Color(this.team.light)]; } }
   maxHp(){ return Math.round(this.stats.hp*(1+(this.brawlT>0?2*this.stats.brawler:0))); }
@@ -218,7 +223,7 @@ class Fighter{
     const aR=this.auraR(), ac=aR>0? this.auraColor(t):null;
     if(ac && !this.dead){ const pulse=1+Math.sin(t*2.2)*0.018; this.aura.visible=true; this.aura.position.copy(dc); this.aura.scale.setScalar(aR*pulse); this.auraMat.uniforms.time.value=t*0.35; this.auraMat.uniforms.opacity.value=0.42; setPal(this.auraMat,this.auraPal()); this.auraRing.visible=true; this.auraRing.position.set(dc.x,dc.y+0.02,dc.z); this.auraRing.scale.setScalar(aR*pulse); this.auraRing.rotation.z=t*0.35; this.auraRing.material.color.copy(ac).convertSRGBToLinear(); }
     else { this.aura.visible=false; this.auraRing.visible=false; }
-    const gY=groundAt(this.pos.x,this.pos.z,this.pos.y+50,0.3); const vis=gY!==null && !this.dead;
+    const gY=groundAt(this.pos.x,this.pos.z,this.pos.y+50,0.3); const vis=gY!==null && !this.dead && this.active!==false;
     this.shadow.visible=vis; this.marker.visible=vis&&this.mesh.visible;
     if(vis){ this.shadow.position.set(this.pos.x,gY+0.015,this.pos.z); const h=clamp(this.pos.y-gY,0,6); this.shadow.scale.setScalar(1.05-h*0.1); this.shadow.material.opacity=0.38-h*0.045; this.marker.position.set(this.pos.x,gY+0.02,this.pos.z); this.marker.rotation.z=t*1.5; }
     const slowed=(this.slowT>0||this.auraSlow>0)&&!this.dead; const sil=this.silenceT>0; this.statusRing.visible=(slowed||this.stunT>0||sil)&&!this.dead; this.statusRing.position.set(this.pos.x,this.pos.y+0.08,this.pos.z); this.statusRing.material.color.copy(col(this.stunT>0?0xffe14d:(sil?0x9aa7c7:0x9be7ff))); this.statusRing.rotation.z+=dt*3; this.statusRing.scale.setScalar(1+Math.sin(t*8)*0.05);

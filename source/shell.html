@@ -269,6 +269,28 @@
   #sbxBuild{font-size:13px;background:rgba(11,16,38,.85);border:2px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 12px;align-self:flex-start}
   #sbxBuild b{color:var(--ye);font-family:var(--disp);font-weight:400;font-size:1.2em}
   #hud.sandboxmode .pips{display:none}
+  /* free for all: a scoreboard for everyone + a name tag over each rival */
+  #hud.ffamode .pips,#hud.ffamode #botPanel,#hud.ffamode #botTag{display:none!important}
+  #ffaBoard{display:none;position:absolute;right:18px;top:14px;width:min(30vw,300px);flex-direction:column;gap:6px}
+  #hud.ffamode #ffaBoard{display:flex}
+  .fb-row{display:flex;align-items:center;gap:8px;background:rgba(11,16,38,.74);border:2px solid var(--ink);border-left:6px solid var(--c);border-radius:10px;padding:5px 9px;transition:opacity .3s}
+  .fb-row.me{background:rgba(30,40,80,.85)} .fb-row.out{opacity:.42}
+  .fb-sw{width:12px;height:12px;border-radius:50%;background:var(--c);border:2px solid var(--ink);flex:none}
+  .fb-nm{font-family:var(--disp);font-size:15px;color:#fff;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .fb-nm small{font-size:11px;opacity:.7}
+  .fb-pp{display:flex;gap:3px} .fb-pp i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.16);border:1.5px solid var(--ink)} .fb-pp i.on{background:var(--c)}
+  .fb-hp{width:52px;height:7px;background:rgba(0,0,0,.45);border-radius:4px;overflow:hidden;flex:none} .fb-hp b{display:block;height:100%;width:100%;background:var(--c)}
+  .ntag{position:absolute;left:0;top:0;display:none;text-align:center;will-change:transform;pointer-events:none}
+  .ntag b{font-family:var(--disp);font-weight:400;font-size:13px;color:var(--c);display:block;text-shadow:0 2px 0 var(--ink),0 0 4px var(--ink)}
+  .ntag .tb{width:84px;height:10px;background:rgba(11,16,38,.8);border:2px solid var(--ink);border-radius:6px;overflow:hidden} .ntag .tb i{display:block;height:100%;background:var(--c)}
+  #specMsg{display:none;position:absolute;left:50%;top:21%;transform:translateX(-50%);font-family:var(--disp);font-size:20px;color:#fff;background:rgba(11,16,38,.7);border:2px solid var(--ink);border-radius:12px;padding:8px 16px;text-shadow:0 2px 0 var(--ink)}
+  body.gm-ffa #start .seg[data-seg="map"]{display:none}
+  .ol-name{display:flex;align-items:center;gap:10px;margin:2px 0 10px} .ol-name span{font-family:var(--disp);font-size:14px;color:#8fe9ff;letter-spacing:.05em}
+  .ol-name input{font-family:var(--disp);font-size:17px;width:170px;padding:6px 10px;border-radius:10px;border:3px solid var(--ink);background:#f4f6fb;color:var(--ink)}
+  #olSeats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0 4px} #olSeats:empty{display:none}
+  .ol-seat{display:flex;align-items:center;gap:8px;background:rgba(11,16,38,.6);border:2px solid var(--ink);border-left:6px solid var(--c);border-radius:10px;padding:6px 10px;font-family:var(--disp);font-size:15px;color:#fff}
+  .ol-seat i{width:10px;height:10px;border-radius:50%;background:var(--c)} .ol-seat em{font-style:normal;font-size:11px;color:#9fb1d8;margin-left:4px}
+  .ol-seat.empty{--c:#3a4466;color:#7d88aa;border-style:dashed}
+  #olHostBtns .btn{font-size:17px;padding:7px 16px 8px} #olHostBtns .btn:disabled{opacity:.45;cursor:default} .seg.ffaonly{display:none} body.gm-ffa .seg.ffaonly{display:inline-flex}
   .cd[data-t]:not([data-t=""])::after{content:attr(data-t);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:24px;color:#fff;text-shadow:0 2px 0 var(--ink)}
   .cd[data-t]:not([data-t=""]) svg{opacity:.25}
   .cd.deny{animation:deny .3s linear}
@@ -424,6 +446,7 @@
     <div class="cd dash ready" id="dashCd"><svg viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M4 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg><em>SHIFT</em></div>
   </div>
   <div id="botTag"><b id="botTagName">BOT</b><div class="tb"><div id="botTagFill"></div></div></div>
+  <div id="ffaBoard"></div><div id="tagLayer"></div><div id="specMsg"></div>
   <div id="crosshair"><div id="reloadRing"></div><i class="d"></i><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
   <div id="hitmark"></div>
   <div id="dmgdir"></div>
@@ -439,19 +462,21 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.3.0<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.4.0<br>© 2026 Nitor Digital</div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
     <div class="tagline">Lose a round, grab a card, <b>stack the chaos</b>. Blast with energy shots, block with your dome, and outlast the bot.</div>
     <div class="rowb"><button class="btn" id="startBtn"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>PLAY</button><button class="btn sec" id="sandboxBtn" style="font-size:22px;padding:9px 22px 10px">TRAINING SANDBOX</button><button class="btn sec" id="onlineBtn" style="font-size:22px;padding:9px 22px 10px">PLAY ONLINE</button></div>
     <div class="panel" id="online">
-      <div class="ol-h">Play online · 1v1</div>
+      <div class="ol-h" id="olHead">Play online · 1v1</div>
+      <div class="ol-name"><span>Your name</span><input id="olName" maxlength="14" placeholder="Player" autocomplete="off" spellcheck="false"></div>
       <div id="olMain"><button class="btn sec" id="olCreate">CREATE ROOM</button><span class="ol-or">or join</span><input id="olCode" maxlength="5" placeholder="CODE" autocomplete="off" spellcheck="false"><button class="btn sec" id="olJoin">JOIN</button></div>
-      <div id="olWait" style="display:none"><div class="ol-lbl">Your room code</div><div id="olShow">-----</div><div class="ol-row"><button class="btn sec" id="olCopy">COPY CODE</button><button class="btn sec" id="olCancel">CLOSE ROOM</button></div><div id="olStatus">Waiting for your rival to join…</div></div>
+      <div id="olWait" style="display:none"><div class="ol-lbl">Room code</div><div id="olShow">-----</div><div class="ol-row"><button class="btn sec" id="olCopy">COPY CODE</button><button class="btn sec" id="olCancel">CLOSE ROOM</button></div><div id="olSeats"></div><div class="ol-row" id="olHostBtns" style="display:none"><button class="btn sec" id="olAddBot">ADD BOT</button><button class="btn sec" id="olDelBot">REMOVE BOT</button><button class="btn" id="olStart">START</button></div><div id="olStatus">Waiting for your rival to join…</div></div>
       <div id="olMsg"></div>
       <div class="ol-note" id="olNote">Send your rival the link to this game. They open it, press Play Online and type your code. The map is the room creator's pick.</div>
     </div>
+    <div class="rowb"><div class="seg" data-seg="gm"><span>MODE</span><button data-v="1v1">1v1</button><button data-v="ffa">Free for all</button></div><div class="seg ffaonly" data-seg="ffaBots"><span>BOTS</span><button data-v="2">2</button><button data-v="3">3</button></div></div>
     <div class="rowb"><div class="seg" data-seg="map"><span>MAP</span><button data-v="dock">Dockside</button><button data-v="neon">Neon City</button></div><div class="seg" data-seg="diff"><span>BOT</span><button data-v="easy">Easy</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button></div></div>
     <div class="rowb"><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
     <div class="panel" id="how">
