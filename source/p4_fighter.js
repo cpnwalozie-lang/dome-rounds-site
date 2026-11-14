@@ -28,7 +28,7 @@ const AURA_COL={chill:0x9fd8ff,staticf:0xffe066,drain:0xff6b9d};
 // ================= FIGHTER (round buddy) =================
 class Fighter{
   constructor(name,isPlayer,team){
-    this.name=name; this.isPlayer=isPlayer; this.team=team||(isPlayer?TEAM.player:TEAM.bot); this.color=this.team.ink; this.id=Fighter.N=(Fighter.N||0)+1; this.ctl=isPlayer?'local':'ai'; this.score=0; this.slot=isPlayer?0:1; this.spawn=V3(); this.lastHitBy=null;
+    this.name=name; this.isPlayer=isPlayer; this.team=team||(isPlayer?TEAM.player:TEAM.bot); this.color=this.team.ink; this.id=Fighter.N=(Fighter.N||0)+1; this.ctl=isPlayer?'local':'ai'; this.score=0; this.slot=isPlayer?0:1; this.side=this.id; this.spawn=V3(); this.lastHitBy=null;
     this.pos=V3(); this.vel=V3(); this.yaw=0; this.pitch=0; this.onGround=false; this.wasGround=false;
     this.radius=0.5; this.height=2.05; this.bodyY=1.3; this.hitR=0.58;
     this.cards=[]; this.stats=computeStats([]);

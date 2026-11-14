@@ -70,7 +70,8 @@ getRoomApi();
 const R2=v=>Math.round(v*100)/100, R3=v=>Math.round(v*1000)/1000;
 // ---------- rooms: numbered seats (0 = the host). 1v1 has 2 seats, free-for-all 3-4 (the host can fill seats with bots) ----------
 const cleanName=n=>(typeof n==='string'?n.replace(/[<>&"'`]/g,'').trim().slice(0,14):'')||'Player';
-const seatCap=()=>NET.kind==='ffa'?4:2;
+const seatCap=()=>NET.kind==='1v1'?2:4; const seatsNeeded=()=>NET.kind==='2v2'?4:NET.kind==='ffa'?3:2;
+const seatTeam=i=>NET.kind==='2v2'?(i%2===0?TEAM.player:TEAM.bot):TEAM[SLOT_TEAMS[i]];
 function olMsg(t,bad){ const m=$id('olMsg'); m.textContent=t||''; m.classList.toggle('bad',!!bad); }
 function olView(v){ $id('olMain').style.display=v==='main'?'':'none'; $id('olWait').style.display=v==='wait'?'':'none'; }
 function netReset(){ Object.assign(NET,{on:false,role:null,code:'',room:null,kind:'1v1',seats:[],seated:false,hostPeer:null,rx:{},shots:[],shotId:0,blockN:0,mid:0,rMid:0,lastRx:0,started:false,hostMap:null,joinT:0,leaving:false,rs:null}); setRivalNames(false); lobbyRender(); }
@@ -79,7 +80,7 @@ async function netLeave(){ const r=NET.room; netReset(); if(r){ try{ await r.lea
 async function netOpen(code,role){
   const api=await getRoomApi(); if(!api){ olMsg('Online play is not available in this browser.',true); return; }
   olMsg(role==='host'?'Opening your room…':'Looking for room '+code+'…');
-  try{ const r=await api.join('dr-'+code.toLowerCase(),role); netReset(); NET.room=r; NET.code=code; NET.role=role; NET.on=true; NET.joinT=performance.now(); NET.kind=settings.gm==='ffa'?'ffa':'1v1';
+  try{ const r=await api.join('dr-'+code.toLowerCase(),role); netReset(); NET.room=r; NET.code=code; NET.role=role; NET.on=true; NET.joinT=performance.now(); NET.kind=['ffa','2v2'].includes(settings.gm)?settings.gm:'1v1';
     r.onPeers(ch=>netPeers(ch),e=>{ if(NET.on){ olMsg('Connection lost ('+e.code+').',true); netDrop('Connection lost.'); } });
     if(role==='host'){ NET.seats=[{p:myPeerId(),n:myName(),b:false}]; NET.seated=true; olView('wait'); $id('olShow').textContent=code; olMsg(''); }
     lobbyRender(); netSend();
@@ -109,15 +110,15 @@ function seatLeft(st){ const name=st.n; if(!NET.started){ NET.seats=NET.seats.fi
 // guest: follow the host's seat list; returns false if we had to leave
 function guestLobby(others){ const h=others.find(p=>p.presence.r==='host');
   if(!h){ if(NET.hostPeer){ netDrop('The host closed the room.'); return false; } return true; }
-  NET.hostPeer=h.peer; NET.lastRx=performance.now(); const pr=h.presence; NET.kind=pr.k==='ffa'?'ffa':'1v1'; if(typeof pr.map==='string'&&MAPS[pr.map]) NET.hostMap=pr.map;
+  NET.hostPeer=h.peer; NET.lastRx=performance.now(); const pr=h.presence; NET.kind=['ffa','2v2'].includes(pr.k)?pr.k:'1v1'; if(typeof pr.map==='string'&&MAPS[pr.map]) NET.hostMap=pr.map;
   if(pr.lob&&Array.isArray(pr.lob.seats)){ const seats=pr.lob.seats.filter(a=>Array.isArray(a)).slice(0,4).map(a=>({p:typeof a[0]==='string'?a[0]:null,n:cleanName(a[1]),b:!!a[2]})); const me=myPeerId(); const mine=seats.findIndex(x=>x.p===me);
-    if(mine<0){ if(NET.seated){ netDrop('You were removed from the room.'); return false; } if(pr.lob.st||seats.length>=(NET.kind==='ffa'?4:2)){ olMsg(pr.lob.st?'That room is in the middle of a match. Try again when it ends.':'That room is full.',true); netLeave(); return false; } }
-    else if(!NET.seated){ NET.seated=true; olView('wait'); $id('olShow').textContent=NET.code; olMsg(NET.kind==='ffa'?'You\'re in! Waiting for the host to start…':'Joined room '+NET.code+'. Get ready…'); SFX.hover(); }
+    if(mine<0){ if(NET.seated){ netDrop('You were removed from the room.'); return false; } if(pr.lob.st||seats.length>=seatCap()){ olMsg(pr.lob.st?'That room is in the middle of a match. Try again when it ends.':'That room is full.',true); netLeave(); return false; } }
+    else if(!NET.seated){ NET.seated=true; olView('wait'); $id('olShow').textContent=NET.code; olMsg(NET.kind!=='1v1'?'You\'re in! Waiting for the host to start…':'Joined room '+NET.code+'. Get ready…'); SFX.hover(); }
     NET.seats=seats; }
   return true; }
 function netDrop(why){ const inGame=state!=='menu'; netLeave(); if(inGame){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); },1200); } else { olView('main'); olMsg(why,true); } }
 // seats -> fighters on this screen (you're always 'player'; the others fill the remaining fighters)
-function netBuildRoster(){ const me=myPeerId(); let k=1; const list=NET.seats.map((st,i)=>{ const mine=st.p===me; const f=mine?player:seatFighter(k++); return {f,slot:i,ctl:mine?'local':(st.b&&NET.role==='host'?'ai':'net'),name:mine?myName():st.n,peer:st.b?null:st.p}; });
+function netBuildRoster(){ const me=myPeerId(); let k=1; const list=NET.seats.map((st,i)=>{ const mine=st.p===me; const f=mine?player:seatFighter(k++); return {f,slot:i,side:NET.kind==='2v2'?i%2:i,ctl:mine?'local':(st.b&&NET.role==='host'?'ai':'net'),name:mine?myName():st.n,peer:st.b?null:st.p}; });
   matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; }
   if(NET.kind==='1v1'){ player.setTeam(TEAM.player); for(const f of fighters) if(f!==player) f.setTeam(TEAM.bot); } setRivalNames(true); }
 // ---------- outgoing ----------
@@ -153,14 +154,14 @@ function netGuestFollow(h){
   const by=k=>fighters.find(f=>f.slot===k);
   if((state==='fight'||state==='roundover')&&Array.isArray(h.hp)) h.hp.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&!f.dead) f.hp=v; });
   if(state==='fight'&&isNum(h.t)) roundInfo.t=Math.max(roundInfo.t,h.t);
-  if(state==='fight'&&NET.kind==='ffa'&&Array.isArray(h.dd)){ NET.allowKill=true; try{ h.dd.forEach((v,k)=>{ const f=by(k); if(v===1&&f&&!f.dead&&state==='fight') killFighter(f,f.lastHitBy); }); } finally { NET.allowKill=false; } }
-  if(ph==='roundover'&&state==='fight'&&isNum(h.w)&&h.w>=0){ const w=by(h.w); if(w){ NET.allowKill=true; try{ if(NET.kind==='1v1') killFighter(other(w),w); else for(const f of fighters) if(f!==w&&!f.dead&&state==='fight') killFighter(f,null); } finally { NET.allowKill=false; } } }
+  if(state==='fight'&&NET.kind!=='1v1'&&Array.isArray(h.dd)){ NET.allowKill=true; try{ h.dd.forEach((v,k)=>{ const f=by(k); if(v===1&&f&&!f.dead&&state==='fight') killFighter(f,f.lastHitBy); }); } finally { NET.allowKill=false; } }
+  if(ph==='roundover'&&state==='fight'&&isNum(h.w)&&h.w>=0){ const w=by(h.w); if(w){ NET.allowKill=true; try{ if(NET.kind==='1v1') killFighter(other(w),w); else for(const f of fighters) if(f.side!==w.side&&!f.dead&&state==='fight') killFighter(f,null); } finally { NET.allowKill=false; } } }
   if(Array.isArray(h.sc)&&state!=='fight'){ let ch=false; h.sc.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&f.score!==v){ f.score=v; ch=true; } }); if(ch){ score.player=player.score; score.bot=bot.score; matchOverPending=fighters.some(f=>f.score>=CFG.winsToTakeMatch); buildPips(); ffaBoardKey=''; } }
 }
 // ---------- match flow ----------
-function netHostStart(){ if(NET.kind==='ffa'&&NET.seats.length<3) return; NET.mid++; NET.started=true; netBuildRoster(); lobbyRender(); startMatch(); }
+function netHostStart(){ if(NET.seats.length<seatsNeeded()) return; NET.mid++; NET.started=true; netBuildRoster(); lobbyRender(); startMatch(); }
 function netStartLocal(){ NET.started=true; netBuildRoster(); startMatch(); }
-function netAfterPick(){ UI.draftSub.textContent=NET.kind==='ffa'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
+function netAfterPick(){ UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
 function netTick(dt){ if(!NET.on) return;
   netSend(); const now=performance.now();
   if(NET.role==='guest'){ if(NET.hostPeer&&now-NET.lastRx>15000){ netDrop('Lost connection to the host.'); return; } if(!NET.hostPeer&&now-NET.joinT>7000){ olMsg('No room found with code '+NET.code+'. Check the code and try again.',true); netLeave(); return; } }
@@ -174,14 +175,17 @@ function netApplyRemote(f,dt){ const s=f.rs; if(!s) return; const age=Math.min(0
   f.onGround=!!(s.fl&2); if(s.fl&1){ f.dashT=0.05; f.dashDir.set(-Math.sin(f.yaw),0,-Math.cos(f.yaw)); if(Math.random()<0.3) ghostAt(f.center(),f.team.light); } else f.dashT=0;
   if(NET.role==='host'&&state==='fight'&&!f.dead&&(f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)){ f.invulnT=0; fatal(f,f.lastHitBy,'fall'); } }
 // ---------- UI ----------
-function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const ffa=(NET.on?NET.kind:(settings.gm==='ffa'?'ffa':'1v1'))==='ffa';
-  $id('olHead').textContent=ffa?'Play online · free for all (3-4)':'Play online · 1v1';
-  const host=NET.on&&NET.role==='host', me=NET.on?myPeerId():null;
-  el.innerHTML=NET.on? NET.seats.map((st,i)=>`<div class="ol-seat" style="--c:${TEAM[SLOT_TEAMS[i]].css}"><i></i><span>${esc(st.n)}${st.p===me?' (you)':''}${st.b?' <em>bot</em>':''}${i===0?' <em>host</em>':''}</span></div>`).join('')+(ffa&&!NET.started?Array.from({length:Math.max(0,4-NET.seats.length)},()=>'<div class="ol-seat empty"><i></i><span>Empty seat</span></div>').join(''):'') : '';
-  const hb=$id('olHostBtns'); hb.style.display=host&&ffa&&!NET.started?'':'none';
-  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olStart').disabled=NET.seats.length<3;
+function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.on?NET.kind:(['ffa','2v2'].includes(settings.gm)?settings.gm:'1v1'); const multi=kind!=='1v1', two=kind==='2v2';
+  $id('olHead').textContent=kind==='ffa'?'Play online · free for all (3-4)':two?'Play online · 2v2':'Play online · 1v1';
+  const host=NET.on&&NET.role==='host', me=NET.on?myPeerId():null; const K=NET.kind; NET.kind=kind;
+  const seat=(st,i)=>`<div class="ol-seat" style="--c:${seatTeam(i).css}"><i></i><span>${esc(st.n)}${st.p===me?' (you)':''}${st.b?' <em>bot</em>':''}${i===0?' <em>host</em>':''}${two?` <em>${i%2?'orange':'blue'}</em>`:''}</span></div>`;
+  const empty=i=>`<div class="ol-seat empty"${two?` style="--c:${seatTeam(i).css}"`:''}><i></i><span>${two?(i%2?'Orange':'Blue')+' seat':'Empty seat'}</span></div>`;
+  el.innerHTML=NET.on? NET.seats.map(seat).join('')+(multi&&!NET.started?Array.from({length:Math.max(0,4-NET.seats.length)},(_,k)=>empty(NET.seats.length+k)).join(''):'') : '';
+  NET.kind=K;
+  const hb=$id('olHostBtns'); hb.style.display=host&&multi&&!NET.started?'':'none'; const need=two?4:3;
+  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olStart').disabled=NET.seats.length<need;
   $id('olCancel').textContent=host?'CLOSE ROOM':'LEAVE ROOM';
-  const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (ffa? (n<3?`Waiting for players… (${n}/4). You need 3 to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (ffa?`${n} in the room. Waiting for the host to start…`:'Get ready…');
+  const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (multi? (n<need?`Waiting for players… (${n}/4). ${two?'2v2 needs 4':'You need 3'} to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (multi?`${n} in the room. Waiting for the host to start…`:'Get ready…');
   const nm=$id('olName'); if(nm&&document.activeElement!==nm) nm.value=settings.name||''; }
 $id('onlineBtn').addEventListener('click',()=>{ SFX.unlock(); const p=$id('online'); p.classList.toggle('open'); if(p.classList.contains('open')){ olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } });
 function newCode(){ let c=''; for(let i=0;i<5;i++) c+=NET_ALPHA[Math.floor(Math.random()*NET_ALPHA.length)]; return c; }
@@ -189,10 +193,10 @@ $id('olCreate').addEventListener('click',()=>{ SFX.unlock(); if(NET.on) return; 
 const codeIn=$id('olCode'); codeIn.addEventListener('input',()=>{ codeIn.value=codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
 const doJoin=()=>{ SFX.unlock(); if(NET.on) return; const c=codeIn.value.trim().toUpperCase(); if(!/^[A-Z0-9]{5}$/.test(c)){ olMsg('Type the 5-character room code.',true); return; } netOpen(c,'guest'); };
 $id('olJoin').addEventListener('click',doJoin); codeIn.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter') doJoin(); });
-const nameIn=$id('olName'); nameIn.addEventListener('keydown',e=>e.stopPropagation()); nameIn.addEventListener('input',()=>{ settings.name=cleanName(nameIn.value)==='Player'&&!nameIn.value.trim()?'':nameIn.value.replace(/[<>&"'`]/g,'').slice(0,14); saveSettings(); if(NET.on&&NET.role==='host'&&NET.seats[0]) NET.seats[0].n=myName(); if(state==='menu'&&settings.gm==='ffa') player.name=myName(); });
+const nameIn=$id('olName'); nameIn.addEventListener('keydown',e=>e.stopPropagation()); nameIn.addEventListener('input',()=>{ settings.name=cleanName(nameIn.value)==='Player'&&!nameIn.value.trim()?'':nameIn.value.replace(/[<>&"'`]/g,'').slice(0,14); saveSettings(); if(NET.on&&NET.role==='host'&&NET.seats[0]) NET.seats[0].n=myName(); if(state==='menu'&&settings.gm!=='1v1') player.name=myName(); });
 $id('olAddBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length>=4) return; const used=new Set(NET.seats.map(s=>s.n)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; NET.seats.push({p:'bot'+Math.random().toString(36).slice(2,7),n,b:true}); lobbyRender(); SFX.hover(); });
 $id('olDelBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started) return; for(let i=NET.seats.length-1;i>0;i--) if(NET.seats[i].b){ NET.seats.splice(i,1); break; } lobbyRender(); });
-$id('olStart').addEventListener('click',()=>{ SFX.unlock(); if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length<3) return; requestLock(); netHostStart(); });
+$id('olStart').addEventListener('click',()=>{ SFX.unlock(); if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length<seatsNeeded()) return; requestLock(); netHostStart(); });
 $id('olCopy').addEventListener('click',()=>{ try{ navigator.clipboard.writeText(NET.code).then(()=>olMsg('Code copied.'),()=>olMsg('Copy failed. Read it out instead: '+NET.code)); }catch(e){ olMsg('Copy failed. Read it out instead: '+NET.code); } });
 $id('olCancel').addEventListener('click',()=>{ netLeave(); olView('main'); olMsg(''); });
 netReset();

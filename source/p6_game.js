@@ -13,9 +13,12 @@ function seatFighter(i){ if(i===0) return player; if(i===1) return bot; while(ff
 function myName(){ return (settings.name||'').trim()||'You'; }
 // seats: [{ctl:'local'|'ai'|'net', name}] in seat order; seat 0 is always this screen's own fighter in solo play
 function setRoster(seats){ for(const f of ffaPool) f.setActive(false); fighters.length=0;
-  seats.forEach((s,i)=>{ const f=s.f||seatFighter(i); f.slot=s.slot!==undefined?s.slot:i; f.ctl=s.ctl; f.name=s.name; f.peer=s.peer||null; f.setTeam(TEAM[SLOT_TEAMS[f.slot]]); f.setActive(true); f.score=0; fighters.push(f); });
+  seats.forEach((s,i)=>{ const f=s.f||seatFighter(i); f.slot=s.slot!==undefined?s.slot:i; f.side=s.side!==undefined?s.side:f.slot; f.ctl=s.ctl; f.name=s.name; f.peer=s.peer||null; f.setTeam(matchKind==='2v2'?(f.side===0?TEAM.player:TEAM.bot):TEAM[SLOT_TEAMS[f.slot]]); f.setActive(true); f.score=0; fighters.push(f); });
   if(!fighters.includes(bot)){ bot.setActive(false); } }
 function roster1v1(){ matchKind='1v1'; player.name='YOU'; setRoster([{f:player,ctl:'local',name:'YOU',slot:0},{f:bot,ctl:'ai',name:'BOT',slot:1}]); }
+// 2v2: you + a bot buddy (blue) against two bots (orange)
+function roster2v2Solo(){ matchKind='2v2'; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
+  setRoster([{f:player,ctl:'local',name:myName(),slot:0,side:0},{f:seatFighter(1),ctl:'ai',name:names[0],slot:1,side:1},{f:seatFighter(2),ctl:'ai',name:names[1]+' (ally)',slot:2,side:0},{f:seatFighter(3),ctl:'ai',name:names[2],slot:3,side:1}]); }
 function rosterFFASolo(){ matchKind='ffa'; const n=settings.ffaBots==='2'?2:3; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   const seats=[{f:player,ctl:'local',name:myName(),slot:0}]; for(let i=1;i<=n;i++) seats.push({f:seatFighter(i),ctl:'ai',name:names[i-1],slot:i}); setRoster(seats); }
 
@@ -101,6 +104,7 @@ function pollPad(dt){
 
 // ================= FLOW =================
 function placeAtBases(){
+  if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   const sw=NET.on&&NET.role==='guest'; // the guest spawns at the far base so both screens agree on the world
   player.pos.copy(sw?BASE_POS.bot:BASE_POS.player); player.vel.set(0,0,0); player.yaw=sw?Math.PI/2:-Math.PI/2; player.pitch=0; player.onGround=true;
@@ -112,23 +116,24 @@ function resetInputs(){ fireHeld=false; firePressed=false; blockBuf=0; wantDash=
 function beginRound(){ bakeHook(scene);
   clearProjectiles(); for(const f of fighters){ f.resetRound(); aiReset(f); } placeAtBases(); resetInputs();
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; roundInfo.botHpFrac=1;
-  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind==='ffa'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
+  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind!=='1v1'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
 }
 function startMatch(){
-  mode='match'; sandbox.open=false; show(UI.sandbox,false); if(!NET.on){ if(settings.gm==='ffa') rosterFFASolo(); else roster1v1(); }
+  mode='match'; sandbox.open=false; show(UI.sandbox,false); if(!NET.on){ if(settings.gm==='ffa') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); }
   { const mp=matchKind==='ffa'?'ffa':((NET.on&&NET.role==='guest'&&NET.hostMap)?NET.hostMap:settings.map); if(curMapId!==mp) applyMap(mp); } document.getElementById('online').classList.remove('open');
   score.player=0; score.bot=0; roundNum=1; for(const f of fighters){ f.setCards([]); f.score=0; } matchOverPending=false; lastWinner=null; ffaBoardKey='';
   for(const k in matchStats) matchStats[k]=0;
-  UI.roundSub.textContent= matchKind==='ffa'? (NET.on?'FREE FOR ALL · FIRST TO 5 · ROOM '+NET.code:'FREE FOR ALL · FIRST TO 5') : NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
+  UI.roundSub.textContent= matchKind==='2v2'? (NET.on?'2V2 · FIRST TO 5 · ROOM '+NET.code:'2V2 · FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOTS') : matchKind==='ffa'? (NET.on?'FREE FOR ALL · FIRST TO 5 · ROOM '+NET.code:'FREE FOR ALL · FIRST TO 5') : NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
 function toMenu(){ if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
-function timeUp(){ if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
+function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
+  if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
   const pf=player.hp/player.maxHp(), bf=bot.hp/bot.maxHp(); const loser= pf<bf?player:(bf<pf?bot:(Math.random()<0.5?player:bot)); toast(`<b>TIME!</b> Most health left takes the round`,'status'); if(loser===player) roundInfo.cause='time'; killFighter(loser,other(loser)); }
 const CAUSE={time:'Time ran out and the bot had more health left.',fall:'You fell off the edge.',shot:'The bot\'s shot finished you.',blast:'You were caught in an explosion.',bomb:'A bomb got you.',aura:'The bot\'s aura drained you.',dome:'The bot\'s dome effect got you.',poison:'Poison finished you.',cloud:'A toxic cloud finished you.',nova:'The supernova got you.'};
 function onRoundEnd(winner){
-  if(matchKind==='ffa'){ const youWon=winner===player; if(youWon){ showBanner('ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner(winner?winner.name.toUpperCase()+' WINS IT':'NOBODY WINS','#e0364f','lose'); SFX.lose(); }
+  if(matchKind!=='1v1'){ const youWon=matchKind==='2v2'?(winner&&winner.side===player.side):winner===player; if(youWon){ showBanner(matchKind==='2v2'?'YOUR TEAM WINS!':'ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner(!winner?'NOBODY WINS':matchKind==='2v2'?'THEY TAKE IT':winner.name.toUpperCase()+' WINS IT','#e0364f','lose'); SFX.lose(); }
     if(fighters.some(f=>f.score>=CFG.winsToTakeMatch)) matchOverPending=true; ffaBoardKey=''; updateHUD(); return; }
   const youWon=winner.isPlayer;
   if(youWon){ showBanner('ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner('KNOCKED OUT!','#e0364f','lose'); SFX.lose(); }
@@ -146,7 +151,7 @@ UI.startBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); 
 UI.againBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on){ if(NET.role==='host'){ requestLock(); netHostStart(); } else toast('Waiting for the room host to start the rematch…','status'); return; } requestLock(); startMatch(); });
 function fillStats(statsEl,cardsEl){
   const acc=matchStats.shots? Math.round(matchStats.hits/matchStats.shots*100):0;
-  statsEl.innerHTML=[['Score',mode==='sandbox'?'–':matchKind==='ffa'?fighters.map(f=>f.score).join(' · '):score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
+  statsEl.innerHTML=[['Score',mode==='sandbox'?'–':matchKind==='2v2'?player.score+' – '+(fighters.find(f=>f.side!==player.side)||{score:0}).score:matchKind==='ffa'?fighters.map(f=>f.score).join(' · '):score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
   cardsEl.innerHTML=stripHTML(player)||'<span class="none">No cards yet.</span>';
 }
 
@@ -219,13 +224,13 @@ function cardHTML(id,i,owned,coach){ const c=CARDS[id];
   return `${coach?'<div class="coachtag">★ COACH PICK</div>':''}<div class="card-in"><div class="face back"><div class="backlogo">DOME<br>ROUNDS</div></div><div class="face front"><i class="br tl"></i><i class="br tr"></i><i class="br bl"></i><i class="br brr"></i><div class="ctitle">${c.name}</div><div class="cmeta"><span class="ctype">${typeIcon(c.type)}${TYPE_LABEL[c.type]}</span></div><div class="art">${ART.svg(id)}<div class="glare"></div></div><div class="cdesc">${c.tag}</div><div class="lines">${c.lines.map(l=>`<div><b class="${l[2]?'good':'bad'}">${l[0]}</b> ${l[1]}</div>`).join('')}</div><div class="cfoot"><span class="ckey">${i+1}</span>${owned?`<span class="owned">STACK ×${owned+1}</span>`:'<span class="new">NEW</span>'}</div></div></div>`; }
 function startDraft(){
   state='draft'; clearProjectiles(); for(const f of fighters) f.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner'; SFX.music('draft');
-  const ffa=matchKind==='ffa';
-  const playerLost = ffa? lastWinner!==player : lastWinner===bot; for(const f of fighters) f.setMood(f===lastWinner?'happy':'worried',999);
+  const ffa=matchKind!=='1v1'; // FFA and 2v2: everyone picks every round
+  const playerLost = matchKind==='2v2'? !(lastWinner&&lastWinner.side===player.side) : ffa? lastWinner!==player : lastWinner===bot; for(const f of fighters) f.setMood(f===lastWinner?'happy':'worried',999);
   if(ffa){ for(const f of fighters) if(f.ctl==='ai'&&(!NET.on||NET.role==='host')) botPick(f); }
   else if(!playerLost&&!NET.on) botPick();
   const opts=pick3(); const rec=coachPick(opts,playerLost); pad.focus=Math.max(0,opts.indexOf(rec.id));
   UI.draftTitle.textContent='PICK A CARD'; draftT=DRAFT_LIMIT; draftTick=-1; UI.draftClock.textContent=DRAFT_LIMIT+'s'; UI.draftClock.classList.remove('warn');
-  UI.draftSub.textContent= ffa? (lastWinner===player?'You won that round! Everyone picks a card.':'Everyone picks a card. Make it count.') : NET.on? (playerLost?'You lost that round. Pick a card, your rival is picking too.':'You won that round. Pick a card, your rival is picking too.') : playerLost? 'You lost that round, so you pick first.' : 'You won! The bot picked first. Your turn.';
+  UI.draftSub.textContent= ffa? (!playerLost?'You won that round! Everyone picks a card.':'Everyone picks a card. Make it count.') : NET.on? (playerLost?'You lost that round. Pick a card, your rival is picking too.':'You won that round. Pick a card, your rival is picking too.') : playerLost? 'You lost that round, so you pick first.' : 'You won! The bot picked first. Your turn.';
   UI.coach.innerHTML=`<b>COACH:</b> take <em style="color:${CARDS[rec.id].c}">${CARDS[rec.id].name}</em>. ${rec.why}`;
   UI.cards.innerHTML=''; renderStatbar(null);
   opts.forEach((id,i)=>{ const c=CARDS[id]; const el=document.createElement('div'); el.className=`card t-${c.type}`+(id===rec.id?' rec':''); el.style.setProperty('--c',c.c); el.style.setProperty('--i',i);
@@ -240,7 +245,8 @@ function startDraft(){
 }
 function endMatch(){
   state='matchover'; exitLock(); SFX.music('menu');
-  let won=score.player>score.bot; if(matchKind==='ffa'){ const top=fighters.slice().sort((a,b)=>b.score-a.score)[0]; won=top===player; UI.moTitle.textContent=won?'YOU WIN!':esc(top.name).toUpperCase()+' WINS'; UI.moSub.textContent=fighters.slice().sort((a,b)=>b.score-a.score).map((f,i)=>`${i+1}. ${f===player?myName():f.name}  ${f.score}`).join('   '); }
+  let won=score.player>score.bot; if(matchKind==='2v2'){ const op=fighters.find(f=>f.side!==player.side); won=player.score>(op?op.score:0); UI.moTitle.textContent=won?'YOUR TEAM WINS!':'ORANGE TEAM WINS'; UI.moSub.textContent=`${player.score} – ${op?op.score:0}. `+(won?'Great teamwork.':'Regroup and run it back.'); }
+  else if(matchKind==='ffa'){ const top=fighters.slice().sort((a,b)=>b.score-a.score)[0]; won=top===player; UI.moTitle.textContent=won?'YOU WIN!':esc(top.name).toUpperCase()+' WINS'; UI.moSub.textContent=fighters.slice().sort((a,b)=>b.score-a.score).map((f,i)=>`${i+1}. ${f===player?myName():f.name}  ${f.score}`).join('   '); }
   else { UI.moTitle.textContent=won?'YOU WIN!':(NET.on?'RIVAL WINS':'BOT WINS'); UI.moSub.textContent=won?'Champion of the arena. Try a harder bot next?':'So close. Try the Easy bot, or practise your build in the sandbox.'; } UI.moTitle.className='title stroke '+(won?'win':'lose');
   fillStats(UI.moStats,UI.moCards); player.setMood(won?'happy':'worried',999); show(UI.matchover,true,'block'); show(UI.hud,false);
 }
@@ -268,7 +274,7 @@ function updateHUD(){
   UI.vignette.style.opacity=String(clamp((0.35-ph)*2.4,0,0.85)); UI.hurt.style.opacity=String(clamp(hurtT*2.5,0,0.8));
   UI.hitmark.style.opacity=hitMarkerT>0?'1':'0'; UI.hitmark.classList.toggle('kill',killMarkT>0); UI.hitmark.style.transform=`translate(-50%,-50%) rotate(45deg) scale(${(1+hitMarkerT*3).toFixed(2)})`;
   UI.crosshair.style.setProperty('--k',(crossKick*10).toFixed(1)+'px');
-  if(matchKind==='ffa') updateFFAHud(); else if(UI.specMsg._on){ UI.specMsg._on=false; UI.specMsg.style.display='none'; }
+  if(matchKind!=='1v1') updateFFAHud(); else if(UI.specMsg._on){ UI.specMsg._on=false; UI.specMsg.style.display='none'; }
   const steering=!!remoteCtl.b; if(UI.steer._on!==steering){ UI.steer._on=steering; UI.steer.style.display=steering?'block':'none'; }
   const tips=tipsT>0&&state==='fight'; if(UI.tips._on!==tips){ UI.tips._on=tips; UI.tips.style.display=tips?'block':'none'; }
   if(dmgDirT>0&&!player.dead){ const to=V3().subVectors(dmgFrom,player.pos); const a=Math.atan2(-to.x,-to.z)-player.yaw; UI.dmgdir.style.opacity=String(Math.min(1,dmgDirT*1.6)); UI.dmgdir.style.transform=`translate(-50%,-50%) rotate(${(-a*180/Math.PI).toFixed(1)}deg)`; } else UI.dmgdir.style.opacity='0';
@@ -279,7 +285,7 @@ function updateHUD(){
 let ffaBoardKey=''; const ffaRows=new Map(), tagEls=new Map();
 function updateFFAHud(){
   const key=fighters.map(f=>f.id+':'+f.score+':'+(f.dead?1:0)+':'+f.name).join('|');
-  if(key!==ffaBoardKey){ ffaBoardKey=key; UI.ffaBoard.innerHTML=fighters.slice().sort((a,b)=>b.score-a.score).map(f=>`<div class="fb-row${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}" data-id="${f.id}"><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?myName():f.name)}${f===player&&myName()!=='You'?' <small>(you)</small>':''}</span><span class="fb-pp">${Array.from({length:CFG.winsToTakeMatch},(_,k)=>`<i class="${k<f.score?'on':''}"></i>`).join('')}</span><span class="fb-hp"><b></b></span></div>`).join('');
+  if(key!==ffaBoardKey){ ffaBoardKey=key; UI.ffaBoard.innerHTML=fighters.slice().sort((a,b)=>matchKind==='2v2'?(a.side-b.side)||(a.slot-b.slot):b.score-a.score).map(f=>`<div class="fb-row${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}" data-id="${f.id}"><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?myName():f.name)}${f===player&&myName()!=='You'?' <small>(you)</small>':''}</span><span class="fb-pp">${Array.from({length:CFG.winsToTakeMatch},(_,k)=>`<i class="${k<f.score?'on':''}"></i>`).join('')}</span><span class="fb-hp"><b></b></span></div>`).join('');
     ffaRows.clear(); for(const el of UI.ffaBoard.children) ffaRows.set(+el.dataset.id,el.querySelector('.fb-hp b')); }
   for(const f of fighters){ const b=ffaRows.get(f.id); if(b) b.style.width=(f.dead?0:clamp(f.hp/f.maxHp(),0,1)*100).toFixed(1)+'%'; }
   const live=new Set(), on=state==='fight'||state==='countdown';
@@ -296,7 +302,7 @@ function ffaKnockout(f,by,left){ const nm=x=>x===player?'You':esc(x.name);
   if(f===player&&left>1){ showBanner('KNOCKED OUT!','#e0364f','lose'); SFX.lose(); specT=null; }
   if(by===player){ hitMarkerT=0.45; killMarkT=0.45; } ffaBoardKey=''; }
 // the menu shows the line-up for the mode you've picked
-function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa') rosterFFASolo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); }
+function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); }
 
 // ================= BOT AI =================
 // each bot keeps its own plan and picks who to fight: the closest enemy it can see, with a grudge against whoever hit it last
@@ -381,7 +387,7 @@ function updateBullets(dt){
     for(let s=0;s<steps&&!done;s++){
       b.pos.addScaledVector(b.vel,sdt); b.dist+=speed*sdt;
       let refl=false;
-      for(const e of fighters){ if(e===b.owner||e.dead||e.active===false) continue;
+      for(const e of fighters){ if(e.side===b.owner.side||e.dead||e.active===false) continue;
         if(e.blockActive&&b.pos.distanceTo(e.domeC())<e.domeR()+br&&b.pos.y>e.pos.y-0.3){ for(let k=0;k<5;k++) spawnShard(b.pos.clone(),V3(rand(-1,1),rand(0,1),rand(-1,1)).multiplyScalar(4),e.team.light,0.2,0.35,0.6); reflectBullet(b,e); refl=true; break; }
         if(e.distTo(b.pos)<e.hitR+br){ hitFighter(b,e); removeBullet(i); done=true; break; } }
       if(done||refl) break;
@@ -404,7 +410,7 @@ function computeAimPoint(){
 }
 let camDist=1, specT=null;
 // knocked out in FFA: watch whoever knocked you out (or anyone still standing)
-function camFighter(){ if(!(matchKind==='ffa'&&player.dead&&(state==='fight'||state==='roundover'))) return player; if(specT&&!specT.dead&&specT.active!==false) return specT; specT=(player.lastHitBy&&!player.lastHitBy.dead)?player.lastHitBy:fighters.find(f=>!f.dead&&f.active!==false)||player; return specT; }
+function camFighter(){ if(!(matchKind!=='1v1'&&player.dead&&(state==='fight'||state==='roundover'))) return player; if(specT&&!specT.dead&&specT.active!==false) return specT; specT=fighters.find(f=>f!==player&&f.side===player.side&&!f.dead&&f.active!==false)||((player.lastHitBy&&!player.lastHitBy.dead)?player.lastHitBy:null)||fighters.find(f=>!f.dead&&f.active!==false)||player; return specT; }
 function updateCamera(dt){ if(camHold) return;
   const t=gameT;
   if(state==='menu'){ const p=player.pos; camera.fov=50; camera.updateProjectionMatrix(); camera.position.set(p.x+4.3+Math.sin(t*0.3)*0.15,p.y+1.6,p.z-1.9+Math.cos(t*0.25)*0.12); camera.lookAt(p.x,p.y+1.2,p.z+1.3); return; }

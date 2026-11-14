@@ -180,7 +180,7 @@ function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Gr
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
   const e=m.env; scene.fog.color.copy(col(e.fog[0])); scene.fog.near=e.fog[1]; scene.fog.far=e.fog[2]; hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity=e.hemi[2]; sun.color.set(e.sun[0]); sun.intensity=e.sun[1]; sun.position.set(e.sun[2][0],e.sun[2][1],e.sun[2][2]); applyBloom(); }
-const QUAL={ low:{pr:0.6,sh:0,post:0}, medium:{pr:0.85,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:4096,post:1} };
+const QUAL={ low:{pr:0.6,sh:0,post:0}, medium:{pr:0.85,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
 function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) return; try{
   const sz=renderer.getDrawingBufferSize(new T.Vector2()); const P={minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,encoding:T.sRGBEncoding};
   const ms=renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget; const rt= ms? new T.WebGLMultisampleRenderTarget(sz.x,sz.y,P) : new T.WebGLRenderTarget(sz.x,sz.y,P);
@@ -188,6 +188,7 @@ function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) ret
 function applyBloom(){ if(bloomPass&&curMap&&curMap.env.bloom){ const b=curMap.env.bloom; bloomPass.strength=b[0]; bloomPass.radius=b[1]; bloomPass.threshold=b[2]; } }
 function drawFrame(){ lookFrame(); if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
 let shadowSize=2048;
-function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.5,Math.min(dpr,2)) : Math.min(dpr,d.pr)); renderer.setPixelRatio(pixelRatio); resize();
+function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.25,Math.min(dpr,2)) : Math.min(dpr,d.pr));
+  { const px=window.innerWidth*window.innerHeight, cap=q==='ultra'?6.0e6:4.2e6; if(px*pixelRatio*pixelRatio>cap) pixelRatio=Math.max(0.6,Math.sqrt(cap/px)); } // big screens: don't ask the graphics card for more pixels than it can hold renderer.setPixelRatio(pixelRatio); resize();
   sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } try{ lookQuality(q); }catch(e){ console.warn(e); } }
 buildTextures(); buildMaterials();

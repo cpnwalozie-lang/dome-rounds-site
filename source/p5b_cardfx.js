@@ -126,6 +126,7 @@ let dzEl=null, dzStars=[], dzAmt=0, dzPulse=0, dzLastN=0;
 function updateDazzleView(dt,t){ if(!dzEl){ dzEl=document.getElementById('dazzle'); if(!dzEl) return; dzStars=[...dzEl.querySelectorAll('b')]; }
   const on=player.dazzleN>0&&!player.dead&&state==='fight'; dzAmt=approach(dzAmt,on?1:0,dt*(on?5:2));
   if(player.dazzleN!==dzLastN){ if(player.dazzleN>0) dzPulse=1; dzLastN=player.dazzleN; } dzPulse=Math.max(0,dzPulse-dt*2.5);
+  const cv=renderer.domElement; if(dzAmt<0.005){ if(cv._dz){ cv._dz=false; cv.style.filter=''; } } else { cv._dz=true; const bl=dzAmt*(3+2.2*Math.min(player.dazzleN,3))+dzPulse*4+Math.sin(t*5)*0.6*dzAmt; cv.style.filter=`blur(${Math.max(0,bl).toFixed(1)}px) saturate(${(1+0.4*dzAmt).toFixed(2)}) brightness(${(1+0.12*dzAmt).toFixed(2)})`; } // really blurs your view
   dzEl.style.opacity=dzAmt.toFixed(3); if(dzAmt<0.005) return;
   const r=66-32*dzAmt-dzPulse*10+Math.sin(t*6)*2.5*dzAmt; dzEl.style.setProperty('--r',r.toFixed(1)+'%'); dzEl.style.setProperty('--b',(3+6*dzAmt+dzPulse*4).toFixed(1)+'px');
   dzStars.forEach((s,i)=>{ const a=i/dzStars.length*Math.PI*2+t*0.9; s.style.transform=`translate(-50%,-50%) translate(${(Math.cos(a)*40).toFixed(1)}vw,${(Math.sin(a)*38).toFixed(1)}vh) rotate(${(t*120+i*40)%360}deg) scale(${(0.8+0.3*Math.sin(t*5+i)).toFixed(2)})`; }); }

@@ -1052,7 +1052,7 @@ function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Gr
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
   const e=m.env; scene.fog.color.copy(col(e.fog[0])); scene.fog.near=e.fog[1]; scene.fog.far=e.fog[2]; hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity=e.hemi[2]; sun.color.set(e.sun[0]); sun.intensity=e.sun[1]; sun.position.set(e.sun[2][0],e.sun[2][1],e.sun[2][2]); applyBloom(); }
-const QUAL={ low:{pr:0.6,sh:0,post:0}, medium:{pr:0.85,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:4096,post:1} };
+const QUAL={ low:{pr:0.6,sh:0,post:0}, medium:{pr:0.85,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
 function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) return; try{
   const sz=renderer.getDrawingBufferSize(new T.Vector2()); const P={minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,encoding:T.sRGBEncoding};
   const ms=renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget; const rt= ms? new T.WebGLMultisampleRenderTarget(sz.x,sz.y,P) : new T.WebGLRenderTarget(sz.x,sz.y,P);
@@ -1060,7 +1060,8 @@ function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) ret
 function applyBloom(){ if(bloomPass&&curMap&&curMap.env.bloom){ const b=curMap.env.bloom; bloomPass.strength=b[0]; bloomPass.radius=b[1]; bloomPass.threshold=b[2]; } }
 function drawFrame(){ lookFrame(); if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
 let shadowSize=2048;
-function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.5,Math.min(dpr,2)) : Math.min(dpr,d.pr)); renderer.setPixelRatio(pixelRatio); resize();
+function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.25,Math.min(dpr,2)) : Math.min(dpr,d.pr));
+  { const px=window.innerWidth*window.innerHeight, cap=q==='ultra'?6.0e6:4.2e6; if(px*pixelRatio*pixelRatio>cap) pixelRatio=Math.max(0.6,Math.sqrt(cap/px)); } // big screens: don't ask the graphics card for more pixels than it can hold renderer.setPixelRatio(pixelRatio); resize();
   sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } try{ lookQuality(q); }catch(e){ console.warn(e); } }
 buildTextures(); buildMaterials();
 
@@ -1320,7 +1321,7 @@ function lookMap(id){ const m=MAPS[id]; if(!m||!m.group) return; const L=LOOK_MA
   const low=LOOK.q==='low'; renderer.toneMapping=low?T.NoToneMapping:T.ACESFilmicToneMapping; scene.environment=low?null:lookEnv(id); if(low){ hemi.intensity=e.hemi[2]; sun.intensity=e.sun[1]; }
   for(const mr of LOOK.mirrors) lookMirrorOn(mr); lookGradeSet(); }
 function lookMirrorOn(mr){ const inMap=curMap&&curMap.group&&(()=>{ let p=mr.mesh; while(p){ if(p===curMap.group) return true; p=p.parent; } return false; })();
-  mr.on=inMap&&(LOOK.q==='high'||LOOK.q==='ultra'); mr.res=LOOK.q==='ultra'?0.6:0.42; if(mr.toggle) mr.toggle(mr.on); if(mr.uni&&mr.uni.reflOn) mr.uni.reflOn.value=mr.on?1:0; if(mr.uni&&mr.uni.px) mr.uni.px.value.set(1/Math.max(64,mr.rt.width),1/Math.max(64,mr.rt.height)); }
+  mr.on=inMap&&(LOOK.q==='high'||LOOK.q==='ultra'); mr.res=LOOK.q==='ultra'?0.5:0.42; if(mr.toggle) mr.toggle(mr.on); if(mr.uni&&mr.uni.reflOn) mr.uni.reflOn.value=mr.on?1:0; if(mr.uni&&mr.uni.px) mr.uni.px.value.set(1/Math.max(64,mr.rt.width),1/Math.max(64,mr.rt.height)); }
 function lookQuality(q){ LOOK.q=q; if(postOn) lookGradePass(); if(curMap&&curMap.group) lookMap(curMapId); }
 function lookModelsArrived(){ for(const k in MAPS){ const m=MAPS[k]; if(!m.group) continue; m.lookDone=false; lookUntone(m.group); m.group.traverse(o=>{ if(o.isMesh) for(const mt of [].concat(o.material)) if(mt) mt.userData.look=0; }); lookTune(m.group,k); lookLayers(m.group,k); m.lookDone=true; if(LOOK.env[k]) lookEnv(k,true); } if(curMap) lookMap(curMapId); }
 // Effects and fighters are made on the fly: glows/bullets stay full colour, like the map's lights.
@@ -1383,6 +1384,16 @@ function lookMerge(m){ if(m.merged||!m.group) return; m.merged=true; const g=m.g
   m.mergeInfo={static:stat.length,removed:removed.size,batches:made}; }
 function lookTryMerge(m){ if(/[?&]nomerge/.test(location.search)) return; if(m.merged||!m.group||!m.lookDone) return; const kenOk=KEN.ready||KEN.failed; if(!kenOk||!DET.ready) return; lookMerge(m); }
 
+// ---- if the graphics card gives up (out of memory on heavy settings), recover instead of sitting on a black screen ----
+(()=>{ const cv=renderer.domElement; let lostT=0;
+  cv.addEventListener('webglcontextlost',e=>{ e.preventDefault(); LOOK.lost=true; lostT=performance.now(); try{ toast('<b>Graphics hiccup.</b> Recovering…','status'); }catch(_){}
+    setTimeout(()=>{ if(LOOK.lost){ try{ toast('<b>The graphics stopped.</b> Refresh the page and pick a lower quality.','status'); }catch(_){} } },6000); },false);
+  cv.addEventListener('webglcontextrestored',()=>{ LOOK.lost=false; LOOK.env={}; LOOK.pmrem=null; LOOK.cube=null; LOOK.cubeCam=null;
+    const cur=settings.quality==='auto'?(LOOK.q||'high'):settings.quality; const down={ultra:'high',high:'medium',medium:'low',low:'low'}[cur]||'medium';
+    if(settings.quality!=='auto'){ settings.quality=down; try{ saveSettings(); }catch(_){} const sel=document.querySelector('[data-k="quality"]'); if(sel) sel.value=down; }
+    for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.traverse(o=>{ if(o.material) for(const m of [].concat(o.material)) if(m) m.needsUpdate=true; });
+    try{ applyQuality(down); }catch(_){} try{ toast(`Graphics were too heavy for this device, so I switched to <b>${down[0].toUpperCase()+down.slice(1)}</b>.`,'you'); }catch(_){} },false); })();
+
 // ================= DOME SHADER (glassy guardian shield) =================
 const DOME_VS='varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP=position; vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }';
 const DOME_FS=`uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uniform float split; uniform float opacity; uniform float time; uniform float fill; uniform float flash; uniform float hitAge; uniform vec3 hitDir; varying vec3 vN; varying vec3 vV; varying vec3 vP;
@@ -1413,7 +1424,7 @@ const AURA_COL={chill:0x9fd8ff,staticf:0xffe066,drain:0xff6b9d};
 // ================= FIGHTER (round buddy) =================
 class Fighter{
   constructor(name,isPlayer,team){
-    this.name=name; this.isPlayer=isPlayer; this.team=team||(isPlayer?TEAM.player:TEAM.bot); this.color=this.team.ink; this.id=Fighter.N=(Fighter.N||0)+1; this.ctl=isPlayer?'local':'ai'; this.score=0; this.slot=isPlayer?0:1; this.spawn=V3(); this.lastHitBy=null;
+    this.name=name; this.isPlayer=isPlayer; this.team=team||(isPlayer?TEAM.player:TEAM.bot); this.color=this.team.ink; this.id=Fighter.N=(Fighter.N||0)+1; this.ctl=isPlayer?'local':'ai'; this.score=0; this.slot=isPlayer?0:1; this.side=this.id; this.spawn=V3(); this.lastHitBy=null;
     this.pos=V3(); this.vel=V3(); this.yaw=0; this.pitch=0; this.onGround=false; this.wasGround=false;
     this.radius=0.5; this.height=2.05; this.bodyY=1.3; this.hitR=0.58;
     this.cards=[]; this.stats=computeStats([]);
@@ -1620,7 +1631,7 @@ const bullets=[], bombs=[], explosions=[], fields=[], stickies=[], empShards=[];
 const sphGeo=new T.SphereGeometry(1,14,10), dropGeo=new T.IcosahedronGeometry(1,1), tailGeo=new T.ConeGeometry(1,1,10,1,true), orbRingGeo=new T.TorusGeometry(1,0.07,6,20);
 const UP=V3(0,1,0);
 const FXM={}; const remoteCtl={b:null,yaw:0,pitch:0};
-const enemies=f=>fighters.filter(x=>x!==f&&!x.dead&&x.active!==false); // everyone f can hurt
+const enemies=f=>fighters.filter(x=>x!==f&&x.side!==f.side&&!x.dead&&x.active!==false); // everyone f can hurt (not teammates)
 function fxMats(key,tints){ const k=key+'_'+tints.join('.'); if(FXM[k]) return FXM[k]; const tc=TEAM[key]; const a=tints[0], b=tints[1]||a, c3=tints[2]||b;
   return FXM[k]={ core:basic({color:a?col(a).lerp(col(0xffffff),0.72).getHex():0xffffff}), shell:new T.MeshBasicMaterial({color:col(a||tc.ink),transparent:true,opacity:a?0.8:0.6,depthWrite:false,blending:T.AdditiveBlending}), ring:basic({color:b||tc.light}),
     tail:new T.MeshBasicMaterial({color:col(c3||tc.light),transparent:true,opacity:0.55,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide}), glow:new T.SpriteMaterial({map:TX.glow,color:col(a||tc.ink),blending:T.AdditiveBlending,depthWrite:false,transparent:true,opacity:0.85}) }; }
@@ -1753,7 +1764,7 @@ function applyDamage(target,amount,source,o={}){
 function applySlow(t,amt,dur){ if(t.slowT>0){ t.slowAmt=Math.max(t.slowAmt,amt); t.slowT=Math.max(t.slowT,dur);} else { t.slowAmt=amt; t.slowT=dur; } }
 function explode(pos,r,dmg,owner,hurtOwner,cause='blast'){
   spawnExplosionFx(pos,r,owner.color); SFX.explode();
-  for(const f of fighters){ if(f.dead||f.active===false) continue; if(f===owner&&!hurtOwner) continue; const d=f.distTo(pos); if(d<r+0.52){ const k=1-clamp((d-0.52)/r,0,1)*0.6; applyDamage(f,dmg*k,owner,{cause}); const push=V3().subVectors(f.center(),pos); if(push.lengthSq()<0.01) push.set(0,1,0); push.normalize(); f.vel.addScaledVector(push,6*k); f.vel.y+=4*k; f.onGround=false; } }
+  for(const f of fighters){ if(f.dead||f.active===false) continue; if(f===owner&&!hurtOwner) continue; if(f!==owner&&f.side===owner.side) continue; const d=f.distTo(pos); if(d<r+0.52){ const k=1-clamp((d-0.52)/r,0,1)*0.6; applyDamage(f,dmg*k,owner,{cause}); const push=V3().subVectors(f.center(),pos); if(push.lengthSq()<0.01) push.set(0,1,0); push.normalize(); f.vel.addScaledVector(push,6*k); f.vel.y+=4*k; f.onGround=false; } }
   shakeT=Math.max(shakeT,0.28);
 }
 // bigger shots = bigger effects: A scales areas (clouds, blasts), P scales strength (poison, slows, shoves)
@@ -1762,7 +1773,7 @@ function bulletDamage(b){ return b.dmg*(1+0.045*b.s.grow*b.dist); }
 function impactExtras(b,pos,target){
   const s=b.s, dmg=bulletDamage(b), {A,P}=bulletAmp(b);
   if(s.explosive>0) explode(pos.clone(),(2.4+0.5*(s.explosive-1))*A,dmg*(1+0.25*(s.explosive-1)),b.owner,false);
-  else if(s.splash>0){ const r=(1.3+0.1*s.splash)*A; spawnExplosionFx(pos,r,b.owner.color); for(const f of fighters){ if(f.dead||f.active===false||f===b.owner||f===target) continue; if(f.distTo(pos)<r+0.52) applyDamage(f,(s.splash+dmg*0.3)*P,b.owner,{cause:'blast'}); } }
+  else if(s.splash>0){ const r=(1.3+0.1*s.splash)*A; spawnExplosionFx(pos,r,b.owner.color); for(const f of fighters){ if(f.dead||f.active===false||f.side===b.owner.side||f===target) continue; if(f.distTo(pos)<r+0.52) applyDamage(f,(s.splash+dmg*0.3)*P,b.owner,{cause:'blast'}); } }
   if(s.toxic>0){ const g=groundAt(pos.x,pos.z,pos.y+0.6,0.1); if(g!==null) addField('toxic',V3(pos.x,g,pos.z),(2.3+0.3*(s.toxic-1))*A,4*P,b.owner,s.toxic*P); }
   if(s.timed>0){ const m=new T.Mesh(sphGeo,basic({color:0xffb347})); m.scale.setScalar((0.2+b.r*0.6)*A); const gl=sprite(0xffb347,1.6,0.9); m.add(gl); gl.scale.setScalar(6); scene.add(m); stickies.push({target:target||null,off:target? pos.clone().sub(target.pos):null,pos:pos.clone(),t:0,dmg:dmg*(target?0.6:1)*(1+0.3*(s.timed-1)),owner:b.owner,m,r:2.1*A,ms:A}); }
 }
@@ -1873,11 +1884,11 @@ function killFighter(f,source){
   if(remoteCtl.b&&(f===player||remoteCtl.b.owner===f)){ remoteCtl.b.remote=false; remoteCtl.b=null; }
   if(mode==='sandbox'){ f.respawnT=1.4; if(!f.isPlayer) toast('<b class="you">You</b> knocked out the <b class="bot">bot</b>','you'); return; }
   const by=(source&&source!==f)?source:null; if(by&&!by.dead) by.setMood('happy',3);
-  if(matchKind==='ffa'){ const alive=fighters.filter(x=>x.active!==false&&!x.dead); ffaKnockout(f,by,alive.length); if(alive.length>1) return; endRoundWith(alive[0]||by); return; }
+  if(matchKind!=='1v1'){ const alive=fighters.filter(x=>x.active!==false&&!x.dead); const sides=new Set(alive.map(x=>x.side)); ffaKnockout(f,by,sides.size); if(sides.size>1) return; endRoundWith(alive[0]||by); return; }
   endRoundWith(other(f));
 }
 function endRoundWith(winner){
-  if(winner){ winner.score++; if(matchKind!=='ffa') score[winner.isPlayer?'player':'bot']++; winner.setMood('happy',5); } lastWinner=winner;
+  if(winner){ if(matchKind==='2v2'){ for(const f of fighters) if(f.side===winner.side){ f.score++; f.setMood('happy',5); } } else winner.score++; if(matchKind==='1v1') score[winner.isPlayer?'player':'bot']++; winner.setMood('happy',5); } lastWinner=winner;
   roundInfo.botHpFrac=bot.dead?0:clamp(bot.hp/bot.maxHp(),0,1);
   state='roundover'; roundOverT=CFG.roundOverTime; slowMoT=0.9; shakeT=Math.max(shakeT,0.4);
   onRoundEnd(winner);
@@ -2011,6 +2022,7 @@ let dzEl=null, dzStars=[], dzAmt=0, dzPulse=0, dzLastN=0;
 function updateDazzleView(dt,t){ if(!dzEl){ dzEl=document.getElementById('dazzle'); if(!dzEl) return; dzStars=[...dzEl.querySelectorAll('b')]; }
   const on=player.dazzleN>0&&!player.dead&&state==='fight'; dzAmt=approach(dzAmt,on?1:0,dt*(on?5:2));
   if(player.dazzleN!==dzLastN){ if(player.dazzleN>0) dzPulse=1; dzLastN=player.dazzleN; } dzPulse=Math.max(0,dzPulse-dt*2.5);
+  const cv=renderer.domElement; if(dzAmt<0.005){ if(cv._dz){ cv._dz=false; cv.style.filter=''; } } else { cv._dz=true; const bl=dzAmt*(3+2.2*Math.min(player.dazzleN,3))+dzPulse*4+Math.sin(t*5)*0.6*dzAmt; cv.style.filter=`blur(${Math.max(0,bl).toFixed(1)}px) saturate(${(1+0.4*dzAmt).toFixed(2)}) brightness(${(1+0.12*dzAmt).toFixed(2)})`; } // really blurs your view
   dzEl.style.opacity=dzAmt.toFixed(3); if(dzAmt<0.005) return;
   const r=66-32*dzAmt-dzPulse*10+Math.sin(t*6)*2.5*dzAmt; dzEl.style.setProperty('--r',r.toFixed(1)+'%'); dzEl.style.setProperty('--b',(3+6*dzAmt+dzPulse*4).toFixed(1)+'px');
   dzStars.forEach((s,i)=>{ const a=i/dzStars.length*Math.PI*2+t*0.9; s.style.transform=`translate(-50%,-50%) translate(${(Math.cos(a)*40).toFixed(1)}vw,${(Math.sin(a)*38).toFixed(1)}vh) rotate(${(t*120+i*40)%360}deg) scale(${(0.8+0.3*Math.sin(t*5+i)).toFixed(2)})`; }); }
@@ -2030,9 +2042,12 @@ function seatFighter(i){ if(i===0) return player; if(i===1) return bot; while(ff
 function myName(){ return (settings.name||'').trim()||'You'; }
 // seats: [{ctl:'local'|'ai'|'net', name}] in seat order; seat 0 is always this screen's own fighter in solo play
 function setRoster(seats){ for(const f of ffaPool) f.setActive(false); fighters.length=0;
-  seats.forEach((s,i)=>{ const f=s.f||seatFighter(i); f.slot=s.slot!==undefined?s.slot:i; f.ctl=s.ctl; f.name=s.name; f.peer=s.peer||null; f.setTeam(TEAM[SLOT_TEAMS[f.slot]]); f.setActive(true); f.score=0; fighters.push(f); });
+  seats.forEach((s,i)=>{ const f=s.f||seatFighter(i); f.slot=s.slot!==undefined?s.slot:i; f.side=s.side!==undefined?s.side:f.slot; f.ctl=s.ctl; f.name=s.name; f.peer=s.peer||null; f.setTeam(matchKind==='2v2'?(f.side===0?TEAM.player:TEAM.bot):TEAM[SLOT_TEAMS[f.slot]]); f.setActive(true); f.score=0; fighters.push(f); });
   if(!fighters.includes(bot)){ bot.setActive(false); } }
 function roster1v1(){ matchKind='1v1'; player.name='YOU'; setRoster([{f:player,ctl:'local',name:'YOU',slot:0},{f:bot,ctl:'ai',name:'BOT',slot:1}]); }
+// 2v2: you + a bot buddy (blue) against two bots (orange)
+function roster2v2Solo(){ matchKind='2v2'; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
+  setRoster([{f:player,ctl:'local',name:myName(),slot:0,side:0},{f:seatFighter(1),ctl:'ai',name:names[0],slot:1,side:1},{f:seatFighter(2),ctl:'ai',name:names[1]+' (ally)',slot:2,side:0},{f:seatFighter(3),ctl:'ai',name:names[2],slot:3,side:1}]); }
 function rosterFFASolo(){ matchKind='ffa'; const n=settings.ffaBots==='2'?2:3; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   const seats=[{f:player,ctl:'local',name:myName(),slot:0}]; for(let i=1;i<=n;i++) seats.push({f:seatFighter(i),ctl:'ai',name:names[i-1],slot:i}); setRoster(seats); }
 
@@ -2118,6 +2133,7 @@ function pollPad(dt){
 
 // ================= FLOW =================
 function placeAtBases(){
+  if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   const sw=NET.on&&NET.role==='guest'; // the guest spawns at the far base so both screens agree on the world
   player.pos.copy(sw?BASE_POS.bot:BASE_POS.player); player.vel.set(0,0,0); player.yaw=sw?Math.PI/2:-Math.PI/2; player.pitch=0; player.onGround=true;
@@ -2129,23 +2145,24 @@ function resetInputs(){ fireHeld=false; firePressed=false; blockBuf=0; wantDash=
 function beginRound(){ bakeHook(scene);
   clearProjectiles(); for(const f of fighters){ f.resetRound(); aiReset(f); } placeAtBases(); resetInputs();
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; roundInfo.botHpFrac=1;
-  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind==='ffa'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
+  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind!=='1v1'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
 }
 function startMatch(){
-  mode='match'; sandbox.open=false; show(UI.sandbox,false); if(!NET.on){ if(settings.gm==='ffa') rosterFFASolo(); else roster1v1(); }
+  mode='match'; sandbox.open=false; show(UI.sandbox,false); if(!NET.on){ if(settings.gm==='ffa') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); }
   { const mp=matchKind==='ffa'?'ffa':((NET.on&&NET.role==='guest'&&NET.hostMap)?NET.hostMap:settings.map); if(curMapId!==mp) applyMap(mp); } document.getElementById('online').classList.remove('open');
   score.player=0; score.bot=0; roundNum=1; for(const f of fighters){ f.setCards([]); f.score=0; } matchOverPending=false; lastWinner=null; ffaBoardKey='';
   for(const k in matchStats) matchStats[k]=0;
-  UI.roundSub.textContent= matchKind==='ffa'? (NET.on?'FREE FOR ALL · FIRST TO 5 · ROOM '+NET.code:'FREE FOR ALL · FIRST TO 5') : NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
+  UI.roundSub.textContent= matchKind==='2v2'? (NET.on?'2V2 · FIRST TO 5 · ROOM '+NET.code:'2V2 · FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOTS') : matchKind==='ffa'? (NET.on?'FREE FOR ALL · FIRST TO 5 · ROOM '+NET.code:'FREE FOR ALL · FIRST TO 5') : NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
 function toMenu(){ if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
-function timeUp(){ if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
+function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
+  if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
   const pf=player.hp/player.maxHp(), bf=bot.hp/bot.maxHp(); const loser= pf<bf?player:(bf<pf?bot:(Math.random()<0.5?player:bot)); toast(`<b>TIME!</b> Most health left takes the round`,'status'); if(loser===player) roundInfo.cause='time'; killFighter(loser,other(loser)); }
 const CAUSE={time:'Time ran out and the bot had more health left.',fall:'You fell off the edge.',shot:'The bot\'s shot finished you.',blast:'You were caught in an explosion.',bomb:'A bomb got you.',aura:'The bot\'s aura drained you.',dome:'The bot\'s dome effect got you.',poison:'Poison finished you.',cloud:'A toxic cloud finished you.',nova:'The supernova got you.'};
 function onRoundEnd(winner){
-  if(matchKind==='ffa'){ const youWon=winner===player; if(youWon){ showBanner('ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner(winner?winner.name.toUpperCase()+' WINS IT':'NOBODY WINS','#e0364f','lose'); SFX.lose(); }
+  if(matchKind!=='1v1'){ const youWon=matchKind==='2v2'?(winner&&winner.side===player.side):winner===player; if(youWon){ showBanner(matchKind==='2v2'?'YOUR TEAM WINS!':'ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner(!winner?'NOBODY WINS':matchKind==='2v2'?'THEY TAKE IT':winner.name.toUpperCase()+' WINS IT','#e0364f','lose'); SFX.lose(); }
     if(fighters.some(f=>f.score>=CFG.winsToTakeMatch)) matchOverPending=true; ffaBoardKey=''; updateHUD(); return; }
   const youWon=winner.isPlayer;
   if(youWon){ showBanner('ROUND WON!','#27c46b','win'); SFX.win(); } else { showBanner('KNOCKED OUT!','#e0364f','lose'); SFX.lose(); }
@@ -2163,7 +2180,7 @@ UI.startBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); 
 UI.againBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on){ if(NET.role==='host'){ requestLock(); netHostStart(); } else toast('Waiting for the room host to start the rematch…','status'); return; } requestLock(); startMatch(); });
 function fillStats(statsEl,cardsEl){
   const acc=matchStats.shots? Math.round(matchStats.hits/matchStats.shots*100):0;
-  statsEl.innerHTML=[['Score',mode==='sandbox'?'–':matchKind==='ffa'?fighters.map(f=>f.score).join(' · '):score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
+  statsEl.innerHTML=[['Score',mode==='sandbox'?'–':matchKind==='2v2'?player.score+' – '+(fighters.find(f=>f.side!==player.side)||{score:0}).score:matchKind==='ffa'?fighters.map(f=>f.score).join(' · '):score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
   cardsEl.innerHTML=stripHTML(player)||'<span class="none">No cards yet.</span>';
 }
 
@@ -2236,13 +2253,13 @@ function cardHTML(id,i,owned,coach){ const c=CARDS[id];
   return `${coach?'<div class="coachtag">★ COACH PICK</div>':''}<div class="card-in"><div class="face back"><div class="backlogo">DOME<br>ROUNDS</div></div><div class="face front"><i class="br tl"></i><i class="br tr"></i><i class="br bl"></i><i class="br brr"></i><div class="ctitle">${c.name}</div><div class="cmeta"><span class="ctype">${typeIcon(c.type)}${TYPE_LABEL[c.type]}</span></div><div class="art">${ART.svg(id)}<div class="glare"></div></div><div class="cdesc">${c.tag}</div><div class="lines">${c.lines.map(l=>`<div><b class="${l[2]?'good':'bad'}">${l[0]}</b> ${l[1]}</div>`).join('')}</div><div class="cfoot"><span class="ckey">${i+1}</span>${owned?`<span class="owned">STACK ×${owned+1}</span>`:'<span class="new">NEW</span>'}</div></div></div>`; }
 function startDraft(){
   state='draft'; clearProjectiles(); for(const f of fighters) f.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner'; SFX.music('draft');
-  const ffa=matchKind==='ffa';
-  const playerLost = ffa? lastWinner!==player : lastWinner===bot; for(const f of fighters) f.setMood(f===lastWinner?'happy':'worried',999);
+  const ffa=matchKind!=='1v1'; // FFA and 2v2: everyone picks every round
+  const playerLost = matchKind==='2v2'? !(lastWinner&&lastWinner.side===player.side) : ffa? lastWinner!==player : lastWinner===bot; for(const f of fighters) f.setMood(f===lastWinner?'happy':'worried',999);
   if(ffa){ for(const f of fighters) if(f.ctl==='ai'&&(!NET.on||NET.role==='host')) botPick(f); }
   else if(!playerLost&&!NET.on) botPick();
   const opts=pick3(); const rec=coachPick(opts,playerLost); pad.focus=Math.max(0,opts.indexOf(rec.id));
   UI.draftTitle.textContent='PICK A CARD'; draftT=DRAFT_LIMIT; draftTick=-1; UI.draftClock.textContent=DRAFT_LIMIT+'s'; UI.draftClock.classList.remove('warn');
-  UI.draftSub.textContent= ffa? (lastWinner===player?'You won that round! Everyone picks a card.':'Everyone picks a card. Make it count.') : NET.on? (playerLost?'You lost that round. Pick a card, your rival is picking too.':'You won that round. Pick a card, your rival is picking too.') : playerLost? 'You lost that round, so you pick first.' : 'You won! The bot picked first. Your turn.';
+  UI.draftSub.textContent= ffa? (!playerLost?'You won that round! Everyone picks a card.':'Everyone picks a card. Make it count.') : NET.on? (playerLost?'You lost that round. Pick a card, your rival is picking too.':'You won that round. Pick a card, your rival is picking too.') : playerLost? 'You lost that round, so you pick first.' : 'You won! The bot picked first. Your turn.';
   UI.coach.innerHTML=`<b>COACH:</b> take <em style="color:${CARDS[rec.id].c}">${CARDS[rec.id].name}</em>. ${rec.why}`;
   UI.cards.innerHTML=''; renderStatbar(null);
   opts.forEach((id,i)=>{ const c=CARDS[id]; const el=document.createElement('div'); el.className=`card t-${c.type}`+(id===rec.id?' rec':''); el.style.setProperty('--c',c.c); el.style.setProperty('--i',i);
@@ -2257,7 +2274,8 @@ function startDraft(){
 }
 function endMatch(){
   state='matchover'; exitLock(); SFX.music('menu');
-  let won=score.player>score.bot; if(matchKind==='ffa'){ const top=fighters.slice().sort((a,b)=>b.score-a.score)[0]; won=top===player; UI.moTitle.textContent=won?'YOU WIN!':esc(top.name).toUpperCase()+' WINS'; UI.moSub.textContent=fighters.slice().sort((a,b)=>b.score-a.score).map((f,i)=>`${i+1}. ${f===player?myName():f.name}  ${f.score}`).join('   '); }
+  let won=score.player>score.bot; if(matchKind==='2v2'){ const op=fighters.find(f=>f.side!==player.side); won=player.score>(op?op.score:0); UI.moTitle.textContent=won?'YOUR TEAM WINS!':'ORANGE TEAM WINS'; UI.moSub.textContent=`${player.score} – ${op?op.score:0}. `+(won?'Great teamwork.':'Regroup and run it back.'); }
+  else if(matchKind==='ffa'){ const top=fighters.slice().sort((a,b)=>b.score-a.score)[0]; won=top===player; UI.moTitle.textContent=won?'YOU WIN!':esc(top.name).toUpperCase()+' WINS'; UI.moSub.textContent=fighters.slice().sort((a,b)=>b.score-a.score).map((f,i)=>`${i+1}. ${f===player?myName():f.name}  ${f.score}`).join('   '); }
   else { UI.moTitle.textContent=won?'YOU WIN!':(NET.on?'RIVAL WINS':'BOT WINS'); UI.moSub.textContent=won?'Champion of the arena. Try a harder bot next?':'So close. Try the Easy bot, or practise your build in the sandbox.'; } UI.moTitle.className='title stroke '+(won?'win':'lose');
   fillStats(UI.moStats,UI.moCards); player.setMood(won?'happy':'worried',999); show(UI.matchover,true,'block'); show(UI.hud,false);
 }
@@ -2285,7 +2303,7 @@ function updateHUD(){
   UI.vignette.style.opacity=String(clamp((0.35-ph)*2.4,0,0.85)); UI.hurt.style.opacity=String(clamp(hurtT*2.5,0,0.8));
   UI.hitmark.style.opacity=hitMarkerT>0?'1':'0'; UI.hitmark.classList.toggle('kill',killMarkT>0); UI.hitmark.style.transform=`translate(-50%,-50%) rotate(45deg) scale(${(1+hitMarkerT*3).toFixed(2)})`;
   UI.crosshair.style.setProperty('--k',(crossKick*10).toFixed(1)+'px');
-  if(matchKind==='ffa') updateFFAHud(); else if(UI.specMsg._on){ UI.specMsg._on=false; UI.specMsg.style.display='none'; }
+  if(matchKind!=='1v1') updateFFAHud(); else if(UI.specMsg._on){ UI.specMsg._on=false; UI.specMsg.style.display='none'; }
   const steering=!!remoteCtl.b; if(UI.steer._on!==steering){ UI.steer._on=steering; UI.steer.style.display=steering?'block':'none'; }
   const tips=tipsT>0&&state==='fight'; if(UI.tips._on!==tips){ UI.tips._on=tips; UI.tips.style.display=tips?'block':'none'; }
   if(dmgDirT>0&&!player.dead){ const to=V3().subVectors(dmgFrom,player.pos); const a=Math.atan2(-to.x,-to.z)-player.yaw; UI.dmgdir.style.opacity=String(Math.min(1,dmgDirT*1.6)); UI.dmgdir.style.transform=`translate(-50%,-50%) rotate(${(-a*180/Math.PI).toFixed(1)}deg)`; } else UI.dmgdir.style.opacity='0';
@@ -2296,7 +2314,7 @@ function updateHUD(){
 let ffaBoardKey=''; const ffaRows=new Map(), tagEls=new Map();
 function updateFFAHud(){
   const key=fighters.map(f=>f.id+':'+f.score+':'+(f.dead?1:0)+':'+f.name).join('|');
-  if(key!==ffaBoardKey){ ffaBoardKey=key; UI.ffaBoard.innerHTML=fighters.slice().sort((a,b)=>b.score-a.score).map(f=>`<div class="fb-row${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}" data-id="${f.id}"><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?myName():f.name)}${f===player&&myName()!=='You'?' <small>(you)</small>':''}</span><span class="fb-pp">${Array.from({length:CFG.winsToTakeMatch},(_,k)=>`<i class="${k<f.score?'on':''}"></i>`).join('')}</span><span class="fb-hp"><b></b></span></div>`).join('');
+  if(key!==ffaBoardKey){ ffaBoardKey=key; UI.ffaBoard.innerHTML=fighters.slice().sort((a,b)=>matchKind==='2v2'?(a.side-b.side)||(a.slot-b.slot):b.score-a.score).map(f=>`<div class="fb-row${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}" data-id="${f.id}"><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?myName():f.name)}${f===player&&myName()!=='You'?' <small>(you)</small>':''}</span><span class="fb-pp">${Array.from({length:CFG.winsToTakeMatch},(_,k)=>`<i class="${k<f.score?'on':''}"></i>`).join('')}</span><span class="fb-hp"><b></b></span></div>`).join('');
     ffaRows.clear(); for(const el of UI.ffaBoard.children) ffaRows.set(+el.dataset.id,el.querySelector('.fb-hp b')); }
   for(const f of fighters){ const b=ffaRows.get(f.id); if(b) b.style.width=(f.dead?0:clamp(f.hp/f.maxHp(),0,1)*100).toFixed(1)+'%'; }
   const live=new Set(), on=state==='fight'||state==='countdown';
@@ -2313,7 +2331,7 @@ function ffaKnockout(f,by,left){ const nm=x=>x===player?'You':esc(x.name);
   if(f===player&&left>1){ showBanner('KNOCKED OUT!','#e0364f','lose'); SFX.lose(); specT=null; }
   if(by===player){ hitMarkerT=0.45; killMarkT=0.45; } ffaBoardKey=''; }
 // the menu shows the line-up for the mode you've picked
-function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa') rosterFFASolo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); }
+function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); }
 
 // ================= BOT AI =================
 // each bot keeps its own plan and picks who to fight: the closest enemy it can see, with a grudge against whoever hit it last
@@ -2398,7 +2416,7 @@ function updateBullets(dt){
     for(let s=0;s<steps&&!done;s++){
       b.pos.addScaledVector(b.vel,sdt); b.dist+=speed*sdt;
       let refl=false;
-      for(const e of fighters){ if(e===b.owner||e.dead||e.active===false) continue;
+      for(const e of fighters){ if(e.side===b.owner.side||e.dead||e.active===false) continue;
         if(e.blockActive&&b.pos.distanceTo(e.domeC())<e.domeR()+br&&b.pos.y>e.pos.y-0.3){ for(let k=0;k<5;k++) spawnShard(b.pos.clone(),V3(rand(-1,1),rand(0,1),rand(-1,1)).multiplyScalar(4),e.team.light,0.2,0.35,0.6); reflectBullet(b,e); refl=true; break; }
         if(e.distTo(b.pos)<e.hitR+br){ hitFighter(b,e); removeBullet(i); done=true; break; } }
       if(done||refl) break;
@@ -2421,7 +2439,7 @@ function computeAimPoint(){
 }
 let camDist=1, specT=null;
 // knocked out in FFA: watch whoever knocked you out (or anyone still standing)
-function camFighter(){ if(!(matchKind==='ffa'&&player.dead&&(state==='fight'||state==='roundover'))) return player; if(specT&&!specT.dead&&specT.active!==false) return specT; specT=(player.lastHitBy&&!player.lastHitBy.dead)?player.lastHitBy:fighters.find(f=>!f.dead&&f.active!==false)||player; return specT; }
+function camFighter(){ if(!(matchKind!=='1v1'&&player.dead&&(state==='fight'||state==='roundover'))) return player; if(specT&&!specT.dead&&specT.active!==false) return specT; specT=fighters.find(f=>f!==player&&f.side===player.side&&!f.dead&&f.active!==false)||((player.lastHitBy&&!player.lastHitBy.dead)?player.lastHitBy:null)||fighters.find(f=>!f.dead&&f.active!==false)||player; return specT; }
 function updateCamera(dt){ if(camHold) return;
   const t=gameT;
   if(state==='menu'){ const p=player.pos; camera.fov=50; camera.updateProjectionMatrix(); camera.position.set(p.x+4.3+Math.sin(t*0.3)*0.15,p.y+1.6,p.z-1.9+Math.cos(t*0.25)*0.12); camera.lookAt(p.x,p.y+1.2,p.z+1.3); return; }
@@ -2572,7 +2590,8 @@ getRoomApi();
 const R2=v=>Math.round(v*100)/100, R3=v=>Math.round(v*1000)/1000;
 // ---------- rooms: numbered seats (0 = the host). 1v1 has 2 seats, free-for-all 3-4 (the host can fill seats with bots) ----------
 const cleanName=n=>(typeof n==='string'?n.replace(/[<>&"'`]/g,'').trim().slice(0,14):'')||'Player';
-const seatCap=()=>NET.kind==='ffa'?4:2;
+const seatCap=()=>NET.kind==='1v1'?2:4; const seatsNeeded=()=>NET.kind==='2v2'?4:NET.kind==='ffa'?3:2;
+const seatTeam=i=>NET.kind==='2v2'?(i%2===0?TEAM.player:TEAM.bot):TEAM[SLOT_TEAMS[i]];
 function olMsg(t,bad){ const m=$id('olMsg'); m.textContent=t||''; m.classList.toggle('bad',!!bad); }
 function olView(v){ $id('olMain').style.display=v==='main'?'':'none'; $id('olWait').style.display=v==='wait'?'':'none'; }
 function netReset(){ Object.assign(NET,{on:false,role:null,code:'',room:null,kind:'1v1',seats:[],seated:false,hostPeer:null,rx:{},shots:[],shotId:0,blockN:0,mid:0,rMid:0,lastRx:0,started:false,hostMap:null,joinT:0,leaving:false,rs:null}); setRivalNames(false); lobbyRender(); }
@@ -2581,7 +2600,7 @@ async function netLeave(){ const r=NET.room; netReset(); if(r){ try{ await r.lea
 async function netOpen(code,role){
   const api=await getRoomApi(); if(!api){ olMsg('Online play is not available in this browser.',true); return; }
   olMsg(role==='host'?'Opening your room…':'Looking for room '+code+'…');
-  try{ const r=await api.join('dr-'+code.toLowerCase(),role); netReset(); NET.room=r; NET.code=code; NET.role=role; NET.on=true; NET.joinT=performance.now(); NET.kind=settings.gm==='ffa'?'ffa':'1v1';
+  try{ const r=await api.join('dr-'+code.toLowerCase(),role); netReset(); NET.room=r; NET.code=code; NET.role=role; NET.on=true; NET.joinT=performance.now(); NET.kind=['ffa','2v2'].includes(settings.gm)?settings.gm:'1v1';
     r.onPeers(ch=>netPeers(ch),e=>{ if(NET.on){ olMsg('Connection lost ('+e.code+').',true); netDrop('Connection lost.'); } });
     if(role==='host'){ NET.seats=[{p:myPeerId(),n:myName(),b:false}]; NET.seated=true; olView('wait'); $id('olShow').textContent=code; olMsg(''); }
     lobbyRender(); netSend();
@@ -2611,15 +2630,15 @@ function seatLeft(st){ const name=st.n; if(!NET.started){ NET.seats=NET.seats.fi
 // guest: follow the host's seat list; returns false if we had to leave
 function guestLobby(others){ const h=others.find(p=>p.presence.r==='host');
   if(!h){ if(NET.hostPeer){ netDrop('The host closed the room.'); return false; } return true; }
-  NET.hostPeer=h.peer; NET.lastRx=performance.now(); const pr=h.presence; NET.kind=pr.k==='ffa'?'ffa':'1v1'; if(typeof pr.map==='string'&&MAPS[pr.map]) NET.hostMap=pr.map;
+  NET.hostPeer=h.peer; NET.lastRx=performance.now(); const pr=h.presence; NET.kind=['ffa','2v2'].includes(pr.k)?pr.k:'1v1'; if(typeof pr.map==='string'&&MAPS[pr.map]) NET.hostMap=pr.map;
   if(pr.lob&&Array.isArray(pr.lob.seats)){ const seats=pr.lob.seats.filter(a=>Array.isArray(a)).slice(0,4).map(a=>({p:typeof a[0]==='string'?a[0]:null,n:cleanName(a[1]),b:!!a[2]})); const me=myPeerId(); const mine=seats.findIndex(x=>x.p===me);
-    if(mine<0){ if(NET.seated){ netDrop('You were removed from the room.'); return false; } if(pr.lob.st||seats.length>=(NET.kind==='ffa'?4:2)){ olMsg(pr.lob.st?'That room is in the middle of a match. Try again when it ends.':'That room is full.',true); netLeave(); return false; } }
-    else if(!NET.seated){ NET.seated=true; olView('wait'); $id('olShow').textContent=NET.code; olMsg(NET.kind==='ffa'?'You\'re in! Waiting for the host to start…':'Joined room '+NET.code+'. Get ready…'); SFX.hover(); }
+    if(mine<0){ if(NET.seated){ netDrop('You were removed from the room.'); return false; } if(pr.lob.st||seats.length>=seatCap()){ olMsg(pr.lob.st?'That room is in the middle of a match. Try again when it ends.':'That room is full.',true); netLeave(); return false; } }
+    else if(!NET.seated){ NET.seated=true; olView('wait'); $id('olShow').textContent=NET.code; olMsg(NET.kind!=='1v1'?'You\'re in! Waiting for the host to start…':'Joined room '+NET.code+'. Get ready…'); SFX.hover(); }
     NET.seats=seats; }
   return true; }
 function netDrop(why){ const inGame=state!=='menu'; netLeave(); if(inGame){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); },1200); } else { olView('main'); olMsg(why,true); } }
 // seats -> fighters on this screen (you're always 'player'; the others fill the remaining fighters)
-function netBuildRoster(){ const me=myPeerId(); let k=1; const list=NET.seats.map((st,i)=>{ const mine=st.p===me; const f=mine?player:seatFighter(k++); return {f,slot:i,ctl:mine?'local':(st.b&&NET.role==='host'?'ai':'net'),name:mine?myName():st.n,peer:st.b?null:st.p}; });
+function netBuildRoster(){ const me=myPeerId(); let k=1; const list=NET.seats.map((st,i)=>{ const mine=st.p===me; const f=mine?player:seatFighter(k++); return {f,slot:i,side:NET.kind==='2v2'?i%2:i,ctl:mine?'local':(st.b&&NET.role==='host'?'ai':'net'),name:mine?myName():st.n,peer:st.b?null:st.p}; });
   matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; }
   if(NET.kind==='1v1'){ player.setTeam(TEAM.player); for(const f of fighters) if(f!==player) f.setTeam(TEAM.bot); } setRivalNames(true); }
 // ---------- outgoing ----------
@@ -2655,14 +2674,14 @@ function netGuestFollow(h){
   const by=k=>fighters.find(f=>f.slot===k);
   if((state==='fight'||state==='roundover')&&Array.isArray(h.hp)) h.hp.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&!f.dead) f.hp=v; });
   if(state==='fight'&&isNum(h.t)) roundInfo.t=Math.max(roundInfo.t,h.t);
-  if(state==='fight'&&NET.kind==='ffa'&&Array.isArray(h.dd)){ NET.allowKill=true; try{ h.dd.forEach((v,k)=>{ const f=by(k); if(v===1&&f&&!f.dead&&state==='fight') killFighter(f,f.lastHitBy); }); } finally { NET.allowKill=false; } }
-  if(ph==='roundover'&&state==='fight'&&isNum(h.w)&&h.w>=0){ const w=by(h.w); if(w){ NET.allowKill=true; try{ if(NET.kind==='1v1') killFighter(other(w),w); else for(const f of fighters) if(f!==w&&!f.dead&&state==='fight') killFighter(f,null); } finally { NET.allowKill=false; } } }
+  if(state==='fight'&&NET.kind!=='1v1'&&Array.isArray(h.dd)){ NET.allowKill=true; try{ h.dd.forEach((v,k)=>{ const f=by(k); if(v===1&&f&&!f.dead&&state==='fight') killFighter(f,f.lastHitBy); }); } finally { NET.allowKill=false; } }
+  if(ph==='roundover'&&state==='fight'&&isNum(h.w)&&h.w>=0){ const w=by(h.w); if(w){ NET.allowKill=true; try{ if(NET.kind==='1v1') killFighter(other(w),w); else for(const f of fighters) if(f.side!==w.side&&!f.dead&&state==='fight') killFighter(f,null); } finally { NET.allowKill=false; } } }
   if(Array.isArray(h.sc)&&state!=='fight'){ let ch=false; h.sc.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&f.score!==v){ f.score=v; ch=true; } }); if(ch){ score.player=player.score; score.bot=bot.score; matchOverPending=fighters.some(f=>f.score>=CFG.winsToTakeMatch); buildPips(); ffaBoardKey=''; } }
 }
 // ---------- match flow ----------
-function netHostStart(){ if(NET.kind==='ffa'&&NET.seats.length<3) return; NET.mid++; NET.started=true; netBuildRoster(); lobbyRender(); startMatch(); }
+function netHostStart(){ if(NET.seats.length<seatsNeeded()) return; NET.mid++; NET.started=true; netBuildRoster(); lobbyRender(); startMatch(); }
 function netStartLocal(){ NET.started=true; netBuildRoster(); startMatch(); }
-function netAfterPick(){ UI.draftSub.textContent=NET.kind==='ffa'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
+function netAfterPick(){ UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
 function netTick(dt){ if(!NET.on) return;
   netSend(); const now=performance.now();
   if(NET.role==='guest'){ if(NET.hostPeer&&now-NET.lastRx>15000){ netDrop('Lost connection to the host.'); return; } if(!NET.hostPeer&&now-NET.joinT>7000){ olMsg('No room found with code '+NET.code+'. Check the code and try again.',true); netLeave(); return; } }
@@ -2676,14 +2695,17 @@ function netApplyRemote(f,dt){ const s=f.rs; if(!s) return; const age=Math.min(0
   f.onGround=!!(s.fl&2); if(s.fl&1){ f.dashT=0.05; f.dashDir.set(-Math.sin(f.yaw),0,-Math.cos(f.yaw)); if(Math.random()<0.3) ghostAt(f.center(),f.team.light); } else f.dashT=0;
   if(NET.role==='host'&&state==='fight'&&!f.dead&&(f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)){ f.invulnT=0; fatal(f,f.lastHitBy,'fall'); } }
 // ---------- UI ----------
-function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const ffa=(NET.on?NET.kind:(settings.gm==='ffa'?'ffa':'1v1'))==='ffa';
-  $id('olHead').textContent=ffa?'Play online · free for all (3-4)':'Play online · 1v1';
-  const host=NET.on&&NET.role==='host', me=NET.on?myPeerId():null;
-  el.innerHTML=NET.on? NET.seats.map((st,i)=>`<div class="ol-seat" style="--c:${TEAM[SLOT_TEAMS[i]].css}"><i></i><span>${esc(st.n)}${st.p===me?' (you)':''}${st.b?' <em>bot</em>':''}${i===0?' <em>host</em>':''}</span></div>`).join('')+(ffa&&!NET.started?Array.from({length:Math.max(0,4-NET.seats.length)},()=>'<div class="ol-seat empty"><i></i><span>Empty seat</span></div>').join(''):'') : '';
-  const hb=$id('olHostBtns'); hb.style.display=host&&ffa&&!NET.started?'':'none';
-  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olStart').disabled=NET.seats.length<3;
+function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.on?NET.kind:(['ffa','2v2'].includes(settings.gm)?settings.gm:'1v1'); const multi=kind!=='1v1', two=kind==='2v2';
+  $id('olHead').textContent=kind==='ffa'?'Play online · free for all (3-4)':two?'Play online · 2v2':'Play online · 1v1';
+  const host=NET.on&&NET.role==='host', me=NET.on?myPeerId():null; const K=NET.kind; NET.kind=kind;
+  const seat=(st,i)=>`<div class="ol-seat" style="--c:${seatTeam(i).css}"><i></i><span>${esc(st.n)}${st.p===me?' (you)':''}${st.b?' <em>bot</em>':''}${i===0?' <em>host</em>':''}${two?` <em>${i%2?'orange':'blue'}</em>`:''}</span></div>`;
+  const empty=i=>`<div class="ol-seat empty"${two?` style="--c:${seatTeam(i).css}"`:''}><i></i><span>${two?(i%2?'Orange':'Blue')+' seat':'Empty seat'}</span></div>`;
+  el.innerHTML=NET.on? NET.seats.map(seat).join('')+(multi&&!NET.started?Array.from({length:Math.max(0,4-NET.seats.length)},(_,k)=>empty(NET.seats.length+k)).join(''):'') : '';
+  NET.kind=K;
+  const hb=$id('olHostBtns'); hb.style.display=host&&multi&&!NET.started?'':'none'; const need=two?4:3;
+  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olStart').disabled=NET.seats.length<need;
   $id('olCancel').textContent=host?'CLOSE ROOM':'LEAVE ROOM';
-  const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (ffa? (n<3?`Waiting for players… (${n}/4). You need 3 to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (ffa?`${n} in the room. Waiting for the host to start…`:'Get ready…');
+  const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (multi? (n<need?`Waiting for players… (${n}/4). ${two?'2v2 needs 4':'You need 3'} to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (multi?`${n} in the room. Waiting for the host to start…`:'Get ready…');
   const nm=$id('olName'); if(nm&&document.activeElement!==nm) nm.value=settings.name||''; }
 $id('onlineBtn').addEventListener('click',()=>{ SFX.unlock(); const p=$id('online'); p.classList.toggle('open'); if(p.classList.contains('open')){ olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } });
 function newCode(){ let c=''; for(let i=0;i<5;i++) c+=NET_ALPHA[Math.floor(Math.random()*NET_ALPHA.length)]; return c; }
@@ -2691,10 +2713,10 @@ $id('olCreate').addEventListener('click',()=>{ SFX.unlock(); if(NET.on) return; 
 const codeIn=$id('olCode'); codeIn.addEventListener('input',()=>{ codeIn.value=codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
 const doJoin=()=>{ SFX.unlock(); if(NET.on) return; const c=codeIn.value.trim().toUpperCase(); if(!/^[A-Z0-9]{5}$/.test(c)){ olMsg('Type the 5-character room code.',true); return; } netOpen(c,'guest'); };
 $id('olJoin').addEventListener('click',doJoin); codeIn.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter') doJoin(); });
-const nameIn=$id('olName'); nameIn.addEventListener('keydown',e=>e.stopPropagation()); nameIn.addEventListener('input',()=>{ settings.name=cleanName(nameIn.value)==='Player'&&!nameIn.value.trim()?'':nameIn.value.replace(/[<>&"'`]/g,'').slice(0,14); saveSettings(); if(NET.on&&NET.role==='host'&&NET.seats[0]) NET.seats[0].n=myName(); if(state==='menu'&&settings.gm==='ffa') player.name=myName(); });
+const nameIn=$id('olName'); nameIn.addEventListener('keydown',e=>e.stopPropagation()); nameIn.addEventListener('input',()=>{ settings.name=cleanName(nameIn.value)==='Player'&&!nameIn.value.trim()?'':nameIn.value.replace(/[<>&"'`]/g,'').slice(0,14); saveSettings(); if(NET.on&&NET.role==='host'&&NET.seats[0]) NET.seats[0].n=myName(); if(state==='menu'&&settings.gm!=='1v1') player.name=myName(); });
 $id('olAddBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length>=4) return; const used=new Set(NET.seats.map(s=>s.n)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; NET.seats.push({p:'bot'+Math.random().toString(36).slice(2,7),n,b:true}); lobbyRender(); SFX.hover(); });
 $id('olDelBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started) return; for(let i=NET.seats.length-1;i>0;i--) if(NET.seats[i].b){ NET.seats.splice(i,1); break; } lobbyRender(); });
-$id('olStart').addEventListener('click',()=>{ SFX.unlock(); if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length<3) return; requestLock(); netHostStart(); });
+$id('olStart').addEventListener('click',()=>{ SFX.unlock(); if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length<seatsNeeded()) return; requestLock(); netHostStart(); });
 $id('olCopy').addEventListener('click',()=>{ try{ navigator.clipboard.writeText(NET.code).then(()=>olMsg('Code copied.'),()=>olMsg('Copy failed. Read it out instead: '+NET.code)); }catch(e){ olMsg('Copy failed. Read it out instead: '+NET.code); } });
 $id('olCancel').addEventListener('click',()=>{ netLeave(); olView('main'); olMsg(''); });
 netReset();

@@ -3,7 +3,7 @@ const bullets=[], bombs=[], explosions=[], fields=[], stickies=[], empShards=[];
 const sphGeo=new T.SphereGeometry(1,14,10), dropGeo=new T.IcosahedronGeometry(1,1), tailGeo=new T.ConeGeometry(1,1,10,1,true), orbRingGeo=new T.TorusGeometry(1,0.07,6,20);
 const UP=V3(0,1,0);
 const FXM={}; const remoteCtl={b:null,yaw:0,pitch:0};
-const enemies=f=>fighters.filter(x=>x!==f&&!x.dead&&x.active!==false); // everyone f can hurt
+const enemies=f=>fighters.filter(x=>x!==f&&x.side!==f.side&&!x.dead&&x.active!==false); // everyone f can hurt (not teammates)
 function fxMats(key,tints){ const k=key+'_'+tints.join('.'); if(FXM[k]) return FXM[k]; const tc=TEAM[key]; const a=tints[0], b=tints[1]||a, c3=tints[2]||b;
   return FXM[k]={ core:basic({color:a?col(a).lerp(col(0xffffff),0.72).getHex():0xffffff}), shell:new T.MeshBasicMaterial({color:col(a||tc.ink),transparent:true,opacity:a?0.8:0.6,depthWrite:false,blending:T.AdditiveBlending}), ring:basic({color:b||tc.light}),
     tail:new T.MeshBasicMaterial({color:col(c3||tc.light),transparent:true,opacity:0.55,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide}), glow:new T.SpriteMaterial({map:TX.glow,color:col(a||tc.ink),blending:T.AdditiveBlending,depthWrite:false,transparent:true,opacity:0.85}) }; }
@@ -136,7 +136,7 @@ function applyDamage(target,amount,source,o={}){
 function applySlow(t,amt,dur){ if(t.slowT>0){ t.slowAmt=Math.max(t.slowAmt,amt); t.slowT=Math.max(t.slowT,dur);} else { t.slowAmt=amt; t.slowT=dur; } }
 function explode(pos,r,dmg,owner,hurtOwner,cause='blast'){
   spawnExplosionFx(pos,r,owner.color); SFX.explode();
-  for(const f of fighters){ if(f.dead||f.active===false) continue; if(f===owner&&!hurtOwner) continue; const d=f.distTo(pos); if(d<r+0.52){ const k=1-clamp((d-0.52)/r,0,1)*0.6; applyDamage(f,dmg*k,owner,{cause}); const push=V3().subVectors(f.center(),pos); if(push.lengthSq()<0.01) push.set(0,1,0); push.normalize(); f.vel.addScaledVector(push,6*k); f.vel.y+=4*k; f.onGround=false; } }
+  for(const f of fighters){ if(f.dead||f.active===false) continue; if(f===owner&&!hurtOwner) continue; if(f!==owner&&f.side===owner.side) continue; const d=f.distTo(pos); if(d<r+0.52){ const k=1-clamp((d-0.52)/r,0,1)*0.6; applyDamage(f,dmg*k,owner,{cause}); const push=V3().subVectors(f.center(),pos); if(push.lengthSq()<0.01) push.set(0,1,0); push.normalize(); f.vel.addScaledVector(push,6*k); f.vel.y+=4*k; f.onGround=false; } }
   shakeT=Math.max(shakeT,0.28);
 }
 // bigger shots = bigger effects: A scales areas (clouds, blasts), P scales strength (poison, slows, shoves)
@@ -145,7 +145,7 @@ function bulletDamage(b){ return b.dmg*(1+0.045*b.s.grow*b.dist); }
 function impactExtras(b,pos,target){
   const s=b.s, dmg=bulletDamage(b), {A,P}=bulletAmp(b);
   if(s.explosive>0) explode(pos.clone(),(2.4+0.5*(s.explosive-1))*A,dmg*(1+0.25*(s.explosive-1)),b.owner,false);
-  else if(s.splash>0){ const r=(1.3+0.1*s.splash)*A; spawnExplosionFx(pos,r,b.owner.color); for(const f of fighters){ if(f.dead||f.active===false||f===b.owner||f===target) continue; if(f.distTo(pos)<r+0.52) applyDamage(f,(s.splash+dmg*0.3)*P,b.owner,{cause:'blast'}); } }
+  else if(s.splash>0){ const r=(1.3+0.1*s.splash)*A; spawnExplosionFx(pos,r,b.owner.color); for(const f of fighters){ if(f.dead||f.active===false||f.side===b.owner.side||f===target) continue; if(f.distTo(pos)<r+0.52) applyDamage(f,(s.splash+dmg*0.3)*P,b.owner,{cause:'blast'}); } }
   if(s.toxic>0){ const g=groundAt(pos.x,pos.z,pos.y+0.6,0.1); if(g!==null) addField('toxic',V3(pos.x,g,pos.z),(2.3+0.3*(s.toxic-1))*A,4*P,b.owner,s.toxic*P); }
   if(s.timed>0){ const m=new T.Mesh(sphGeo,basic({color:0xffb347})); m.scale.setScalar((0.2+b.r*0.6)*A); const gl=sprite(0xffb347,1.6,0.9); m.add(gl); gl.scale.setScalar(6); scene.add(m); stickies.push({target:target||null,off:target? pos.clone().sub(target.pos):null,pos:pos.clone(),t:0,dmg:dmg*(target?0.6:1)*(1+0.3*(s.timed-1)),owner:b.owner,m,r:2.1*A,ms:A}); }
 }
@@ -256,11 +256,11 @@ function killFighter(f,source){
   if(remoteCtl.b&&(f===player||remoteCtl.b.owner===f)){ remoteCtl.b.remote=false; remoteCtl.b=null; }
   if(mode==='sandbox'){ f.respawnT=1.4; if(!f.isPlayer) toast('<b class="you">You</b> knocked out the <b class="bot">bot</b>','you'); return; }
   const by=(source&&source!==f)?source:null; if(by&&!by.dead) by.setMood('happy',3);
-  if(matchKind==='ffa'){ const alive=fighters.filter(x=>x.active!==false&&!x.dead); ffaKnockout(f,by,alive.length); if(alive.length>1) return; endRoundWith(alive[0]||by); return; }
+  if(matchKind!=='1v1'){ const alive=fighters.filter(x=>x.active!==false&&!x.dead); const sides=new Set(alive.map(x=>x.side)); ffaKnockout(f,by,sides.size); if(sides.size>1) return; endRoundWith(alive[0]||by); return; }
   endRoundWith(other(f));
 }
 function endRoundWith(winner){
-  if(winner){ winner.score++; if(matchKind!=='ffa') score[winner.isPlayer?'player':'bot']++; winner.setMood('happy',5); } lastWinner=winner;
+  if(winner){ if(matchKind==='2v2'){ for(const f of fighters) if(f.side===winner.side){ f.score++; f.setMood('happy',5); } } else winner.score++; if(matchKind==='1v1') score[winner.isPlayer?'player':'bot']++; winner.setMood('happy',5); } lastWinner=winner;
   roundInfo.botHpFrac=bot.dead?0:clamp(bot.hp/bot.maxHp(),0,1);
   state='roundover'; roundOverT=CFG.roundOverTime; slowMoT=0.9; shakeT=Math.max(shakeT,0.4);
   onRoundEnd(winner);

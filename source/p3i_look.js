@@ -101,7 +101,7 @@ function lookMap(id){ const m=MAPS[id]; if(!m||!m.group) return; const L=LOOK_MA
   const low=LOOK.q==='low'; renderer.toneMapping=low?T.NoToneMapping:T.ACESFilmicToneMapping; scene.environment=low?null:lookEnv(id); if(low){ hemi.intensity=e.hemi[2]; sun.intensity=e.sun[1]; }
   for(const mr of LOOK.mirrors) lookMirrorOn(mr); lookGradeSet(); }
 function lookMirrorOn(mr){ const inMap=curMap&&curMap.group&&(()=>{ let p=mr.mesh; while(p){ if(p===curMap.group) return true; p=p.parent; } return false; })();
-  mr.on=inMap&&(LOOK.q==='high'||LOOK.q==='ultra'); mr.res=LOOK.q==='ultra'?0.6:0.42; if(mr.toggle) mr.toggle(mr.on); if(mr.uni&&mr.uni.reflOn) mr.uni.reflOn.value=mr.on?1:0; if(mr.uni&&mr.uni.px) mr.uni.px.value.set(1/Math.max(64,mr.rt.width),1/Math.max(64,mr.rt.height)); }
+  mr.on=inMap&&(LOOK.q==='high'||LOOK.q==='ultra'); mr.res=LOOK.q==='ultra'?0.5:0.42; if(mr.toggle) mr.toggle(mr.on); if(mr.uni&&mr.uni.reflOn) mr.uni.reflOn.value=mr.on?1:0; if(mr.uni&&mr.uni.px) mr.uni.px.value.set(1/Math.max(64,mr.rt.width),1/Math.max(64,mr.rt.height)); }
 function lookQuality(q){ LOOK.q=q; if(postOn) lookGradePass(); if(curMap&&curMap.group) lookMap(curMapId); }
 function lookModelsArrived(){ for(const k in MAPS){ const m=MAPS[k]; if(!m.group) continue; m.lookDone=false; lookUntone(m.group); m.group.traverse(o=>{ if(o.isMesh) for(const mt of [].concat(o.material)) if(mt) mt.userData.look=0; }); lookTune(m.group,k); lookLayers(m.group,k); m.lookDone=true; if(LOOK.env[k]) lookEnv(k,true); } if(curMap) lookMap(curMapId); }
 // Effects and fighters are made on the fly: glows/bullets stay full colour, like the map's lights.
@@ -163,3 +163,13 @@ function lookMerge(m){ if(m.merged||!m.group) return; m.merged=true; const g=m.g
   for(const o of removed){ if(o.parent) o.parent.remove(o); }
   m.mergeInfo={static:stat.length,removed:removed.size,batches:made}; }
 function lookTryMerge(m){ if(/[?&]nomerge/.test(location.search)) return; if(m.merged||!m.group||!m.lookDone) return; const kenOk=KEN.ready||KEN.failed; if(!kenOk||!DET.ready) return; lookMerge(m); }
+
+// ---- if the graphics card gives up (out of memory on heavy settings), recover instead of sitting on a black screen ----
+(()=>{ const cv=renderer.domElement; let lostT=0;
+  cv.addEventListener('webglcontextlost',e=>{ e.preventDefault(); LOOK.lost=true; lostT=performance.now(); try{ toast('<b>Graphics hiccup.</b> Recovering…','status'); }catch(_){}
+    setTimeout(()=>{ if(LOOK.lost){ try{ toast('<b>The graphics stopped.</b> Refresh the page and pick a lower quality.','status'); }catch(_){} } },6000); },false);
+  cv.addEventListener('webglcontextrestored',()=>{ LOOK.lost=false; LOOK.env={}; LOOK.pmrem=null; LOOK.cube=null; LOOK.cubeCam=null;
+    const cur=settings.quality==='auto'?(LOOK.q||'high'):settings.quality; const down={ultra:'high',high:'medium',medium:'low',low:'low'}[cur]||'medium';
+    if(settings.quality!=='auto'){ settings.quality=down; try{ saveSettings(); }catch(_){} const sel=document.querySelector('[data-k="quality"]'); if(sel) sel.value=down; }
+    for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.traverse(o=>{ if(o.material) for(const m of [].concat(o.material)) if(m) m.needsUpdate=true; });
+    try{ applyQuality(down); }catch(_){} try{ toast(`Graphics were too heavy for this device, so I switched to <b>${down[0].toUpperCase()+down.slice(1)}</b>.`,'you'); }catch(_){} },false); })();
