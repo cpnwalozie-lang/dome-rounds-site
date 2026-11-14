@@ -6,3 +6,10 @@
   for = "/media/*"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+# The game's source code lives in /source for rebuilding; it is not part of the public site.
+[[redirects]]
+  from = "/source/*"
+  to = "/404"
+  status = 404
+  force = true
