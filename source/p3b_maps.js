@@ -1,5 +1,5 @@
 // ================= NEON CITY MAP =================
-function mkPair(w,h,draw,o={}){ const c=document.createElement('canvas'), e=document.createElement('canvas'); c.width=e.width=w; c.height=e.height=h; const gc=c.getContext('2d'), ge=e.getContext('2d'); ge.fillStyle='#000'; ge.fillRect(0,0,w,h); draw(gc,ge,w,h); const mk=cv=>{ const t=new T.CanvasTexture(cv); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; t.wrapS=t.wrapT=o.clamp?T.ClampToEdgeWrapping:T.RepeatWrapping; return t; }; return {map:mk(c),emissiveMap:mk(e)}; }
+function mkPair(w,h,draw,o={}){ const c=document.createElement('canvas'), e=document.createElement('canvas'); const gc=txCtx(c,w,h), ge=txCtx(e,w,h); ge.fillStyle='#000'; ge.fillRect(0,0,w,h); draw(gc,ge,w,h); const mk=cv=>{ const t=new T.CanvasTexture(cv); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; t.wrapS=t.wrapT=o.clamp?T.ClampToEdgeWrapping:T.RepeatWrapping; return t; }; return {map:mk(c),emissiveMap:mk(e)}; }
 const glowMat=(pair,o={})=>new T.MeshStandardMaterial(Object.assign({map:pair.map,emissiveMap:pair.emissiveMap,emissive:new T.Color(0xffffff),emissiveIntensity:1,roughness:0.6,metalness:0.25},o));
 function neonSignTex(text,color,w=512,h=160,sub){ return mkTex(w,h,(g,W2,H2)=>{ g.fillStyle='#0a0c1c'; g.fillRect(0,0,W2,H2); g.strokeStyle=color; g.lineWidth=6; g.shadowColor=color; g.shadowBlur=18; g.strokeRect(10,10,W2-20,H2-20); g.textAlign='center'; g.textBaseline='middle'; g.font=`${Math.floor(H2*(sub?0.46:0.6))}px ${FONT}`; g.fillStyle='#fff'; g.shadowBlur=26; g.fillText(text,W2/2,H2*(sub?0.42:0.54)); g.fillStyle=color; g.globalAlpha=0.55; g.fillText(text,W2/2,H2*(sub?0.42:0.54)); g.globalAlpha=1; if(sub){ g.font=`${Math.floor(H2*0.2)}px ${FONT}`; g.fillStyle=color; g.shadowBlur=10; g.fillText(sub,W2/2,H2*0.8); } },{clamp:true}); }
 function buildNeon(){
@@ -47,7 +47,7 @@ function buildNeon(){
   W.add(sky); animated.push(()=>sky.position.copy(camera.position));
   streetTex.repeat.set(14,14); const street=new T.Mesh(new T.PlaneGeometry(1200,1200),new T.MeshBasicMaterial({map:streetTex})); street.rotation.x=-Math.PI/2; street.position.y=-95; W.add(street);
   collider(-HX,HX,-1.4,0,-HZ,HZ);
-  const floor=new T.Mesh(new T.PlaneGeometry(2*HX,2*HZ),NM.floor); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; W.add(floor);
+  const floor=new T.Mesh(new T.PlaneGeometry(2*HX,2*HZ),NM.floor); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; W.add(floor); lookWetFloor(W,2*HX,2*HZ,0.004,0.62);
   meshBox(-HX,HX,-110,-0.005,-HZ,HZ,NM.bld[1],12,{cast:false}); meshBox(-HX-0.25,HX+0.25,-0.5,-0.02,-HZ-0.25,HZ+0.25,NM.dark,0,{cast:false}); edgeGlow(-HX-0.25,HX+0.25,-0.26,-HZ-0.25,HZ+0.25,MG);
   // ---- bases ----
   const mkBase=(s,team)=>{ const x0=s<0?-HX:HX-6, x1=x0+6, cx=s<0?x0+3:x1-3, tc=team==='p'?TEAM.player:TEAM.bot, wm=team==='p'?NM.wallTeamP:NM.wallTeamB;
@@ -129,7 +129,7 @@ const MAPS={
     env:{ fog:[0x150d33,45,300], hemi:[0xa9b8ff,0x3a2260,0.95], sun:[0xc4d0ff,0.6,[-18,36,-14]], bloom:[0.4,0.45,0.8] } },
 };
 let curMap=null, curMapId='';
-function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Group(); scene.add(g); W=g; /*DEBUG-START*/if(window.__tagAdd){ const a0=g.add; g.add=function(...a){ const st=new Error().stack.split('\n').slice(1).map(x=>x.trim()); const k=st.findIndex(x=>/^at (buildArena|buildScenery|buildNeon|Object\.build)/.test(x)); for(const o of a) o.userData.src=k>0?st[k]:'x'+Math.random(); return a0.apply(this,a); }; }/*DEBUG-END*/ boxes=[]; ramps=[]; animated=[]; HX=m.native[0]; HZ=m.native[1]; m.build(); const S=m.scale;
+function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Group(); g.userData.isMap=true; scene.add(g); W=g; /*DEBUG-START*/if(window.__tagAdd){ const a0=g.add; g.add=function(...a){ const st=new Error().stack.split('\n').slice(1).map(x=>x.trim()); const k=st.findIndex(x=>/^at (buildArena|buildScenery|buildNeon|Object\.build)/.test(x)); for(const o of a) o.userData.src=k>0?st[k]:'x'+Math.random(); return a0.apply(this,a); }; }/*DEBUG-END*/ boxes=[]; ramps=[]; animated=[]; HX=m.native[0]; HZ=m.native[1]; m.build(); const S=m.scale;
   if(S!==1){ g.scale.set(S,1,S); for(const b of boxes){ b.min.x*=S; b.max.x*=S; b.min.z*=S; b.max.z*=S; } for(const r of ramps){ r.minX*=S; r.maxX*=S; r.minZ*=S; r.maxZ*=S; } if(g.userData.waterMat) g.userData.waterMat.uniforms.dock.value.set(HX*S,HZ*S); }
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
@@ -140,8 +140,8 @@ function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) ret
   const ms=renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget; const rt= ms? new T.WebGLMultisampleRenderTarget(sz.x,sz.y,P) : new T.WebGLRenderTarget(sz.x,sz.y,P);
   composer=new THREE.EffectComposer(renderer,rt); composer.addPass(new THREE.RenderPass(scene,camera)); bloomPass=new THREE.UnrealBloomPass(new T.Vector2(sz.x/2,sz.y/2),0.5,0.6,0.8); composer.addPass(bloomPass); applyBloom(); }catch(e){ console.warn('post off',e); composer=null; } }
 function applyBloom(){ if(bloomPass&&curMap&&curMap.env.bloom){ const b=curMap.env.bloom; bloomPass.strength=b[0]; bloomPass.radius=b[1]; bloomPass.threshold=b[2]; } }
-function drawFrame(){ if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
+function drawFrame(){ lookFrame(); if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
 let shadowSize=2048;
 function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.5,Math.min(dpr,2)) : Math.min(dpr,d.pr)); renderer.setPixelRatio(pixelRatio); resize();
-  sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } }
+  sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } try{ lookQuality(q); }catch(e){ console.warn(e); } }
 buildTextures(); buildMaterials();

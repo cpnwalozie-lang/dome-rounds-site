@@ -21,7 +21,10 @@ let animated=[]; // fn(t,dt) for the active map
 // ================= TEXTURES =================
 const maxAniso=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 const FONT='"Lilita One","Arial Black",Impact,sans-serif';
-function mkTex(w,h,draw,o={}){ const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); draw(g,w,h); const t=new T.CanvasTexture(c); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; if(o.clamp){ t.wrapS=t.wrapT=T.ClampToEdgeWrapping; } else t.wrapS=t.wrapT=T.RepeatWrapping; return t; }
+// Textures are drawn as shapes, so on capable machines they're simply drawn at twice the pixels.
+const TXS=(()=>{ const q=settings.quality; const mob=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||Math.min(screen.width,screen.height)<700; if(q==='low'||q==='medium'||mob) return 1; return 2; })();
+function txCtx(c,w,h){ const s=Math.min(TXS,4096/Math.max(w,h)); c.width=Math.round(w*s); c.height=Math.round(h*s); const g=c.getContext('2d'); if(s!==1){ g.scale(s,s); const st=g.setTransform.bind(g); g.setTransform=(a,b,cc,d,e,f)=>st(a*s,b*s,cc*s,d*s,e*s,f*s); } return g; }
+function mkTex(w,h,draw,o={}){ const c=document.createElement('canvas'); const g=txCtx(c,w,h); draw(g,w,h); const t=new T.CanvasTexture(c); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; if(o.clamp){ t.wrapS=t.wrapT=T.ClampToEdgeWrapping; } else t.wrapS=t.wrapT=T.RepeatWrapping; return t; }
 const GRAD=(()=>{ const d=new Uint8Array([105,165,222,255]); const t=new T.DataTexture(d,4,1,T.LuminanceFormat); t.minFilter=t.magFilter=T.NearestFilter; t.needsUpdate=true; return t; })();
 const toon=o=>{ const p=Object.assign({roughness:0.78,metalness:0.04},o); if(typeof p.color==='number'||typeof p.color==='string') p.color=col(p.color); if(typeof p.emissive==='number') p.emissive=col(p.emissive); return new T.MeshStandardMaterial(p); };
 const basic=o=>{ const p=Object.assign({},o); if(typeof p.color==='number'||typeof p.color==='string') p.color=col(p.color); return new T.MeshBasicMaterial(p); };
@@ -70,6 +73,16 @@ function buildTextures(){
     for(let i=0;i<5200;i++){ const x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ; g.fillStyle=`rgba(${205+rng()*20|0},${212+rng()*20|0},${222+rng()*16|0},${0.2+rng()*0.4})`; g.fillRect(x,z,0.04+rng()*0.16,0.04+rng()*0.1); }
     for(let i=0;i<34;i++){ const x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ, r=0.8+rng()*2.6; const gr=g.createRadialGradient(x,z,0,x,z,r); gr.addColorStop(0,'rgba(40,50,70,.13)'); gr.addColorStop(1,'rgba(40,50,70,0)'); g.fillStyle=gr; g.fillRect(x-r,z-r,2*r,2*r); }
     g.strokeStyle='rgba(50,58,75,.5)'; g.lineWidth=0.03; for(let i=0;i<12;i++){ let x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ; g.beginPath(); g.moveTo(x,z); for(let k=0;k<6;k++){ x+=(rng()-0.5)*1.4; z+=(rng()-0.5)*1.4; g.lineTo(x,z); } g.stroke(); }
+    // sea-damp edges: salt-darkened concrete creeping in from the water
+    for(const [x0,z0,x1,z1] of [[-HX,-HZ,-HX,-HZ+1.6],[-HX,HZ,-HX,HZ-1.6],[-HX,-HZ,-HX+1.6,-HZ],[HX,-HZ,HX-1.6,-HZ]]){ const lg=g.createLinearGradient(x0,z0,x1,z1); lg.addColorStop(0,'rgba(38,52,72,.2)'); lg.addColorStop(1,'rgba(38,52,72,0)'); g.fillStyle=lg; if(z0===z1) g.fillRect(Math.min(x0,x1),-HZ,Math.abs(x1-x0),2*HZ); else g.fillRect(-HX,Math.min(z0,z1),2*HX,Math.abs(z1-z0)); }
+    for(let i=0;i<70;i++){ const side=rng()<0.5?-1:1, x=-HX+rng()*2*HX, z=side*(HZ-rng()*1.1), r=0.25+rng()*0.9; const gr=g.createRadialGradient(x,z,0,x,z,r); gr.addColorStop(0,'rgba(240,244,248,.16)'); gr.addColorStop(0.7,'rgba(240,244,248,.05)'); gr.addColorStop(1,'rgba(240,244,248,0)'); g.fillStyle=gr; g.fillRect(x-r,z-r,2*r,2*r); }
+    // oil stains: soft dark pool with a darker rim
+    for(let i=0;i<14;i++){ const x=-HX+2+rng()*(2*HX-4), z=-HZ+2+rng()*(2*HZ-4); g.save(); g.translate(x,z); g.rotate(rng()*6); g.scale(1,0.55+rng()*0.4); const r=0.35+rng()*0.75;
+      const gr=g.createRadialGradient(0,0,r*0.1,0,0,r); gr.addColorStop(0,'rgba(30,34,46,.16)'); gr.addColorStop(0.82,'rgba(30,34,46,.1)'); gr.addColorStop(0.92,'rgba(22,24,34,.2)'); gr.addColorStop(1,'rgba(22,24,34,0)'); g.fillStyle=gr; g.beginPath(); g.arc(0,0,r,0,7); g.fill(); g.restore(); }
+    // tyre scuffs from forklifts
+    g.lineCap='round'; for(let i=0;i<9;i++){ const x=-HX+3+rng()*(2*HX-6), z=-HZ+3+rng()*(2*HZ-6), a=rng()*6, rr=2+rng()*5, sw=0.6+rng()*1.2; for(const off of [-0.42,0.42]){ g.strokeStyle=`rgba(28,30,40,${0.05+rng()*0.05})`; g.lineWidth=0.2; g.beginPath(); g.arc(x,z,rr+off,a,a+sw); g.stroke(); } }
+    // fine aggregate grain (only visible up close, where it matters)
+    for(let i=0;i<26000;i++){ const x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ, d=rng()<0.5; g.fillStyle=d?`rgba(60,66,80,${0.06+rng()*0.12})`:`rgba(255,255,255,${0.08+rng()*0.14})`; const sz=0.012+rng()*0.03; g.fillRect(x,z,sz,sz); }
   },{clamp:true});
   // --- block wall (tile = 2m) ---
   TX.block=mkTex(512,512,(g,W,H)=>{ const rng=RNG(11); g.fillStyle='#737d8c'; g.fillRect(0,0,W,H); const bh=H/4,bw=W/2; for(let r=0;r<4;r++) for(let c=-1;c<2;c++){ const x=c*bw+(r%2?bw/2:0), y=r*bh, v=rng(); g.fillStyle=`hsl(${212+v*8},${10+v*4}%,${74+v*9}%)`; g.fillRect(x+4,y+4,bw-8,bh-8); g.fillStyle='rgba(255,255,255,.5)'; g.fillRect(x+4,y+4,bw-8,5); g.fillStyle='rgba(20,30,50,.16)'; g.fillRect(x+4,y+bh-12,bw-8,8); } speckle(g,W,H,2400,rng,0.07); });
@@ -113,7 +126,17 @@ function buildTextures(){
 let boxes=[]; // {min,max}
 let ramps=[]; // {minX,maxX,minZ,maxZ,axis,lowAtMin,hLow,hHigh}
 const M={};
-function boxGeo(w,h,d,tile){ const g=new T.BoxGeometry(w,h,d); if(tile){ const uv=g.attributes.uv; const dims=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]]; for(let f=0;f<6;f++) for(let i=0;i<4;i++){ const k=f*4+i; uv.setXY(k,uv.getX(k)*dims[f][0]/tile,uv.getY(k)*dims[f][1]/tile); } } return g; }
+// Boxes get softly rounded edges (they catch the light like real cast concrete / painted steel); thin trims stay sharp.
+const BEVEL={ on:true };
+function bevelR(w,h,d){ const m=Math.min(w,h,d); if(!BEVEL.on||m<0.3) return 0; return Math.min(0.075,m*0.09); }
+function boxGeo(w,h,d,tile){ const r=bevelR(w,h,d); const g=r>0? new T.BoxGeometry(w,h,d,3,3,3) : new T.BoxGeometry(w,h,d); const dims=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+  if(r>0){ const pos=g.attributes.position, nor=g.attributes.normal, uv=g.attributes.uv, hs=[w/2,h/2,d/2], v=new T.Vector3(), inn=new T.Vector3(), fn=new T.Vector3();
+    const rm=(x,hh)=>{ const f=x/hh; return Math.abs(Math.abs(f)-1/3)<1e-4? Math.sign(f)*(hh-r) : x; };
+    for(let i=0;i<pos.count;i++){ v.set(rm(pos.getX(i),hs[0]),rm(pos.getY(i),hs[1]),rm(pos.getZ(i),hs[2])); fn.set(nor.getX(i),nor.getY(i),nor.getZ(i));
+      inn.set(Math.max(-hs[0]+r,Math.min(hs[0]-r,v.x)),Math.max(-hs[1]+r,Math.min(hs[1]-r,v.y)),Math.max(-hs[2]+r,Math.min(hs[2]-r,v.z)));
+      const dv=v.clone().sub(inn); const L=dv.length(); if(L>1e-5){ dv.multiplyScalar(1/L); const dd=inn.clone().add(dv.clone().multiplyScalar(r)); const t=Math.min(1,L/(r*Math.SQRT2)); pos.setXYZ(i,dd.x,dd.y,dd.z); fn.lerp(dv,0.5+0.5*t).normalize(); } nor.setXYZ(i,fn.x,fn.y,fn.z); }
+    const per=16; for(let f=0;f<6;f++){ const du=dims[f][0], dvv=dims[f][1]; for(let i=0;i<per;i++){ const k=f*per+i; let a=uv.getX(k), b=uv.getY(k); const mp=(x,dm)=>Math.abs(x-1/3)<1e-4? r/dm : Math.abs(x-2/3)<1e-4? 1-r/dm : x; uv.setXY(k,mp(a,du),mp(b,dvv)); } } }
+  if(tile){ const uv=g.attributes.uv; const per=uv.count/6; for(let f=0;f<6;f++) for(let i=0;i<per;i++){ const k=f*per+i; uv.setXY(k,uv.getX(k)*dims[f][0]/tile,uv.getY(k)*dims[f][1]/tile); } } return g; }
 function collider(x0,x1,y0,y1,z0,z1,noCam){ boxes.push({min:V3(x0,y0,z0),max:V3(x1,y1,z1),noCam:!!noCam}); }
 const MX=(x,y,z,rx=0,ry=0,rz=0,sx=1,sy=1,sz=1)=>new T.Matrix4().compose(V3(x,y,z),new T.Quaternion().setFromEuler(new T.Euler(rx,ry,rz)),V3(sx,sy,sz));
 function mergeGeos(list){ let n=0; const parts=list.map(([g,m])=>{ const q=g.index?g.toNonIndexed():g.clone(); g.dispose(); if(m) q.applyMatrix4(m); if(!q.attributes.normal) q.computeVertexNormals(); n+=q.attributes.position.count; return q; });
@@ -266,21 +289,33 @@ function buildArena(){
     fragmentShader:'uniform vec3 top; uniform vec3 mid; uniform vec3 hor; uniform vec3 sunDir; varying vec3 vDir; void main(){ vec3 d=normalize(vDir); float h=d.y; vec3 c=mix(hor,mid,smoothstep(0.0,0.22,h)); c=mix(c,top,smoothstep(0.18,0.8,h)); float s=max(dot(d,sunDir),0.0); c+=vec3(1.0,0.86,0.6)*(smoothstep(0.994,0.9965,s)+pow(s,10.0)*0.38+pow(s,3.0)*0.12); gl_FragColor=vec4(c,1.0); }'}));
   W.add(sky); animated.push(()=>sky.position.copy(camera.position));
   // water
-  const waterMat=new T.ShaderMaterial({fog:false,uniforms:{time:{value:0},hor:{value:new T.Color(HORIZON)},dock:{value:new T.Vector2(HX,HZ)}},
-    vertexShader:'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:`uniform float time; uniform vec3 hor; uniform vec2 dock; varying vec3 vW;
+  const waterMat=new T.ShaderMaterial({fog:false,uniforms:{time:{value:0},hor:{value:new T.Color(HORIZON)},dock:{value:new T.Vector2(HX,HZ)},sunDir:{value:V3(27,9,-19).normalize()},
+      skyTop:{value:new T.Color(0x35488f)},skyMid:{value:new T.Color(0xe08f86)},tR:{value:null},tm:{value:new T.Matrix4()},reflOn:{value:0}},
+    vertexShader:'uniform mat4 tm; varying vec3 vW; varying vec4 vR; void main(){ vR=tm*vec4(position,1.0); vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:`uniform float time; uniform vec3 hor; uniform vec2 dock; uniform vec3 sunDir; uniform vec3 skyTop; uniform vec3 skyMid; uniform sampler2D tR; uniform float reflOn; varying vec3 vW; varying vec4 vR;
       float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
       float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y); }
-      void main(){ vec2 p=vW.xz*0.16; float n=noise(p+vec2(time*0.22,time*0.1))*0.6+noise(p*2.4-vec2(time*0.18,-time*0.26))*0.4;
-        vec3 deep=vec3(0.07,0.2,0.48), mid=vec3(0.2,0.36,0.62), light=vec3(1.0,0.78,0.6);
-        vec3 c=mix(deep,mid,smoothstep(0.32,0.62,n));
-        float l1=1.0-smoothstep(0.0,0.022,abs(n-0.6)); float l2=1.0-smoothstep(0.0,0.016,abs(n-0.42));
-        c=mix(c,light,l1*0.85+l2*0.4);
-        float sp=step(0.988,noise(vW.xz*1.7+vec2(time*0.7,-time*0.4))); c+=sp*0.4;
+      float wav(vec2 p){ return noise(p*0.16+vec2(time*0.22,time*0.1))*0.55+noise(p*0.42-vec2(time*0.18,-time*0.26))*0.3+noise(p*1.3+vec2(-time*0.5,time*0.35))*0.15; }
+      vec3 skyCol(vec3 d){ float h=max(d.y,0.0); vec3 c=mix(hor,skyMid,smoothstep(0.0,0.22,h)); c=mix(c,skyTop,smoothstep(0.18,0.8,h)); return c; }
+      void main(){ float dist=length(vW.xz-cameraPosition.xz); vec2 p=vW.xz; float n=wav(p);
+        float e=0.35, amp=mix(1.6,0.25,smoothstep(20.0,160.0,dist)); vec3 N=normalize(vec3(-(wav(p+vec2(e,0.0))-wav(p-vec2(e,0.0)))/(2.0*e)*amp,1.0,-(wav(p+vec2(0.0,e))-wav(p-vec2(0.0,e)))/(2.0*e)*amp));
+        vec3 V=normalize(cameraPosition-vW); float fr=0.03+0.97*pow(1.0-max(dot(N,V),0.0),5.0);
+        vec3 R=reflect(-V,N); R.y=abs(R.y); vec3 refl=skyCol(R);
+        if(reflOn>0.5){ vec2 uv=vR.xy/vR.w+N.xz*0.06; vec3 rc=texture2D(tR,uv).rgb; refl=mix(refl,rc,smoothstep(220.0,60.0,dist)); }
+        vec3 deep=vec3(0.04,0.15,0.38), mid=vec3(0.1,0.32,0.55), shal=vec3(0.18,0.55,0.62);
+        vec3 body=mix(deep,mid,smoothstep(0.3,0.68,n));
         vec2 q=abs(vW.xz)-dock; float dd=length(max(q,0.0))+min(max(q.x,q.y),0.0);
-        float fo=1.0-smoothstep(0.0,1.5,dd+sin(time*1.6+vW.x*0.9+vW.z*0.7)*0.35+n*0.8-0.4); c=mix(c,vec3(1.0),clamp(fo,0.0,1.0)*0.8);
-        float d=length(vW.xz-cameraPosition.xz); c=mix(c,hor,smoothstep(70.0,330.0,d)); gl_FragColor=vec4(c,1.0); }`});
+        body=mix(shal,body,smoothstep(0.0,7.0,dd));
+        float sss=pow(max(dot(-V,sunDir),0.0)*0.5+0.5,4.0)*smoothstep(0.55,0.75,n); body+=vec3(0.12,0.4,0.36)*sss*0.5;
+        vec3 c=mix(body,refl,clamp(fr*1.25,0.0,0.92));
+        float l1=1.0-smoothstep(0.0,0.02,abs(n-0.6)); c=mix(c,vec3(1.0,0.86,0.72),l1*0.32*smoothstep(160.0,40.0,dist));
+        float sp=max(dot(R,sunDir),0.0); c+=vec3(1.0,0.82,0.55)*(pow(sp,420.0)*3.5+pow(sp,60.0)*0.35);
+        float glint=step(0.993,noise(vW.xz*2.1+vec2(time*0.8,-time*0.5)))*smoothstep(60.0,10.0,dist); c+=glint*vec3(1.0,0.9,0.75)*0.55;
+        float fo=1.0-smoothstep(0.0,1.4,dd+sin(time*1.6+vW.x*0.9+vW.z*0.7)*0.35+n*0.9-0.45); float fo2=(1.0-smoothstep(0.0,3.2,dd))*smoothstep(0.62,0.8,noise(vW.xz*2.2+vec2(time*0.3,0.0)));
+        c=mix(c,vec3(0.97,0.99,1.0),clamp(fo*0.85+fo2*0.5,0.0,1.0));
+        c=mix(c,hor,smoothstep(80.0,340.0,dist)); gl_FragColor=vec4(c,1.0); }`});
   W.userData.waterMat=waterMat; const water=new T.Mesh(new T.PlaneGeometry(1400,1400),waterMat); water.rotation.x=-Math.PI/2; water.position.y=-1.15; W.add(water); animated.push(t=>{ waterMat.uniforms.time.value=t; });
+  { const mr=lookMirror(water,0.42); waterMat.uniforms.tR.value=mr.rt.texture; waterMat.uniforms.tm.value=mr.tm; mr.uni=waterMat.uniforms; }
   // dock slab
   collider(-HX,HX,-1.4,0,-HZ,HZ);
   const floor=new T.Mesh(new T.PlaneGeometry(2*HX,2*HZ),toon({map:TX.floor})); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; W.add(floor);

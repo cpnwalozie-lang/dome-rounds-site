@@ -388,7 +388,10 @@ let animated=[]; // fn(t,dt) for the active map
 // ================= TEXTURES =================
 const maxAniso=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 const FONT='"Lilita One","Arial Black",Impact,sans-serif';
-function mkTex(w,h,draw,o={}){ const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); draw(g,w,h); const t=new T.CanvasTexture(c); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; if(o.clamp){ t.wrapS=t.wrapT=T.ClampToEdgeWrapping; } else t.wrapS=t.wrapT=T.RepeatWrapping; return t; }
+// Textures are drawn as shapes, so on capable machines they're simply drawn at twice the pixels.
+const TXS=(()=>{ const q=settings.quality; const mob=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||Math.min(screen.width,screen.height)<700; if(q==='low'||q==='medium'||mob) return 1; return 2; })();
+function txCtx(c,w,h){ const s=Math.min(TXS,4096/Math.max(w,h)); c.width=Math.round(w*s); c.height=Math.round(h*s); const g=c.getContext('2d'); if(s!==1){ g.scale(s,s); const st=g.setTransform.bind(g); g.setTransform=(a,b,cc,d,e,f)=>st(a*s,b*s,cc*s,d*s,e*s,f*s); } return g; }
+function mkTex(w,h,draw,o={}){ const c=document.createElement('canvas'); const g=txCtx(c,w,h); draw(g,w,h); const t=new T.CanvasTexture(c); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; if(o.clamp){ t.wrapS=t.wrapT=T.ClampToEdgeWrapping; } else t.wrapS=t.wrapT=T.RepeatWrapping; return t; }
 const GRAD=(()=>{ const d=new Uint8Array([105,165,222,255]); const t=new T.DataTexture(d,4,1,T.LuminanceFormat); t.minFilter=t.magFilter=T.NearestFilter; t.needsUpdate=true; return t; })();
 const toon=o=>{ const p=Object.assign({roughness:0.78,metalness:0.04},o); if(typeof p.color==='number'||typeof p.color==='string') p.color=col(p.color); if(typeof p.emissive==='number') p.emissive=col(p.emissive); return new T.MeshStandardMaterial(p); };
 const basic=o=>{ const p=Object.assign({},o); if(typeof p.color==='number'||typeof p.color==='string') p.color=col(p.color); return new T.MeshBasicMaterial(p); };
@@ -437,6 +440,16 @@ function buildTextures(){
     for(let i=0;i<5200;i++){ const x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ; g.fillStyle=`rgba(${205+rng()*20|0},${212+rng()*20|0},${222+rng()*16|0},${0.2+rng()*0.4})`; g.fillRect(x,z,0.04+rng()*0.16,0.04+rng()*0.1); }
     for(let i=0;i<34;i++){ const x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ, r=0.8+rng()*2.6; const gr=g.createRadialGradient(x,z,0,x,z,r); gr.addColorStop(0,'rgba(40,50,70,.13)'); gr.addColorStop(1,'rgba(40,50,70,0)'); g.fillStyle=gr; g.fillRect(x-r,z-r,2*r,2*r); }
     g.strokeStyle='rgba(50,58,75,.5)'; g.lineWidth=0.03; for(let i=0;i<12;i++){ let x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ; g.beginPath(); g.moveTo(x,z); for(let k=0;k<6;k++){ x+=(rng()-0.5)*1.4; z+=(rng()-0.5)*1.4; g.lineTo(x,z); } g.stroke(); }
+    // sea-damp edges: salt-darkened concrete creeping in from the water
+    for(const [x0,z0,x1,z1] of [[-HX,-HZ,-HX,-HZ+1.6],[-HX,HZ,-HX,HZ-1.6],[-HX,-HZ,-HX+1.6,-HZ],[HX,-HZ,HX-1.6,-HZ]]){ const lg=g.createLinearGradient(x0,z0,x1,z1); lg.addColorStop(0,'rgba(38,52,72,.2)'); lg.addColorStop(1,'rgba(38,52,72,0)'); g.fillStyle=lg; if(z0===z1) g.fillRect(Math.min(x0,x1),-HZ,Math.abs(x1-x0),2*HZ); else g.fillRect(-HX,Math.min(z0,z1),2*HX,Math.abs(z1-z0)); }
+    for(let i=0;i<70;i++){ const side=rng()<0.5?-1:1, x=-HX+rng()*2*HX, z=side*(HZ-rng()*1.1), r=0.25+rng()*0.9; const gr=g.createRadialGradient(x,z,0,x,z,r); gr.addColorStop(0,'rgba(240,244,248,.16)'); gr.addColorStop(0.7,'rgba(240,244,248,.05)'); gr.addColorStop(1,'rgba(240,244,248,0)'); g.fillStyle=gr; g.fillRect(x-r,z-r,2*r,2*r); }
+    // oil stains: soft dark pool with a darker rim
+    for(let i=0;i<14;i++){ const x=-HX+2+rng()*(2*HX-4), z=-HZ+2+rng()*(2*HZ-4); g.save(); g.translate(x,z); g.rotate(rng()*6); g.scale(1,0.55+rng()*0.4); const r=0.35+rng()*0.75;
+      const gr=g.createRadialGradient(0,0,r*0.1,0,0,r); gr.addColorStop(0,'rgba(30,34,46,.16)'); gr.addColorStop(0.82,'rgba(30,34,46,.1)'); gr.addColorStop(0.92,'rgba(22,24,34,.2)'); gr.addColorStop(1,'rgba(22,24,34,0)'); g.fillStyle=gr; g.beginPath(); g.arc(0,0,r,0,7); g.fill(); g.restore(); }
+    // tyre scuffs from forklifts
+    g.lineCap='round'; for(let i=0;i<9;i++){ const x=-HX+3+rng()*(2*HX-6), z=-HZ+3+rng()*(2*HZ-6), a=rng()*6, rr=2+rng()*5, sw=0.6+rng()*1.2; for(const off of [-0.42,0.42]){ g.strokeStyle=`rgba(28,30,40,${0.05+rng()*0.05})`; g.lineWidth=0.2; g.beginPath(); g.arc(x,z,rr+off,a,a+sw); g.stroke(); } }
+    // fine aggregate grain (only visible up close, where it matters)
+    for(let i=0;i<26000;i++){ const x=-HX+rng()*2*HX, z=-HZ+rng()*2*HZ, d=rng()<0.5; g.fillStyle=d?`rgba(60,66,80,${0.06+rng()*0.12})`:`rgba(255,255,255,${0.08+rng()*0.14})`; const sz=0.012+rng()*0.03; g.fillRect(x,z,sz,sz); }
   },{clamp:true});
   // --- block wall (tile = 2m) ---
   TX.block=mkTex(512,512,(g,W,H)=>{ const rng=RNG(11); g.fillStyle='#737d8c'; g.fillRect(0,0,W,H); const bh=H/4,bw=W/2; for(let r=0;r<4;r++) for(let c=-1;c<2;c++){ const x=c*bw+(r%2?bw/2:0), y=r*bh, v=rng(); g.fillStyle=`hsl(${212+v*8},${10+v*4}%,${74+v*9}%)`; g.fillRect(x+4,y+4,bw-8,bh-8); g.fillStyle='rgba(255,255,255,.5)'; g.fillRect(x+4,y+4,bw-8,5); g.fillStyle='rgba(20,30,50,.16)'; g.fillRect(x+4,y+bh-12,bw-8,8); } speckle(g,W,H,2400,rng,0.07); });
@@ -480,7 +493,17 @@ function buildTextures(){
 let boxes=[]; // {min,max}
 let ramps=[]; // {minX,maxX,minZ,maxZ,axis,lowAtMin,hLow,hHigh}
 const M={};
-function boxGeo(w,h,d,tile){ const g=new T.BoxGeometry(w,h,d); if(tile){ const uv=g.attributes.uv; const dims=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]]; for(let f=0;f<6;f++) for(let i=0;i<4;i++){ const k=f*4+i; uv.setXY(k,uv.getX(k)*dims[f][0]/tile,uv.getY(k)*dims[f][1]/tile); } } return g; }
+// Boxes get softly rounded edges (they catch the light like real cast concrete / painted steel); thin trims stay sharp.
+const BEVEL={ on:true };
+function bevelR(w,h,d){ const m=Math.min(w,h,d); if(!BEVEL.on||m<0.3) return 0; return Math.min(0.075,m*0.09); }
+function boxGeo(w,h,d,tile){ const r=bevelR(w,h,d); const g=r>0? new T.BoxGeometry(w,h,d,3,3,3) : new T.BoxGeometry(w,h,d); const dims=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+  if(r>0){ const pos=g.attributes.position, nor=g.attributes.normal, uv=g.attributes.uv, hs=[w/2,h/2,d/2], v=new T.Vector3(), inn=new T.Vector3(), fn=new T.Vector3();
+    const rm=(x,hh)=>{ const f=x/hh; return Math.abs(Math.abs(f)-1/3)<1e-4? Math.sign(f)*(hh-r) : x; };
+    for(let i=0;i<pos.count;i++){ v.set(rm(pos.getX(i),hs[0]),rm(pos.getY(i),hs[1]),rm(pos.getZ(i),hs[2])); fn.set(nor.getX(i),nor.getY(i),nor.getZ(i));
+      inn.set(Math.max(-hs[0]+r,Math.min(hs[0]-r,v.x)),Math.max(-hs[1]+r,Math.min(hs[1]-r,v.y)),Math.max(-hs[2]+r,Math.min(hs[2]-r,v.z)));
+      const dv=v.clone().sub(inn); const L=dv.length(); if(L>1e-5){ dv.multiplyScalar(1/L); const dd=inn.clone().add(dv.clone().multiplyScalar(r)); const t=Math.min(1,L/(r*Math.SQRT2)); pos.setXYZ(i,dd.x,dd.y,dd.z); fn.lerp(dv,0.5+0.5*t).normalize(); } nor.setXYZ(i,fn.x,fn.y,fn.z); }
+    const per=16; for(let f=0;f<6;f++){ const du=dims[f][0], dvv=dims[f][1]; for(let i=0;i<per;i++){ const k=f*per+i; let a=uv.getX(k), b=uv.getY(k); const mp=(x,dm)=>Math.abs(x-1/3)<1e-4? r/dm : Math.abs(x-2/3)<1e-4? 1-r/dm : x; uv.setXY(k,mp(a,du),mp(b,dvv)); } } }
+  if(tile){ const uv=g.attributes.uv; const per=uv.count/6; for(let f=0;f<6;f++) for(let i=0;i<per;i++){ const k=f*per+i; uv.setXY(k,uv.getX(k)*dims[f][0]/tile,uv.getY(k)*dims[f][1]/tile); } } return g; }
 function collider(x0,x1,y0,y1,z0,z1,noCam){ boxes.push({min:V3(x0,y0,z0),max:V3(x1,y1,z1),noCam:!!noCam}); }
 const MX=(x,y,z,rx=0,ry=0,rz=0,sx=1,sy=1,sz=1)=>new T.Matrix4().compose(V3(x,y,z),new T.Quaternion().setFromEuler(new T.Euler(rx,ry,rz)),V3(sx,sy,sz));
 function mergeGeos(list){ let n=0; const parts=list.map(([g,m])=>{ const q=g.index?g.toNonIndexed():g.clone(); g.dispose(); if(m) q.applyMatrix4(m); if(!q.attributes.normal) q.computeVertexNormals(); n+=q.attributes.position.count; return q; });
@@ -633,21 +656,33 @@ function buildArena(){
     fragmentShader:'uniform vec3 top; uniform vec3 mid; uniform vec3 hor; uniform vec3 sunDir; varying vec3 vDir; void main(){ vec3 d=normalize(vDir); float h=d.y; vec3 c=mix(hor,mid,smoothstep(0.0,0.22,h)); c=mix(c,top,smoothstep(0.18,0.8,h)); float s=max(dot(d,sunDir),0.0); c+=vec3(1.0,0.86,0.6)*(smoothstep(0.994,0.9965,s)+pow(s,10.0)*0.38+pow(s,3.0)*0.12); gl_FragColor=vec4(c,1.0); }'}));
   W.add(sky); animated.push(()=>sky.position.copy(camera.position));
   // water
-  const waterMat=new T.ShaderMaterial({fog:false,uniforms:{time:{value:0},hor:{value:new T.Color(HORIZON)},dock:{value:new T.Vector2(HX,HZ)}},
-    vertexShader:'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:`uniform float time; uniform vec3 hor; uniform vec2 dock; varying vec3 vW;
+  const waterMat=new T.ShaderMaterial({fog:false,uniforms:{time:{value:0},hor:{value:new T.Color(HORIZON)},dock:{value:new T.Vector2(HX,HZ)},sunDir:{value:V3(27,9,-19).normalize()},
+      skyTop:{value:new T.Color(0x35488f)},skyMid:{value:new T.Color(0xe08f86)},tR:{value:null},tm:{value:new T.Matrix4()},reflOn:{value:0}},
+    vertexShader:'uniform mat4 tm; varying vec3 vW; varying vec4 vR; void main(){ vR=tm*vec4(position,1.0); vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:`uniform float time; uniform vec3 hor; uniform vec2 dock; uniform vec3 sunDir; uniform vec3 skyTop; uniform vec3 skyMid; uniform sampler2D tR; uniform float reflOn; varying vec3 vW; varying vec4 vR;
       float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
       float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y); }
-      void main(){ vec2 p=vW.xz*0.16; float n=noise(p+vec2(time*0.22,time*0.1))*0.6+noise(p*2.4-vec2(time*0.18,-time*0.26))*0.4;
-        vec3 deep=vec3(0.07,0.2,0.48), mid=vec3(0.2,0.36,0.62), light=vec3(1.0,0.78,0.6);
-        vec3 c=mix(deep,mid,smoothstep(0.32,0.62,n));
-        float l1=1.0-smoothstep(0.0,0.022,abs(n-0.6)); float l2=1.0-smoothstep(0.0,0.016,abs(n-0.42));
-        c=mix(c,light,l1*0.85+l2*0.4);
-        float sp=step(0.988,noise(vW.xz*1.7+vec2(time*0.7,-time*0.4))); c+=sp*0.4;
+      float wav(vec2 p){ return noise(p*0.16+vec2(time*0.22,time*0.1))*0.55+noise(p*0.42-vec2(time*0.18,-time*0.26))*0.3+noise(p*1.3+vec2(-time*0.5,time*0.35))*0.15; }
+      vec3 skyCol(vec3 d){ float h=max(d.y,0.0); vec3 c=mix(hor,skyMid,smoothstep(0.0,0.22,h)); c=mix(c,skyTop,smoothstep(0.18,0.8,h)); return c; }
+      void main(){ float dist=length(vW.xz-cameraPosition.xz); vec2 p=vW.xz; float n=wav(p);
+        float e=0.35, amp=mix(1.6,0.25,smoothstep(20.0,160.0,dist)); vec3 N=normalize(vec3(-(wav(p+vec2(e,0.0))-wav(p-vec2(e,0.0)))/(2.0*e)*amp,1.0,-(wav(p+vec2(0.0,e))-wav(p-vec2(0.0,e)))/(2.0*e)*amp));
+        vec3 V=normalize(cameraPosition-vW); float fr=0.03+0.97*pow(1.0-max(dot(N,V),0.0),5.0);
+        vec3 R=reflect(-V,N); R.y=abs(R.y); vec3 refl=skyCol(R);
+        if(reflOn>0.5){ vec2 uv=vR.xy/vR.w+N.xz*0.06; vec3 rc=texture2D(tR,uv).rgb; refl=mix(refl,rc,smoothstep(220.0,60.0,dist)); }
+        vec3 deep=vec3(0.04,0.15,0.38), mid=vec3(0.1,0.32,0.55), shal=vec3(0.18,0.55,0.62);
+        vec3 body=mix(deep,mid,smoothstep(0.3,0.68,n));
         vec2 q=abs(vW.xz)-dock; float dd=length(max(q,0.0))+min(max(q.x,q.y),0.0);
-        float fo=1.0-smoothstep(0.0,1.5,dd+sin(time*1.6+vW.x*0.9+vW.z*0.7)*0.35+n*0.8-0.4); c=mix(c,vec3(1.0),clamp(fo,0.0,1.0)*0.8);
-        float d=length(vW.xz-cameraPosition.xz); c=mix(c,hor,smoothstep(70.0,330.0,d)); gl_FragColor=vec4(c,1.0); }`});
+        body=mix(shal,body,smoothstep(0.0,7.0,dd));
+        float sss=pow(max(dot(-V,sunDir),0.0)*0.5+0.5,4.0)*smoothstep(0.55,0.75,n); body+=vec3(0.12,0.4,0.36)*sss*0.5;
+        vec3 c=mix(body,refl,clamp(fr*1.25,0.0,0.92));
+        float l1=1.0-smoothstep(0.0,0.02,abs(n-0.6)); c=mix(c,vec3(1.0,0.86,0.72),l1*0.32*smoothstep(160.0,40.0,dist));
+        float sp=max(dot(R,sunDir),0.0); c+=vec3(1.0,0.82,0.55)*(pow(sp,420.0)*3.5+pow(sp,60.0)*0.35);
+        float glint=step(0.993,noise(vW.xz*2.1+vec2(time*0.8,-time*0.5)))*smoothstep(60.0,10.0,dist); c+=glint*vec3(1.0,0.9,0.75)*0.55;
+        float fo=1.0-smoothstep(0.0,1.4,dd+sin(time*1.6+vW.x*0.9+vW.z*0.7)*0.35+n*0.9-0.45); float fo2=(1.0-smoothstep(0.0,3.2,dd))*smoothstep(0.62,0.8,noise(vW.xz*2.2+vec2(time*0.3,0.0)));
+        c=mix(c,vec3(0.97,0.99,1.0),clamp(fo*0.85+fo2*0.5,0.0,1.0));
+        c=mix(c,hor,smoothstep(80.0,340.0,dist)); gl_FragColor=vec4(c,1.0); }`});
   W.userData.waterMat=waterMat; const water=new T.Mesh(new T.PlaneGeometry(1400,1400),waterMat); water.rotation.x=-Math.PI/2; water.position.y=-1.15; W.add(water); animated.push(t=>{ waterMat.uniforms.time.value=t; });
+  { const mr=lookMirror(water,0.42); waterMat.uniforms.tR.value=mr.rt.texture; waterMat.uniforms.tm.value=mr.tm; mr.uni=waterMat.uniforms; }
   // dock slab
   collider(-HX,HX,-1.4,0,-HZ,HZ);
   const floor=new T.Mesh(new T.PlaneGeometry(2*HX,2*HZ),toon({map:TX.floor})); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; W.add(floor);
@@ -832,7 +867,7 @@ function hasLOS(a,b){ return segmentHitsBoxes(a,b)===null; }
 
 
 // ================= NEON CITY MAP =================
-function mkPair(w,h,draw,o={}){ const c=document.createElement('canvas'), e=document.createElement('canvas'); c.width=e.width=w; c.height=e.height=h; const gc=c.getContext('2d'), ge=e.getContext('2d'); ge.fillStyle='#000'; ge.fillRect(0,0,w,h); draw(gc,ge,w,h); const mk=cv=>{ const t=new T.CanvasTexture(cv); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; t.wrapS=t.wrapT=o.clamp?T.ClampToEdgeWrapping:T.RepeatWrapping; return t; }; return {map:mk(c),emissiveMap:mk(e)}; }
+function mkPair(w,h,draw,o={}){ const c=document.createElement('canvas'), e=document.createElement('canvas'); const gc=txCtx(c,w,h), ge=txCtx(e,w,h); ge.fillStyle='#000'; ge.fillRect(0,0,w,h); draw(gc,ge,w,h); const mk=cv=>{ const t=new T.CanvasTexture(cv); t.encoding=T.sRGBEncoding; t.anisotropy=maxAniso; t.wrapS=t.wrapT=o.clamp?T.ClampToEdgeWrapping:T.RepeatWrapping; return t; }; return {map:mk(c),emissiveMap:mk(e)}; }
 const glowMat=(pair,o={})=>new T.MeshStandardMaterial(Object.assign({map:pair.map,emissiveMap:pair.emissiveMap,emissive:new T.Color(0xffffff),emissiveIntensity:1,roughness:0.6,metalness:0.25},o));
 function neonSignTex(text,color,w=512,h=160,sub){ return mkTex(w,h,(g,W2,H2)=>{ g.fillStyle='#0a0c1c'; g.fillRect(0,0,W2,H2); g.strokeStyle=color; g.lineWidth=6; g.shadowColor=color; g.shadowBlur=18; g.strokeRect(10,10,W2-20,H2-20); g.textAlign='center'; g.textBaseline='middle'; g.font=`${Math.floor(H2*(sub?0.46:0.6))}px ${FONT}`; g.fillStyle='#fff'; g.shadowBlur=26; g.fillText(text,W2/2,H2*(sub?0.42:0.54)); g.fillStyle=color; g.globalAlpha=0.55; g.fillText(text,W2/2,H2*(sub?0.42:0.54)); g.globalAlpha=1; if(sub){ g.font=`${Math.floor(H2*0.2)}px ${FONT}`; g.fillStyle=color; g.shadowBlur=10; g.fillText(sub,W2/2,H2*0.8); } },{clamp:true}); }
 function buildNeon(){
@@ -880,7 +915,7 @@ function buildNeon(){
   W.add(sky); animated.push(()=>sky.position.copy(camera.position));
   streetTex.repeat.set(14,14); const street=new T.Mesh(new T.PlaneGeometry(1200,1200),new T.MeshBasicMaterial({map:streetTex})); street.rotation.x=-Math.PI/2; street.position.y=-95; W.add(street);
   collider(-HX,HX,-1.4,0,-HZ,HZ);
-  const floor=new T.Mesh(new T.PlaneGeometry(2*HX,2*HZ),NM.floor); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; W.add(floor);
+  const floor=new T.Mesh(new T.PlaneGeometry(2*HX,2*HZ),NM.floor); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; W.add(floor); lookWetFloor(W,2*HX,2*HZ,0.004,0.62);
   meshBox(-HX,HX,-110,-0.005,-HZ,HZ,NM.bld[1],12,{cast:false}); meshBox(-HX-0.25,HX+0.25,-0.5,-0.02,-HZ-0.25,HZ+0.25,NM.dark,0,{cast:false}); edgeGlow(-HX-0.25,HX+0.25,-0.26,-HZ-0.25,HZ+0.25,MG);
   // ---- bases ----
   const mkBase=(s,team)=>{ const x0=s<0?-HX:HX-6, x1=x0+6, cx=s<0?x0+3:x1-3, tc=team==='p'?TEAM.player:TEAM.bot, wm=team==='p'?NM.wallTeamP:NM.wallTeamB;
@@ -962,7 +997,7 @@ const MAPS={
     env:{ fog:[0x150d33,45,300], hemi:[0xa9b8ff,0x3a2260,0.95], sun:[0xc4d0ff,0.6,[-18,36,-14]], bloom:[0.4,0.45,0.8] } },
 };
 let curMap=null, curMapId='';
-function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Group(); scene.add(g); W=g; /*DEBUG-START*/if(window.__tagAdd){ const a0=g.add; g.add=function(...a){ const st=new Error().stack.split('\n').slice(1).map(x=>x.trim()); const k=st.findIndex(x=>/^at (buildArena|buildScenery|buildNeon|Object\.build)/.test(x)); for(const o of a) o.userData.src=k>0?st[k]:'x'+Math.random(); return a0.apply(this,a); }; }/*DEBUG-END*/ boxes=[]; ramps=[]; animated=[]; HX=m.native[0]; HZ=m.native[1]; m.build(); const S=m.scale;
+function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Group(); g.userData.isMap=true; scene.add(g); W=g; /*DEBUG-START*/if(window.__tagAdd){ const a0=g.add; g.add=function(...a){ const st=new Error().stack.split('\n').slice(1).map(x=>x.trim()); const k=st.findIndex(x=>/^at (buildArena|buildScenery|buildNeon|Object\.build)/.test(x)); for(const o of a) o.userData.src=k>0?st[k]:'x'+Math.random(); return a0.apply(this,a); }; }/*DEBUG-END*/ boxes=[]; ramps=[]; animated=[]; HX=m.native[0]; HZ=m.native[1]; m.build(); const S=m.scale;
   if(S!==1){ g.scale.set(S,1,S); for(const b of boxes){ b.min.x*=S; b.max.x*=S; b.min.z*=S; b.max.z*=S; } for(const r of ramps){ r.minX*=S; r.maxX*=S; r.minZ*=S; r.maxZ*=S; } if(g.userData.waterMat) g.userData.waterMat.uniforms.dock.value.set(HX*S,HZ*S); }
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
@@ -973,10 +1008,10 @@ function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) ret
   const ms=renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget; const rt= ms? new T.WebGLMultisampleRenderTarget(sz.x,sz.y,P) : new T.WebGLRenderTarget(sz.x,sz.y,P);
   composer=new THREE.EffectComposer(renderer,rt); composer.addPass(new THREE.RenderPass(scene,camera)); bloomPass=new THREE.UnrealBloomPass(new T.Vector2(sz.x/2,sz.y/2),0.5,0.6,0.8); composer.addPass(bloomPass); applyBloom(); }catch(e){ console.warn('post off',e); composer=null; } }
 function applyBloom(){ if(bloomPass&&curMap&&curMap.env.bloom){ const b=curMap.env.bloom; bloomPass.strength=b[0]; bloomPass.radius=b[1]; bloomPass.threshold=b[2]; } }
-function drawFrame(){ if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
+function drawFrame(){ lookFrame(); if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
 let shadowSize=2048;
 function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.5,Math.min(dpr,2)) : Math.min(dpr,d.pr)); renderer.setPixelRatio(pixelRatio); resize();
-  sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } }
+  sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } try{ lookQuality(q); }catch(e){ console.warn(e); } }
 buildTextures(); buildMaterials();
 
 // ================= BAKED LIGHTING =================
@@ -1128,9 +1163,174 @@ const KEN={ ready:false, proto:{}, queue:[] };
     const bin=atob(b64), buf=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i); L.parse(buf.buffer,'',g=>res(g.scene),rej); });
   for(const k in KENNEY.models){ const m=KENNEY.models[k]; const s=await parse(m.glb,m.pal);
     s.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.receiveShadow=false; for(const mt of [].concat(o.material)){ mt.userData.noDetail=true; if(mt.map) mt.map.anisotropy=4; } } }); KEN.proto[k]=s; }
-  KEN.ready=true; for(const q of KEN.queue.splice(0)) kenPlace(q);
-}catch(e){ console.warn('background models unavailable',e); } })();
+  KEN.ready=true; for(const q of KEN.queue.splice(0)) kenPlace(q); try{ lookModelsArrived(); }catch(e){}
+}catch(e){ KEN.failed=true; console.warn('background models unavailable',e); } })();
 function kenPlace(p){ if(!KEN.ready){ KEN.queue.push(p); return; } const src=KEN.proto[p.name]; if(!src) return; const o=src.clone(); o.position.set(p.x,p.y,p.z); o.rotation.y=p.ry||0; o.scale.setScalar(p.s||1); if(p.shadow) o.traverse(c=>{ if(c.isMesh) c.castShadow=true; }); p.group.add(o); }
+
+// ================= LOOK: environment light, reflections, colour grade =================
+// Each map's own sky + buildings are captured once into a light probe (PMREM), so every surface picks up
+// light and reflections from what's actually around it. Water and the Neon rooftop get real mirrored
+// reflections on High/Ultra, and a final grade pass adds contrast, colour and a soft vignette.
+const LOOK={ q:'high', env:{}, pmrem:null, grade:null, mirrors:[] };
+const LOOK_MAP={
+  dock:{ exp:1.0, envI:1.0, hemi:0.4, sun:1.3, grade:{sat:1.12,con:0.26,vig:0.32,warm:[1.03,1.0,0.96],cool:[0.94,0.98,1.06]} },
+  neon:{ exp:1.10, envI:1.35, hemi:0.55, sun:1.0,  grade:{sat:1.16,con:0.2,vig:0.42,warm:[1.04,0.98,1.03],cool:[0.92,0.96,1.1]} } };
+renderer.toneMapping=T.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+// Lights, signs and glow sprites keep their full colour: only lit surfaces go through the film curve.
+function lookUntone(root){ root.traverse(o=>{ for(const m of [].concat(o.material||[])){ if(m&&(m.isMeshBasicMaterial||m.isSpriteMaterial||m.isPointsMaterial||m.isLineBasicMaterial)) m.toneMapped=false; } }); }
+
+// ---- light probe from the map itself ----
+function lookEnv(id,force){ if(LOOK.env[id]&&!force) return LOOK.env[id]; const m=MAPS[id]; if(!m||!m.group) return null;
+  try{ if(!LOOK.pmrem){ LOOK.pmrem=new T.PMREMGenerator(renderer); LOOK.pmrem.compileCubemapShader(); }
+    const hidden=[]; for(const o of scene.children){ if(o!==m.group&&!o.isLight&&o.visible){ hidden.push(o); o.visible=false; } }
+    const gv=m.group.visible; m.group.visible=true; const py=m.group.position.y; m.group.position.y=py-2.6; m.group.updateMatrixWorld(true);
+    const skies=[], glass=[]; m.group.traverse(o=>{ if(!o.visible) return; if(o.isMesh&&o.material&&o.material.isShaderMaterial&&o.material.side===T.BackSide){ skies.push([o,o.position.clone()]); o.position.set(0,0,0); }
+      else if(o.isSprite&&o.scale.x>12){ glass.push(o); o.visible=false; } });
+    if(!LOOK.cube){ const hf=renderer.capabilities.isWebGL2; LOOK.cube=new T.WebGLCubeRenderTarget(256,{type:hf?T.HalfFloatType:T.UnsignedByteType,format:T.RGBAFormat,generateMipmaps:false,minFilter:T.LinearFilter,magFilter:T.LinearFilter}); LOOK.cubeCam=new T.CubeCamera(0.1,1600,LOOK.cube); }
+    const tmo=renderer.toneMapping; renderer.toneMapping=T.NoToneMapping; LOOK.cubeCam.position.set(0,0,0); LOOK.cubeCam.updateMatrixWorld(true); LOOK.cubeCam.update(renderer,scene); renderer.toneMapping=tmo;
+    const old=LOOK.env[id]; const rt=LOOK.pmrem.fromCubemap(LOOK.cube.texture); if(old&&old!==rt.texture) old.dispose();
+    for(const [o,p] of skies) o.position.copy(p); for(const o of glass) o.visible=true; m.group.position.y=py; m.group.visible=gv; m.group.updateMatrixWorld(true); for(const o of hidden) o.visible=true;
+    LOOK.env[id]=rt.texture; return rt.texture; }catch(e){ console.warn('env light off',e); return null; } }
+
+// ---- surface tuning: what each material is made of ----
+function lookTune(root,id){ const L=LOOK_MAP[id]||LOOK_MAP.dock; const seen=new Set();
+  const isTx=(mp,...k)=>k.some(n=>TX[n]&&(TX[n]===mp||(TX[n].side===mp||TX[n].end===mp||TX[n].top===mp)));
+  root.traverse(o=>{ if(!o.isMesh) return; for(const m of [].concat(o.material)){ if(!m||seen.has(m)||!m.isMeshStandardMaterial) continue; seen.add(m); const u=m.userData; if(u.look) continue; u.look=1;
+    let k=1; const mp=m.map;
+    if(mp&&isTx(mp,'container')){ m.metalness=Math.max(m.metalness,0.45); m.roughness=Math.min(m.roughness,0.52); k=1.15; }
+    else if(mp&&(mp===TX.wood||mp===TX.crate||mp===TX.crateB||mp===TX.crateO)){ m.roughness=Math.max(m.roughness,0.82); k=0.8; }
+    else if(mp&&(mp===TX.concrete||mp===TX.dock||mp===TX.block||mp===TX.floor)){ k=0.95; }
+    else if(!mp&&m.metalness>=0.3){ m.roughness=Math.min(m.roughness,0.45); k=1.2; }
+    else if(!mp&&m.color&&m.roughness>0.7&&!u.noDetail){ m.roughness=0.62; }
+    if(m.transparent&&m.opacity<0.5){ m.roughness=Math.min(m.roughness,0.15); k=1.6; }
+    m.envMapIntensity=L.envI*k; m.needsUpdate=true; } }); }
+
+// ---- planar mirror (water + wet floor) ----
+function lookMirror(mesh,res){ const rt=new T.WebGLRenderTarget(16,16,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBFormat}); rt.texture.generateMipmaps=false;
+  const vc=new T.PerspectiveCamera(), tm=new T.Matrix4(), N=new T.Vector3(), P=new T.Vector3(), C=new T.Vector3(), view=new T.Vector3(), look=new T.Vector3(), tgt=new T.Vector3(), rot=new T.Matrix4(), plane=new T.Plane(), clip=new T.Vector4(), q=new T.Vector4();
+  const mr={ mesh, rt, tm, on:false, res, busy:false };
+  mesh.onBeforeRender=(r,sc,cam)=>{ if(!mr.on||mr.busy||cam!==camera) return; const ds=r.getDrawingBufferSize(new T.Vector2()); const w=Math.max(64,Math.round(ds.x*mr.res)), h=Math.max(64,Math.round(ds.y*mr.res)); if(rt.width!==w||rt.height!==h) rt.setSize(w,h); if(mr.uni&&mr.uni.px) mr.uni.px.value.set(1/w,1/h);
+    P.setFromMatrixPosition(mesh.matrixWorld); C.setFromMatrixPosition(cam.matrixWorld); rot.extractRotation(mesh.matrixWorld); N.set(0,0,1).applyMatrix4(rot);
+    view.subVectors(P,C); if(view.dot(N)>0) return; view.reflect(N).negate().add(P);
+    rot.extractRotation(cam.matrixWorld); look.set(0,0,-1).applyMatrix4(rot).add(C); tgt.subVectors(P,look).reflect(N).negate().add(P);
+    vc.layers.set(3); vc.position.copy(view); vc.up.set(0,1,0).applyMatrix4(rot).reflect(N); vc.lookAt(tgt); vc.far=cam.far; vc.updateMatrixWorld(); vc.projectionMatrix.copy(cam.projectionMatrix);
+    tm.set(0.5,0,0,0.5, 0,0.5,0,0.5, 0,0,0.5,0.5, 0,0,0,1); tm.multiply(vc.projectionMatrix); tm.multiply(vc.matrixWorldInverse); tm.multiply(mesh.matrixWorld);
+    plane.setFromNormalAndCoplanarPoint(N,P); plane.applyMatrix4(vc.matrixWorldInverse); clip.set(plane.normal.x,plane.normal.y,plane.normal.z,plane.constant);
+    const pm=vc.projectionMatrix.elements; q.x=(Math.sign(clip.x)+pm[8])/pm[0]; q.y=(Math.sign(clip.y)+pm[9])/pm[5]; q.z=-1; q.w=(1+pm[10])/pm[14]; clip.multiplyScalar(2/clip.dot(q)); pm[2]=clip.x; pm[6]=clip.y; pm[10]=clip.z+1-0.003; pm[14]=clip.w;
+    rt.texture.encoding=r.outputEncoding; mr.busy=true; mesh.visible=false; const cur=r.getRenderTarget(), sau=r.shadowMap.autoUpdate; r.shadowMap.autoUpdate=false;
+    const hid=[]; for(const o of LOOK.mirrorHide){ if(o.visible){ o.visible=false; hid.push(o); } }
+    r.setRenderTarget(rt); r.state.buffers.depth.setMask(true); if(r.autoClear===false) r.clear(); r.render(sc,vc);
+    for(const o of hid) o.visible=true; r.shadowMap.autoUpdate=sau; r.setRenderTarget(cur); mesh.visible=true; mr.busy=false; };
+  LOOK.mirrors.push(mr); return mr; }
+LOOK.mirrorHide=[];
+
+// Wet rooftop: a thin glossy layer over the Neon floor that mirrors the signs, blocks and fighters.
+function lookWetFloor(group,w,d,y,strength){ const g=new T.PlaneGeometry(w,d); const mat=new T.ShaderMaterial({transparent:true,depthWrite:false,fog:false,
+    uniforms:{tR:{value:null},tm:{value:new T.Matrix4()},k:{value:strength},time:{value:0},px:{value:new T.Vector2(1/512,1/512)}},
+    vertexShader:'uniform mat4 tm; varying vec4 vR; varying vec3 vW; void main(){ vR=tm*vec4(position,1.0); vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:`uniform sampler2D tR; uniform float k; uniform vec2 px; varying vec4 vR; varying vec3 vW;
+      float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+      float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y); }
+      void main(){ vec3 V=normalize(cameraPosition-vW); float fr=0.08+0.92*pow(1.0-max(V.y,0.0),4.0);
+        float pud=smoothstep(0.42,0.7,noise(vW.xz*0.23)+noise(vW.xz*0.9)*0.25); vec2 dn=vec2(noise(vW.xz*5.0),noise(vW.xz*5.0+9.0))-0.5;
+        vec2 uv=vR.xy/vR.w+dn*mix(0.012,0.002,pud); float s=mix(5.0,1.2,pud);
+        vec3 c=texture2D(tR,uv).rgb*0.36+(texture2D(tR,uv+vec2(px.x,px.y)*s).rgb+texture2D(tR,uv-vec2(px.x,px.y)*s).rgb+texture2D(tR,uv+vec2(px.x,-px.y)*s).rgb+texture2D(tR,uv-vec2(px.x,-px.y)*s).rgb)*0.16;
+        float a=k*fr*mix(0.55,1.0,pud); gl_FragColor=vec4(c,clamp(a,0.0,0.85)); }`});
+  const m=new T.Mesh(g,mat); m.rotation.x=-Math.PI/2; m.position.y=y; m.renderOrder=0; group.add(m);
+  const mr=lookMirror(m,0.5); mat.uniforms.tR.value=mr.rt.texture; mat.uniforms.tm.value=mr.tm; mr.uni=mat.uniforms; m.visible=false; mr.toggle=on=>{ m.visible=on; }; return mr; }
+
+// Only what can actually be seen in a reflection is drawn into it (keeps the extra pass cheap).
+function lookLayers(root,id){ const bb=new T.Box3(), sz=new T.Vector3(); root.updateMatrixWorld(true); const hx=(curMap&&curMap.HX)||HX, hz=(curMap&&curMap.HZ)||HZ;
+  root.traverse(o=>{ if(!(o.isMesh||o.isSprite||o.isLine||o.isPoints)) return; if(o.userData.lyr) return; o.userData.lyr=1;
+    if(o.isMesh&&o.material&&o.material.isShaderMaterial&&o.material.side===T.BackSide){ o.layers.enable(3); return; }
+    bb.setFromObject(o); bb.getSize(sz); const r=sz.length()/2; if(!isFinite(r)) return;
+    if(id==='dock'){ if(bb.max.y<-1.1||r<0.3) return; const inside=bb.min.x>-hx+1.2&&bb.max.x<hx-1.2&&bb.min.z>-hz+1.2&&bb.max.z<hz-1.2; if(inside&&bb.max.y<2.6) return; }
+    else { if(bb.max.y<-0.05||r<0.22) return; }
+    o.layers.enable(3); }); }
+
+// ---- final colour grade (High/Ultra) ----
+function lookGradePass(){ if(LOOK.grade||!composer||!THREE.ShaderPass) return; try{
+  const p=new THREE.ShaderPass({ uniforms:{tDiffuse:{value:null},sat:{value:1.1},con:{value:0.2},vig:{value:0.3},warm:{value:new T.Vector3(1,1,1)},cool:{value:new T.Vector3(1,1,1)},asp:{value:1}},
+    vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    fragmentShader:`uniform sampler2D tDiffuse; uniform float sat; uniform float con; uniform float vig; uniform vec3 warm; uniform vec3 cool; uniform float asp; varying vec2 vUv;
+      void main(){ vec4 t=texture2D(tDiffuse,vUv); vec3 x=t.rgb; float l=dot(x,vec3(0.2126,0.7152,0.0722));
+        x=mix(x,x*x*(3.0-2.0*x),con); x=mix(vec3(dot(x,vec3(0.2126,0.7152,0.0722))),x,sat);
+        x*=mix(cool,warm,smoothstep(0.15,0.75,l));
+        vec2 d=(vUv-0.5)*vec2(asp,1.0); x*=1.0-vig*smoothstep(0.35,1.15,length(d)*1.25);
+        gl_FragColor=vec4(clamp(x,0.0,1.0),t.a); }` });
+  composer.addPass(p); LOOK.grade=p; lookGradeSet(); }catch(e){ console.warn('grade off',e); } }
+function lookGradeSet(){ const p=LOOK.grade; if(!p) return; const g=(LOOK_MAP[curMapId]||LOOK_MAP.dock).grade; const u=p.uniforms; u.sat.value=g.sat; u.con.value=g.con; u.vig.value=g.vig; u.warm.value.fromArray(g.warm); u.cool.value.fromArray(g.cool); u.asp.value=camera.aspect||1; }
+
+// ---- hooks: map change, quality change, models arriving ----
+function lookMap(id){ const m=MAPS[id]; if(!m||!m.group) return; const L=LOOK_MAP[id]||LOOK_MAP.dock, e=m.env;
+  if(!m.lookDone){ m.lookDone=true; lookUntone(m.group); lookTune(m.group,id); lookLayers(m.group,id); }
+  lookTryMerge(m);
+  hemi.intensity=e.hemi[2]*L.hemi; sun.intensity=e.sun[1]*L.sun; renderer.toneMappingExposure=L.exp;
+  const low=LOOK.q==='low'; renderer.toneMapping=low?T.NoToneMapping:T.ACESFilmicToneMapping; scene.environment=low?null:lookEnv(id); if(low){ hemi.intensity=e.hemi[2]; sun.intensity=e.sun[1]; }
+  for(const mr of LOOK.mirrors) lookMirrorOn(mr); lookGradeSet(); }
+function lookMirrorOn(mr){ const inMap=curMap&&curMap.group&&(()=>{ let p=mr.mesh; while(p){ if(p===curMap.group) return true; p=p.parent; } return false; })();
+  mr.on=inMap&&(LOOK.q==='high'||LOOK.q==='ultra'); mr.res=LOOK.q==='ultra'?0.6:0.42; if(mr.toggle) mr.toggle(mr.on); if(mr.uni&&mr.uni.reflOn) mr.uni.reflOn.value=mr.on?1:0; if(mr.uni&&mr.uni.px) mr.uni.px.value.set(1/Math.max(64,mr.rt.width),1/Math.max(64,mr.rt.height)); }
+function lookQuality(q){ LOOK.q=q; if(postOn) lookGradePass(); if(curMap&&curMap.group) lookMap(curMapId); }
+function lookModelsArrived(){ for(const k in MAPS){ const m=MAPS[k]; if(!m.group) continue; m.lookDone=false; lookUntone(m.group); m.group.traverse(o=>{ if(o.isMesh) for(const mt of [].concat(o.material)) if(mt) mt.userData.look=0; }); lookTune(m.group,k); lookLayers(m.group,k); m.lookDone=true; if(LOOK.env[k]) lookEnv(k,true); } if(curMap) lookMap(curMapId); }
+// Effects and fighters are made on the fly: glows/bullets stay full colour, like the map's lights.
+let lookN=0; function lookFrame(){ if((lookN++&7)!==0) return; if(curMap&&!curMap.merged&&(lookN&63)===1) lookTryMerge(curMap); for(const o of scene.children){ if(o.userData.isMap||o.isLight) continue; o.traverse(c=>{ c.layers.enable(3); const ms=c.material; if(!ms) return; for(const m of (Array.isArray(ms)?ms:[ms])){ if(m.userData.lt) continue; m.userData.lt=1; if(m.isMeshBasicMaterial||m.isSpriteMaterial||m.isPointsMaterial||m.isLineBasicMaterial){ m.toneMapped=false; m.needsUpdate=true; } } }); } }
+
+// ---- batching: everything that never moves is merged into a few big meshes ----
+// A map is a few hundred separate boxes, rails and props. Each one costs the CPU a draw call every frame
+// (twice with reflections, once more for shadows). Static pieces that share a surface type are welded
+// together, with each piece's own colour carried per vertex, so the picture is identical but much cheaper.
+const LOOK_FNID=new WeakMap(); let lookFnN=1; const fnid=f=>{ if(!f) return 0; if(!LOOK_FNID.has(f)) LOOK_FNID.set(f,lookFnN++); return LOOK_FNID.get(f); };
+const tid=t=>t?t.uuid:'';
+function lookMatKey(m){ return [m.type,tid(m.map),tid(m.emissiveMap),tid(m.normalMap),tid(m.roughnessMap),tid(m.metalnessMap),tid(m.alphaMap),tid(m.envMap),
+  m.emissive?m.emissive.getHex():'',m.emissiveIntensity,m.roughness,m.metalness,m.envMapIntensity,m.normalScale?m.normalScale.x.toFixed(3):'',m.side,m.opacity,m.alphaTest,
+  m.polygonOffset?[m.polygonOffsetFactor,m.polygonOffsetUnits].join('/'):0,m.depthWrite,m.depthTest,m.fog,m.flatShading,m.toneMapped,fnid(m.onBeforeCompile),m.userData.detail||'',m.userData.noDetail?1:0].join('|'); }
+function lookMergeable(m){ return m&&!m.transparent&&!m.isShaderMaterial&&!m.wireframe&&!m.aoMap&&!m.lightMap&&!m.displacementMap&&!m.vertexColors&&(m.isMeshStandardMaterial||m.isMeshBasicMaterial||m.isMeshLambertMaterial||m.isMeshPhongMaterial); }
+function lookFindStatic(m){ const g=m.group; g.updateMatrixWorld(true); const list=[]; g.traverse(o=>{ if(o.isMesh) list.push(o); });
+  const mats=new Set(); for(const o of list) for(const x of [].concat(o.material)) mats.add(x);
+  const sig=x=>[x.opacity,x.color&&x.color.getHex(),x.emissive&&x.emissive.getHex(),x.emissiveIntensity,x.visible,x.map&&x.map.offset.x,x.map&&x.map.offset.y,x.map&&x.map.uuid,x.roughness,x.metalness].join(',');
+  const msig=new Map(); for(const x of mats) msig.set(x,sig(x));
+  const before=list.map(o=>[o.matrixWorld.clone(),o.visible,o.geometry,o.geometry.attributes.position&&o.geometry.attributes.position.version,o.material]);
+  const anim=new Set(); const sk=[]; g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.side===T.BackSide&&o.material.isShaderMaterial) sk.push(o); });
+  for(const t of [0.37,1.9,3.3,5.75,8.2,13.1,21.7,34.2]){ camera.position.x+=0.37; for(const f of m.animated){ try{ f(t,0.016); }catch(e){} } g.updateMatrixWorld(true);
+    list.forEach((o,i)=>{ const b=before[i]; if(!o.matrixWorld.equals(b[0])||o.visible!==b[1]||o.geometry!==b[2]||(o.geometry.attributes.position&&o.geometry.attributes.position.version!==b[3])||o.material!==b[4]) anim.add(o); });
+    for(const x of mats) if(sig(x)!==msig.get(x)) anim.add(x); }
+  camera.position.x-=0.37*8;
+  return list.filter(o=>{ if(anim.has(o)||!o.visible||o.children.length||o.isSkinnedMesh||o.isInstancedMesh||o.morphTargetInfluences||o.renderOrder!==0||o.userData.noMerge) return false;
+    let p=o.parent; while(p&&p!==g){ if(!p.visible) return false; p=p.parent; }
+    const ms=[].concat(o.material); if(ms.some(x=>anim.has(x)||!lookMergeable(x))) return false;
+    const ga=o.geometry.attributes; if(!ga.position||!o.geometry.isBufferGeometry) return false; return true; }); }
+function lookMerge(m){ if(m.merged||!m.group) return; m.merged=true; const g=m.group; let stat; try{ stat=lookFindStatic(m); }catch(e){ console.warn('batching off',e); return; }
+  const inv=new T.Matrix4().copy(g.matrixWorld).invert(), mw=new T.Matrix4(), nm=new T.Matrix3(), v=new T.Vector3(), n=new T.Vector3();
+  const buckets=new Map();
+  for(const o of stat){ const geo=o.geometry, ms=Array.isArray(o.material)?o.material:null; mw.multiplyMatrices(inv,o.matrixWorld); nm.getNormalMatrix(mw); const flip=mw.determinant()<0;
+    const groups= ms? (geo.groups.length?geo.groups:[{start:0,count:Infinity,materialIndex:0}]) : [{start:0,count:Infinity,materialIndex:-1}];
+    for(const gr of groups){ const mat= ms? ms[gr.materialIndex] : o.material; if(!mat) continue;
+      const key=lookMatKey(mat)+'#'+(o.castShadow?1:0)+(o.receiveShadow?1:0)+'#'+o.layers.mask+'#'+(geo.attributes.uv?1:0);
+      let b=buckets.get(key); if(!b){ b={mat,cast:o.castShadow,recv:o.receiveShadow,layers:o.layers.mask,parts:[],nv:0}; buckets.set(key,b); }
+      b.parts.push({o,geo,start:gr.start,count:gr.count,mw:mw.clone(),nm:nm.clone(),flip,color:(mat.color||new T.Color(1,1,1)).clone()}); } }
+  // a piece is only taken out if every one of its faces lands in a real batch
+  for(let pass=0;pass<6;pass++){ const blocked=new Set(); for(const b of buckets.values()) if(b.parts.length<2) for(const pt of b.parts) blocked.add(pt.o);
+    if(!blocked.size) break; for(const [k,b] of buckets){ b.parts=b.parts.filter(pt=>!blocked.has(pt.o)); if(!b.parts.length) buckets.delete(k); } }
+  let made=0; const removed=new Set();
+  for(const [key,b] of buckets){ if(b.parts.length<2) continue;
+    // gather vertices referenced by each part (re-indexed)
+    const P=[],N=[],U=[],C=[],I=[]; let base=0; const hasUv=!!b.parts[0].geo.attributes.uv;
+    for(const pt of b.parts){ const ga=pt.geo.attributes, idx=pt.geo.index, pos=ga.position, nor=ga.normal, uv=ga.uv;
+      const total= idx? idx.count : pos.count; const s=Math.max(0,pt.start), e=Math.min(total, pt.start+(isFinite(pt.count)?pt.count:total)); if(e<=s) continue;
+      const map=new Map(); const c=pt.color; const lin=c; 
+      const vtx=k=>{ let j=map.get(k); if(j!==undefined) return j; j=base++; map.set(k,j); v.fromBufferAttribute(pos,k).applyMatrix4(pt.mw); P.push(v.x,v.y,v.z);
+        if(nor){ n.fromBufferAttribute(nor,k).applyMatrix3(pt.nm).normalize(); } else n.set(0,1,0); N.push(n.x,n.y,n.z);
+        if(hasUv){ if(uv) U.push(uv.getX(k),uv.getY(k)); else U.push(0,0); } C.push(lin.r,lin.g,lin.b); return j; };
+      for(let t=s;t+2<e;t+=3){ const a=idx?idx.getX(t):t, bb=idx?idx.getX(t+1):t+1, cc=idx?idx.getX(t+2):t+2; const ia=vtx(a), ib=vtx(bb), ic=vtx(cc); if(pt.flip) I.push(ia,ic,ib); else I.push(ia,ib,ic); }
+      removed.add(pt.o); }
+    if(!I.length) continue;
+    const geo=new T.BufferGeometry(); geo.setAttribute('position',new T.Float32BufferAttribute(P,3)); geo.setAttribute('normal',new T.Float32BufferAttribute(N,3)); if(hasUv) geo.setAttribute('uv',new T.Float32BufferAttribute(U,2)); geo.setAttribute('color',new T.Float32BufferAttribute(C,3));
+    geo.setIndex(base>65535? new T.Uint32BufferAttribute(I,1) : new T.Uint16BufferAttribute(I,1)); geo.computeBoundingSphere(); geo.computeBoundingBox();
+    const mat=b.mat.clone(); mat.vertexColors=true; if(mat.color) mat.color.setRGB(1,1,1); mat.onBeforeCompile=b.mat.onBeforeCompile; mat.userData=Object.assign({},b.mat.userData); mat.userData.merged=1;
+    const mesh=new T.Mesh(geo,mat); mesh.castShadow=b.cast; mesh.receiveShadow=b.recv; mesh.layers.mask=b.layers; mesh.matrixAutoUpdate=false; mesh.renderOrder=-1; mesh.userData.merged=true; mesh.userData.lyr=1; g.add(mesh); made++; }
+  for(const o of removed){ if(o.parent) o.parent.remove(o); }
+  m.mergeInfo={static:stat.length,removed:removed.size,batches:made}; }
+function lookTryMerge(m){ if(/[?&]nomerge/.test(location.search)) return; if(m.merged||!m.group||!m.lookDone) return; const kenOk=KEN.ready||KEN.failed; if(!kenOk||!DET.ready) return; lookMerge(m); }
 
 // ================= DOME SHADER (glassy guardian shield) =================
 const DOME_VS='varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP=position; vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }';
@@ -1739,7 +1939,7 @@ function updateDazzleView(dt,t){ if(!dzEl){ dzEl=document.getElementById('dazzle
 
 // ================= WORLD + FIGHTERS =================
 const BASE_POS={player:V3(), bot:V3()};
-function applyMap(id){ setMap(id); bakeLoad(id); bakeUse(id); detailApply(curMap.group); bakeHook(scene); const sx=curMap.spawnX*curMap.scale; BASE_POS.player.set(-sx,1,0); BASE_POS.bot.set(sx,1,0); }
+function applyMap(id){ setMap(id); bakeLoad(id); bakeUse(id); detailApply(curMap.group); bakeHook(scene); lookMap(id); const sx=curMap.spawnX*curMap.scale; BASE_POS.player.set(-sx,1,0); BASE_POS.bot.set(sx,1,0); }
 applyQuality(settings.quality==='auto'?'high':settings.quality);
 applyMap(settings.map);
 const player=new Fighter('YOU',true), bot=new Fighter('BOT',false);
@@ -2157,7 +2357,7 @@ show(UI.start,true,'block'); { const el=UI.loading; let gone=false; const go=()=
 requestAnimationFrame(frame);
 
 // debug / test hooks
-/*DEBUG-START*/window.__game={ setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
+/*DEBUG-START*/window.__game={ look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
   step(dt){ update(dt); }, setAuto(v){ autoRun=v; testMode=!v; }, setRender(v){ doRender=v; }, startMatch, beginRound, startDraft, startSandbox, openSandbox, tryFire, tryBlock, firePellets, doBlock, give(f,id){ (f==='bot'?bot:player).addCard(id); updateCardStrips(); }, clearCards(){ player.setCards([]); bot.setCards([]); },
   forceFight(){ state='fight'; show(UI.countdown,false); }, keys, setMouse(v){ fireHeld=v; if(v){ firePressed=true; steerLatch=false; } }, block(){ pressBlock(); }, dash(){ wantDash=true; }, jump(){ jumpBuffer=0.15; }, get frames(){return frames;}, art:ART.svg, killFighter, hasLOS, render(){ drawFrame(); }, get paused(){return paused;}, pause, camera, explode, endMatch, coachPick, applyDamage, applyMap, applyQuality, toMenu, get map(){return curMapId;} };
 /*DEBUG-END*/
