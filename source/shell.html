@@ -488,7 +488,22 @@
   }
   body.touch .btn,body.touch .seg button,body.touch .chip{min-height:38px}
   body.touch .hintk,body.touch .kbonly{display:none} .tonly{display:none} body.touch p.tonly{display:block}
-  #touchUI{--u:clamp(52px,17vh,92px)}
+  #touchUI{--u0:clamp(58px,19vh,100px);--u:calc(var(--u0)*var(--ts,1))}
+  .tonlyI{display:none!important} body.touch .tonlyI{display:inline-flex!important} body.touch .sets span.tonlyI{display:block!important}
+  #touchUI .tsm{width:calc(44px*var(--ts,1));height:calc(44px*var(--ts,1))}
+  #touchUI.custom #tRight{left:0;top:0;right:auto;bottom:auto}
+  #touchUI.custom .tb{transform:translate(-50%,-50%)} #touchUI.custom .tb.down{transform:translate(-50%,-50%) scale(.92)}
+  #touchUI.custom #tStick:not(.live){left:var(--skx);top:var(--sky)}
+  #touchUI.editing{background:rgba(10,4,20,.45);z-index:9998}
+  #touchUI.editing .tb,#touchUI.editing #tStick{opacity:1!important;outline:2px dashed rgba(255,210,31,.9);outline-offset:4px;pointer-events:auto}
+  #touchUI.editing .tb.grab{outline-color:#fff;transform:translate(-50%,-50%) scale(1.08)}
+  #touchUI.editing #tPowers{display:grid!important}
+  #touchUI.editing #tRight .tb, #touchUI.editing #tStick{display:grid}
+  #tEdit{display:none;position:fixed;left:50%;top:max(8px,env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:10000}
+  #tEdit .te-bar{display:flex;align-items:center;gap:12px;background:var(--ink);border-bottom:3px solid var(--ye);padding:8px 14px;white-space:nowrap;font-size:13px}
+  #tEdit .te-bar b{font-family:var(--disp);font-weight:400;color:var(--ye);font-size:15px}
+  #tEdit label{display:flex;align-items:center;gap:6px} #tEdit input{width:110px;accent-color:var(--ye)}
+  #tEdit .btn{font-size:15px!important;padding:6px 16px 5px!important;min-height:0}
 </style>
 </head>
 <body>
@@ -552,6 +567,7 @@
     <div class="tb" id="tDash" data-t="dash" role="button" aria-label="Dash"><svg viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M4 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg><b></b><em>DASH</em></div>
   </div>
 </div>
+<div id="tEdit"><div class="te-bar"><b>Drag to move</b><label>Size <input type="range" id="tSize" min="0.8" max="1.5" step="0.05"></label><button class="btn sec" id="tReset" type="button">RESET</button><button class="btn" id="tDone" type="button">DONE</button></div></div>
 <div id="rotate"><div><svg viewBox="0 0 64 64" width="84" height="84"><rect x="20" y="8" width="24" height="44" rx="5" fill="none" stroke="currentColor" stroke-width="4"/><path d="M50 40a18 18 0 0 1-12 14" fill="none" stroke="#ff2e88" stroke-width="4" stroke-linecap="round"/><path d="M33 56l6-2-1-6" fill="none" stroke="#ff2e88" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Turn your phone sideways</b><p>Dome Rounds plays in landscape.</p></div></div>
 <div class="layer">
   <div id="banner" class="banner"><div class="sp" id="bannerSplat"></div><span id="bannerText" class="stroke"></span></div>
@@ -595,6 +611,7 @@
         <span>Invert look up/down</span><input type="checkbox" data-k="invertY">
         <span>Swap shoot / block buttons</span><input type="checkbox" data-k="swap">
         <span>Aim assist</span><input type="checkbox" data-k="assist">
+        <span class="tonlyI">Touch buttons</span><span class="tonlyI"><button class="btn sec tEditBtn" type="button">MOVE &amp; RESIZE BUTTONS</button></span>
         <span>Graphics quality</span><select data-k="quality"><option value="auto">Auto</option><option value="low">Low (fastest)</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra (sharpest)</option></select>
       </div>
     </div>
@@ -606,7 +623,7 @@
   <div class="shade full"></div>
   <div class="side">
     <div class="title stroke">PAUSED</div>
-    <div class="rowb"><button class="btn" id="resumeBtn"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>RESUME</button><button class="btn sec" id="quitBtn">QUIT TO MENU</button></div>
+    <div class="rowb"><button class="btn" id="resumeBtn"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>RESUME</button><button class="btn sec" id="quitBtn">QUIT TO MENU</button><button class="btn sec tEditBtn tonlyI" type="button">MOVE BUTTONS</button></div>
     <div class="panel"><h3>THIS MATCH</h3><div class="stats" id="pauseStats"></div><h3 style="margin-top:12px">YOUR CARDS</h3><div class="strip" id="pauseCards"></div>
       <div class="sets">
         <span>Look speed</span><input type="range" min="0.3" max="2.5" step="0.05" data-k="sens">
@@ -615,6 +632,7 @@
         <span>Invert look up/down</span><input type="checkbox" data-k="invertY">
         <span>Swap shoot / block buttons</span><input type="checkbox" data-k="swap">
         <span>Aim assist</span><input type="checkbox" data-k="assist">
+        <span class="tonlyI">Touch buttons</span><span class="tonlyI"><button class="btn sec tEditBtn" type="button">MOVE &amp; RESIZE BUTTONS</button></span>
         <span>Graphics quality</span><select data-k="quality"><option value="auto">Auto</option><option value="low">Low (fastest)</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra (sharpest)</option></select>
       </div>
     </div>
