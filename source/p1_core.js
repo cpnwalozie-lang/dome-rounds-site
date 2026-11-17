@@ -11,7 +11,7 @@ const $ = id => document.getElementById(id);
 
 // ================= CONFIG =================
 const CFG = {
-  gravity:26, moveSpeed:7.8, jumpVel:11.8, dashSpeed:26, dashTime:0.17, dashCd:2.0,
+  gravity:26, moveSpeed:7.8, jumpVel:11.8, dashSpeed:26, dashTime:0.14, dashCd:2.0,
   blockDuration:0.55, step:0.55, winsToTakeMatch:5, roundOverTime:2.8,
   killY:-2.2,
 };
