@@ -1384,14 +1384,14 @@ function octBoxes(a,y0,y1,step){ const lim=a*Math.SQRT2; for(let X=a;X>=lim-a-0.
 function cityTex(seed,base,lit){ return mkTex(128,256,(g,W2,H2)=>{ const r=RNG(seed); g.fillStyle=base; g.fillRect(0,0,W2,H2); for(let y=10;y<H2-8;y+=16) for(let x=8;x<W2-8;x+=16){ g.fillStyle=r()<0.35?lit:'rgba(20,30,50,.55)'; g.fillRect(x,y,9,10); } g.fillStyle='rgba(0,0,0,.15)'; g.fillRect(0,0,W2,6); }); }
 
 function buildCrane(){
-  const rng=RNG(77); const A=17; // deck apothem
+  const rng=RNG(77); const A=23, SPX=16.8; // deck apothem, base distance
   const PH=27; // hook pivot height
   // ---- deck ----
   const deckTex=mkTex(1024,1024,(g,W2,H2)=>{ g.fillStyle='#8a929e'; g.fillRect(0,0,W2,H2); const r=RNG(3); for(let i=0;i<5000;i++){ g.fillStyle=`rgba(${r()<0.5?0:255},${r()<0.5?0:255},${r()<0.5?0:255},0.035)`; g.fillRect(r()*W2,r()*H2,2,2); }
     g.strokeStyle='rgba(40,46,58,.55)'; g.lineWidth=3; for(let i=0;i<=8;i++){ g.beginPath(); g.moveTo(i*W2/8,0); g.lineTo(i*W2/8,H2); g.stroke(); g.beginPath(); g.moveTo(0,i*H2/8); g.lineTo(W2,i*H2/8); g.stroke(); }
     g.fillStyle='rgba(255,255,255,.08)'; for(let y=8;y<H2;y+=22) for(let x=(y/22%2)*11;x<W2;x+=22){ g.save(); g.translate(x,y); g.rotate(0.6); g.fillRect(-5,-1.5,10,3); g.restore(); }
     g.save(); g.translate(W2/2,H2/2); g.strokeStyle='#ffd21f'; g.lineWidth=10; g.beginPath(); g.arc(0,0,150,0,7); g.stroke(); g.lineWidth=5; g.beginPath(); g.arc(0,0,128,0,7); g.stroke(); g.fillStyle='#ffd21f'; g.font='bold 54px "Lilita One",sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('MAX 4 FIGHTERS',0,-210); g.rotate(Math.PI); g.fillText('KEEP IT LEVEL',0,-210); g.restore();
-    for(const [sx,c] of [[-1,'#19c8ff'],[1,'#ff7a1a']]){ g.strokeStyle=c; g.lineWidth=8; g.beginPath(); g.arc(W2/2+sx*W2*0.36,H2/2,64,0,7); g.stroke(); g.globalAlpha=0.16; g.fillStyle=c; g.beginPath(); g.arc(W2/2+sx*W2*0.36,H2/2,64,0,7); g.fill(); g.globalAlpha=1; }
+    for(const [sx,c] of [[-1,'#19c8ff'],[1,'#ff7a1a']]){ g.strokeStyle=c; g.lineWidth=8; g.beginPath(); g.arc(W2/2+sx*W2*SPX/(2*A*1.09),H2/2,64,0,7); g.stroke(); g.globalAlpha=0.16; g.fillStyle=c; g.beginPath(); g.arc(W2/2+sx*W2*SPX/(2*A*1.09),H2/2,64,0,7); g.fill(); g.globalAlpha=1; }
     const r2=RNG(31); for(let i=0;i<14;i++){ const x=r2()*W2, y=r2()*H2, rr=14+r2()*46; const gr=g.createRadialGradient(x,y,1,x,y,rr); gr.addColorStop(0,'rgba(30,26,22,.32)'); gr.addColorStop(1,'rgba(30,26,22,0)'); g.fillStyle=gr; g.beginPath(); g.ellipse(x,y,rr,rr*(0.5+r2()*0.5),r2()*3,0,7); g.fill(); } // oil + wear
     g.fillStyle='rgba(20,24,32,.5)'; for(let i=1;i<8;i++) for(let j=0;j<=8;j++){ for(let k=0;k<8;k++){ g.beginPath(); g.arc(i*W2/8+(k-3.5)*13,j*H2/8+5,1.8,0,7); g.fill(); } } // bolt rows on the seams
     g.strokeStyle='rgba(255,210,31,.55)'; g.lineWidth=4; g.setLineDash([26,18]); for(const y of [H2*0.5-36,H2*0.5+36]){ g.beginPath(); g.moveTo(W2*0.2,y); g.lineTo(W2*0.42,y); g.moveTo(W2*0.58,y); g.lineTo(W2*0.8,y); g.stroke(); } g.setLineDash([]);
@@ -1405,11 +1405,13 @@ function buildCrane(){
   // hazard rim + under-beams
   { const rim=[]; const R=A/Math.cos(Math.PI/8); for(let i=0;i<8;i++){ const a0=i/8*Math.PI*2+Math.PI/8, a1=a0+Math.PI/4; const x0=Math.cos(a0)*R, z0=Math.sin(a0)*R, x1=Math.cos(a1)*R, z1=Math.sin(a1)*R; const L=Math.hypot(x1-x0,z1-z0); rim.push([new T.BoxGeometry(L,0.16,0.5),MX((x0+x1)/2,0.04,(z0+z1)/2,0,-Math.atan2(z1-z0,x1-x0))]); }
     addMerged(rim,toon({map:TX.hazard}),{cast:false});
-    const bm=[]; for(const s of [-1,1]){ bm.push([new T.BoxGeometry(2*A,1.2,0.8),MX(0,-1.9,s*6)]); bm.push([new T.BoxGeometry(0.8,1.2,2*A),MX(s*6,-1.9,0)]); } addMerged(bm,toon({color:0xffc21a})); }
+    const bm=[]; for(const s of [-1,1]){ bm.push([new T.BoxGeometry(2*A,1.2,0.8),MX(0,-1.9,s*8)]); bm.push([new T.BoxGeometry(0.8,1.2,2*A),MX(s*8,-1.9,0)]); } addMerged(bm,toon({color:0xffc21a})); }
   // ---- cover: containers, crates, barrels (mirror symmetric) ----
-  containerBox(-4.2,4.2,0,2.6,7.4,9.8,TX.contBlue); containerBox(-4.2,4.2,0,2.6,-9.8,-7.4,TX.contOrange);
+  containerBox(-4.6,4.6,0,2.6,9.6,12.0,TX.contBlue); containerBox(-4.6,4.6,0,2.6,-12.0,-9.6,TX.contOrange);
+  containerBox(-1.2,1.2,0,2.6,16.4,21.2,TX.contTeal); containerBox(-1.2,1.2,0,2.6,-21.2,-16.4,TX.contTeal);
+  for(const sx of [-1,1]){ crateBox(sx*17.6-0.8,sx*17.6+0.8,0,1.5,6.6,8.2,M.crateO); crateBox(sx*17.6-0.8,sx*17.6+0.8,0,1.5,-8.2,-6.6,M.crateB); crateBox(sx*6.4-0.7,sx*6.4+0.7,0,1.4,-0.7,0.7,M.crate); }
   crateBox(-1.1,1.1,0,2.2,-1.1,1.1,M.crateO); crateBox(-0.6,0.6,2.2,3.4,-0.6,0.6,M.crate);
-  for(const sx of [-1,1]){ crateBox(sx*8.4-0.8,sx*8.4+0.8,0,1.3,2.6,4.2,M.crateB); crateBox(sx*8.4-0.8,sx*8.4+0.8,0,1.3,-4.2,-2.6,M.crate); barrel(sx*4.2,4.6,0x2a9df4); barrel(sx*4.2,-4.6,0xe2483d);  }
+  for(const sx of [-1,1]){ crateBox(sx*11.4-0.8,sx*11.4+0.8,0,1.3,3.4,5.0,M.crateB); crateBox(sx*11.4-0.8,sx*11.4+0.8,0,1.3,-5.0,-3.4,M.crate); barrel(sx*5.6,6.2,0x2a9df4); barrel(sx*5.6,-6.2,0xe2483d);  }
   { const R=A/Math.cos(Math.PI/8); const lip=[], posts=[], dark=toon({color:0x2a3147});
     for(let i=0;i<8;i++){ const a0=i/8*Math.PI*2+Math.PI/8, a1=a0+Math.PI/4; const x0=Math.cos(a0)*R, z0=Math.sin(a0)*R, x1=Math.cos(a1)*R, z1=Math.sin(a1)*R; const L=Math.hypot(x1-x0,z1-z0), ang=-Math.atan2(z1-z0,x1-x0);
       const n=V3((x0+x1)/2,0,(z0+z1)/2); n.multiplyScalar(-0.22/n.length()); lip.push([new T.BoxGeometry(L,0.22,0.3),MX((x0+x1)/2+n.x,0.11,(z0+z1)/2+n.z,0,ang)]);
@@ -1421,12 +1423,12 @@ function buildCrane(){
     // steel beam bundles: three I-beams on chocks
     const ib=[], ch=[]; const bundle=(x,z)=>{ for(let k=0;k<3;k++){ const zz=z+(k-1)*0.42; ib.push([new T.BoxGeometry(3.6,0.07,0.36),MX(x,0.28,zz)]); ib.push([new T.BoxGeometry(3.6,0.36,0.07),MX(x,0.46,zz)]); ib.push([new T.BoxGeometry(3.6,0.07,0.36),MX(x,0.64,zz)]); } for(let k=0;k<2;k++){ const zz=z+(k-0.5)*0.42; ib.push([new T.BoxGeometry(3.4,0.07,0.36),MX(x,0.72,zz)]); ib.push([new T.BoxGeometry(3.4,0.36,0.07),MX(x,0.9,zz)]); ib.push([new T.BoxGeometry(3.4,0.07,0.36),MX(x,1.08,zz)]); }
       for(const dx of [-1.2,1.2]) ch.push([new T.BoxGeometry(0.3,0.24,1.5),MX(x+dx,0.12,z)]); collider(x-1.8,x+1.8,0,1.12,z-0.7,z+0.7); contact(x-1.8,x+1.8,z-0.7,z+0.7,0); };
-    for(const sx of [-1,1]) for(const sz of [-1,1]) bundle(sx*10.6,sz*11.4); addMerged(ib,toon({color:0x5e8fc4,metalness:0.3,roughness:0.5})); addMerged(ch,M.wood);
+    for(const sx of [-1,1]) for(const sz of [-1,1]) bundle(sx*14.4,sz*15.0); addMerged(ib,toon({color:0x5e8fc4,metalness:0.3,roughness:0.5})); addMerged(ch,M.wood);
     // cement bag pallets near the middle
-    const bags=[], pal=[]; for(const sz of [-1,1]){ const x=0, z=sz*4.4; pal.push([new T.BoxGeometry(1.6,0.16,1.2),MX(x,0.08,z)]); for(let k=0;k<6;k++){ const lx=x+((k%3)-1)*0.5, lz=z+(k<3?-0.28:0.28); bags.push([new T.BoxGeometry(0.46,0.22,0.52),MX(lx,0.27,lz,0,0,(k%2?0.05:-0.04))]); bags.push([new T.BoxGeometry(0.46,0.22,0.52),MX(lx,0.5,lz,0,(k%2?0.1:-0.06))]); } collider(x-0.8,x+0.8,0,0.62,z-0.6,z+0.6); contact(x-0.8,x+0.8,z-0.6,z+0.6,0); }
+    const bags=[], pal=[]; for(const sz of [-1,1]){ const x=0, z=sz*6.6; pal.push([new T.BoxGeometry(1.6,0.16,1.2),MX(x,0.08,z)]); for(let k=0;k<6;k++){ const lx=x+((k%3)-1)*0.5, lz=z+(k<3?-0.28:0.28); bags.push([new T.BoxGeometry(0.46,0.22,0.52),MX(lx,0.27,lz,0,0,(k%2?0.05:-0.04))]); bags.push([new T.BoxGeometry(0.46,0.22,0.52),MX(lx,0.5,lz,0,(k%2?0.1:-0.06))]); } collider(x-0.8,x+0.8,0,0.62,z-0.6,z+0.6); contact(x-0.8,x+0.8,z-0.6,z+0.6,0); }
     addMerged(bags,toon({color:0xe9e1cc})); addMerged(pal,M.wood); }
   // ---- cables and hook block (they hang with the deck) ----
-  { const cab=[]; const hook=V3(0,PH-2.2,0); for(const [x,z] of [[-11,-11],[11,-11],[-11,11],[11,11]]){ const a=V3(x,0.2,z), d=V3().subVectors(hook,a), L=d.length(); const g=new T.CylinderGeometry(0.09,0.09,L,7); const q=new T.Quaternion().setFromUnitVectors(V3(0,1,0),d.clone().normalize()); cab.push([g,new T.Matrix4().compose(a.clone().addScaledVector(d,0.5),q,V3(1,1,1))]); cab.push([new T.BoxGeometry(0.8,0.3,0.8),MX(x,0.15,z)]); cab.push([new T.TorusGeometry(0.22,0.06,6,14),new T.Matrix4().compose(V3(x,0.48,z),new T.Quaternion().setFromUnitVectors(V3(0,0,1),V3(-z,0,x).normalize()),V3(1,1,1))]); }
+  { const cab=[]; const hook=V3(0,PH-2.2,0); for(const [x,z] of [[-15,-15],[15,-15],[-15,15],[15,15]]){ const a=V3(x,0.2,z), d=V3().subVectors(hook,a), L=d.length(); const g=new T.CylinderGeometry(0.09,0.09,L,7); const q=new T.Quaternion().setFromUnitVectors(V3(0,1,0),d.clone().normalize()); cab.push([g,new T.Matrix4().compose(a.clone().addScaledVector(d,0.5),q,V3(1,1,1))]); cab.push([new T.BoxGeometry(0.8,0.3,0.8),MX(x,0.15,z)]); cab.push([new T.TorusGeometry(0.22,0.06,6,14),new T.Matrix4().compose(V3(x,0.48,z),new T.Quaternion().setFromUnitVectors(V3(0,0,1),V3(-z,0,x).normalize()),V3(1,1,1))]); }
     addMerged(cab,toon({color:0x2a3147}),{cast:false});
     const hb=[], hk=[]; hb.push([new T.BoxGeometry(2.0,2.2,0.9),MX(0,PH-0.9,0)]); for(const z of [-0.5,0.5]) hb.push([new T.CylinderGeometry(0.85,0.85,0.16,20),MX(0,PH-0.3,z,Math.PI/2)]); for(const x of [-0.45,0.45]) hk.push([new T.CylinderGeometry(0.06,0.06,9.6,6),MX(x,PH+4.4,0)]);
     hk.push([new T.CylinderGeometry(0.16,0.2,0.9,10),MX(0,PH-2.4,0)]); hk.push([new T.TorusGeometry(0.42,0.13,8,18,Math.PI*1.45),MX(0.05,PH-3.2,0,0,0,Math.PI*0.2)]); hk.push([new T.ConeGeometry(0.12,0.3,8),MX(0.43,PH-2.9,0)]);
@@ -1434,7 +1436,7 @@ function buildCrane(){
     const hl=new T.Mesh(new T.BoxGeometry(1.2,0.5,0.02),toon({map:TX.hazard})); hl.position.set(0,PH-0.4,0.46); W.add(hl); const hl2=hl.clone(); hl2.position.z=-0.46; W.add(hl2); }
   // ---- the moving world: crane tower (tips with the world) and everything else (tips + turns) ----
   const PV=PH+8.5; const tilt=new T.Group(); tilt.position.set(0,PV,0); W.add(tilt); const off=new T.Group(); off.position.set(0,-PV,0); tilt.add(off); // the deck swings from the trolley
-  const TZ=-46; // tower position (the jib reaches over to us along +z)
+  const TZ=-52; // tower position (the jib reaches over to us along +z)
   { const Y=new T.Group(); off.add(Y); const yel=toon({color:0xffc21a}), dark=toon({color:0x2a3147}); const lat=[], dk=[];
     const H0=-118, H1=PH+9, s=2.2; for(const [x,z] of [[-s,-s],[s,-s],[-s,s],[s,s]]) lat.push([new T.BoxGeometry(0.35,H1-H0,0.35),MX(x,(H0+H1)/2,TZ+z)]);
     for(let y=H0;y<H1;y+=4.4){ for(const [x0,z0,x1,z1] of [[-s,-s,s,-s],[s,-s,s,s],[s,s,-s,s],[-s,s,-s,-s]]){ const a=V3(x0,y,TZ+z0), b=V3(x1,y+4.4,TZ+z1), d=V3().subVectors(b,a); lat.push([new T.BoxGeometry(0.16,d.length(),0.16),new T.Matrix4().compose(a.clone().addScaledVector(d,0.5),new T.Quaternion().setFromUnitVectors(V3(0,1,0),d.clone().normalize()),V3(1,1,1))]); lat.push([new T.BoxGeometry(Math.abs(x1-x0)+0.3,0.16,Math.abs(z1-z0)+0.3),MX((x0+x1)/2,y,TZ+(z0+z1)/2)]); } }
@@ -1500,7 +1502,7 @@ function buildCrane(){
 
 // ---------------- FOUNDRY ----------------
 function buildFoundry(){
-  const rng=RNG(404); const ORG=0xff6a1a;
+  const rng=RNG(404); const ORG=0xff6a1a; const NX=3, NZ=9.5, SWX=14, BX=9.5; // notch half-width/start, saw slot x, ball x
   // floor: riveted steel plates with hazard edging, over lava
   const fTex=mkTex(2048,1024,(g,W2,H2)=>{ g.setTransform(W2/(2*HX),0,0,H2/(2*HZ),W2/2,H2/2); const r=RNG(5);
     for(let x=-HX;x<HX;x+=3) for(let z=-HZ;z<HZ;z+=3){ const v=r(); g.fillStyle=`hsl(${210+v*12},${8+v*6}%,${30+v*8}%)`; g.fillRect(x+0.04,z+0.04,2.92,2.92); g.fillStyle='rgba(255,255,255,.07)'; g.fillRect(x+0.04,z+0.04,2.92,0.06); g.fillStyle='rgba(0,0,0,.25)'; for(const [a,b] of [[0.25,0.25],[2.75,0.25],[0.25,2.75],[2.75,2.75]]){ g.beginPath(); g.arc(x+a,z+b,0.09,0,7); g.fill(); } }
@@ -1509,12 +1511,12 @@ function buildFoundry(){
     for(const [sx,c] of [[-1,'#19c8ff'],[1,'#ff7a1a']]){ g.strokeStyle=c; g.lineWidth=0.18; g.beginPath(); g.arc(sx*(HX-4),0,3,0,7); g.stroke(); }
     // stomper warning ring + saw slots
     g.strokeStyle='#ffd21f'; g.lineWidth=0.3; g.setLineDash([0.8,0.5]); g.strokeRect(-3.4,-3.4,6.8,6.8); g.setLineDash([]);
-    g.fillStyle='#120b08'; for(const z of [-9.5,9.5]) g.fillRect(-11,z-0.25,22,0.5); },{});
-    collider(-HX,-2.6,-1.5,0,-HZ,HZ); collider(2.6,HX,-1.5,0,-HZ,HZ); collider(-2.6,2.6,-1.5,0,-7.2,7.2);
-  { const sh=new T.Shape(); const pts=[[-HX,-HZ],[-2.6,-HZ],[-2.6,-7.2],[2.6,-7.2],[2.6,-HZ],[HX,-HZ],[HX,HZ],[2.6,HZ],[2.6,7.2],[-2.6,7.2],[-2.6,HZ],[-HX,HZ]]; pts.forEach(([x,z],i)=>i?sh.lineTo(x,-z):sh.moveTo(x,-z)); sh.closePath();
+    g.fillStyle='#120b08'; for(const x of [-SWX,SWX]) g.fillRect(x-0.25,-13,0.5,26); },{});
+    collider(-HX,-NX,-1.5,0,-HZ,HZ); collider(NX,HX,-1.5,0,-HZ,HZ); collider(-NX,NX,-1.5,0,-NZ,NZ);
+  { const sh=new T.Shape(); const pts=[[-HX,-HZ],[-NX,-HZ],[-NX,-NZ],[NX,-NZ],[NX,-HZ],[HX,-HZ],[HX,HZ],[NX,HZ],[NX,NZ],[-NX,NZ],[-NX,HZ],[-HX,HZ]]; pts.forEach(([x,z],i)=>i?sh.lineTo(x,-z):sh.moveTo(x,-z)); sh.closePath();
     const g=new T.ShapeGeometry(sh); const p=g.attributes.position, uv=g.attributes.uv; for(let i=0;i<p.count;i++) uv.setXY(i,0.5+p.getX(i)/(2*HX),0.5+p.getY(i)/(2*HZ)); g.rotateX(-Math.PI/2);
     const top=new T.Mesh(g,toon({map:fTex})); top.position.y=0.004; top.receiveShadow=true; W.add(top);
-    const sm=toon({color:0x2a2e36}); for(const [x0,x1,z0,z1] of [[-HX,-2.6,-HZ,HZ],[2.6,HX,-HZ,HZ],[-2.6,2.6,-7.2,7.2]]) meshBox(x0,x1,-1.5,0,z0,z1,sm,1,{cast:false}); }
+    const sm=toon({color:0x2a2e36}); for(const [x0,x1,z0,z1] of [[-HX,-NX,-HZ,HZ],[NX,HX,-HZ,HZ],[-NX,NX,-NZ,NZ]]) meshBox(x0,x1,-1.5,0,z0,z1,sm,1,{cast:false}); }
   const lavaTex=mkTex(512,512,(g,W2,H2)=>{ const r=RNG(9); const gr=g.createLinearGradient(0,0,W2,H2); gr.addColorStop(0,'#ff4a00'); gr.addColorStop(1,'#ffb000'); g.fillStyle=gr; g.fillRect(0,0,W2,H2); for(let i=0;i<120;i++){ g.fillStyle=`rgba(${80+r()*60},${10+r()*20},0,${0.5+r()*0.4})`; g.beginPath(); g.ellipse(r()*W2,r()*H2,10+r()*50,6+r()*30,r()*3,0,7); g.fill(); } for(let i=0;i<60;i++){ g.fillStyle=`rgba(255,${200+r()*55},120,${0.4+r()*0.5})`; g.beginPath(); g.arc(r()*W2,r()*H2,1+r()*4,0,7); g.fill(); } });
   lavaTex.wrapS=lavaTex.wrapT=T.RepeatWrapping; lavaTex.repeat.set(22,22);
   const lavaM=new T.ShaderMaterial({fog:false,uniforms:{time:{value:0},fogC:{value:new T.Color(0x2a120c)}},
@@ -1531,17 +1533,18 @@ function buildFoundry(){
         float d=length(vW.xz-cameraPosition.xz); c=mix(c,fogC*1.6,smoothstep(40.0,190.0,d)); gl_FragColor=vec4(c,1.0); }`});
   lavaM.toneMapped=false; const lava=new T.Mesh(new T.PlaneGeometry(600,600),lavaM); lava.rotation.x=-Math.PI/2; lava.position.y=-1.6; W.add(lava);
   animated.push(t=>{ lavaM.uniforms.time.value=t; });
-  for(const z of [-7.2,7.2]){ const gl=new T.Mesh(new T.BoxGeometry(5.3,0.06,0.1),new T.MeshBasicMaterial({color:0xffa040})); gl.position.set(0,0.02,z); W.add(gl); for(const x of [-2.6,2.6]){ const g2=new T.Mesh(new T.BoxGeometry(0.1,0.06,HZ-7.2),new T.MeshBasicMaterial({color:0xffa040})); g2.position.set(x,0.02,Math.sign(z)*(HZ+7.2)/2); W.add(g2); } const s2=sprite(0xff6a1a,9,0.4); s2.position.set(0,-0.6,Math.sign(z)*(HZ+7.2)/2); W.add(s2); }
+  for(const z of [-NZ,NZ]){ const gl=new T.Mesh(new T.BoxGeometry(2*NX+0.1,0.06,0.1),new T.MeshBasicMaterial({color:0xffa040})); gl.position.set(0,0.02,z); W.add(gl); for(const x of [-NX,NX]){ const g2=new T.Mesh(new T.BoxGeometry(0.1,0.06,HZ-NZ),new T.MeshBasicMaterial({color:0xffa040})); g2.position.set(x,0.02,Math.sign(z)*(HZ+NZ)/2); W.add(g2); } const s2=sprite(0xff6a1a,9,0.4); s2.position.set(0,-0.6,Math.sign(z)*(HZ+NZ)/2); W.add(s2); }
   // ---- cover: furnace blocks and steel crates ----
   const furnTex=mkTex(256,256,(g,W2,H2)=>{ g.fillStyle='#4a3a34'; g.fillRect(0,0,W2,H2); g.fillStyle='#5a463e'; for(let y=0;y<H2;y+=32) for(let x=(y/32%2)*32;x<W2;x+=64) g.fillRect(x+2,y+2,60,28); const gr=g.createLinearGradient(0,H2*0.55,0,H2); gr.addColorStop(0,'rgba(255,90,0,0)'); gr.addColorStop(1,'rgba(255,120,20,.55)'); g.fillStyle=gr; g.fillRect(0,H2*0.55,W2,H2*0.45); g.fillStyle='#ffb040'; g.fillRect(W2*0.3,H2*0.62,W2*0.4,H2*0.2); g.fillStyle='#1a1210'; g.fillRect(W2*0.3,H2*0.62,W2*0.4,8); });
   const furn=toon({map:furnTex,emissive:0x5a1a00,emissiveIntensity:0.35}), steel=toon({color:0x4c5562}), dark=toon({color:0x2a2e36});
-  for(const sx of [-1,1]){ solid(sx*11-1.4,sx*11+1.4,0,3.0,-1.4,1.4,furn); crateBox(sx*12.6-0.7,sx*12.6+0.7,0,1.4,4.4,5.8,M.crateB); crateBox(sx*12.6-0.7,sx*12.6+0.7,0,1.4,-5.8,-4.4,M.crate);
-    solid(sx*5.8-0.9,sx*5.8+0.9,0,1.5,-7.5,-5.7,steel); solid(sx*5.8-0.9,sx*5.8+0.9,0,1.5,5.7,7.5,steel); barrel(sx*15.8,9.2,0xff7a1a); barrel(sx*15.8,-9.2,0xff7a1a); }
+  for(const sx of [-1,1]){ solid(sx*17.2-1.4,sx*17.2+1.4,0,3.0,-1.4,1.4,furn); crateBox(sx*19.4-0.7,sx*19.4+0.7,0,1.4,5.0,6.4,M.crateB); crateBox(sx*19.4-0.7,sx*19.4+0.7,0,1.4,-6.4,-5.0,M.crate);
+    solid(sx*6.2-0.9,sx*6.2+0.9,0,1.5,-9.4,-7.6,steel); solid(sx*6.2-0.9,sx*6.2+0.9,0,1.5,7.6,9.4,steel); solid(sx*11-0.9,sx*11+0.9,0,1.2,-13.6,-11.8,steel); solid(sx*11-0.9,sx*11+0.9,0,1.2,11.8,13.6,steel);
+    crateBox(sx*17.6-0.7,sx*17.6+0.7,0,1.4,12.2,13.6,M.crateO); crateBox(sx*17.6-0.7,sx*17.6+0.7,0,1.4,-13.6,-12.2,M.crate); barrel(sx*22.2,13,0xff7a1a); barrel(sx*22.2,-13,0xff7a1a); }
   // ---- gantries for the swinging balls: posts at x=±(7±2.2), beam along x at the pivot ----
   const PIV=9.2, LEN=8.1, BR=0.85;
   const balls=[];
   const spikeG=new T.ConeGeometry(0.2,0.75,6); spikeG.translate(0,BR+0.28,0);
-  for(const sx of [-1,1]){ const cx=sx*7;
+  for(const sx of [-1,1]){ const cx=sx*BX;
     for(const px of [cx-2.2,cx+2.2]){ solid(px-0.3,px+0.3,0,PIV+0.6,-0.3,0.3,dark); }
     meshBox(cx-2.6,cx+2.6,PIV,PIV+0.7,-0.45,0.45,toon({color:0x9a7414}));
     const g=new T.Group(); g.position.set(cx,PIV,0); W.add(g);
@@ -1564,7 +1567,7 @@ function buildFoundry(){
   { const frame=[]; for(const [x,z] of [[-3.1,-3.1],[3.1,-3.1],[-3.1,3.1],[3.1,3.1]]) frame.push([new T.BoxGeometry(0.5,16,0.5),MX(x,8,z)]); frame.push([new T.BoxGeometry(7,1.2,7),MX(0,16.5,0)]); addMerged(frame,toon({color:0x9a7414})); for(const [x,z] of [[-3.1,-3.1],[3.1,-3.1],[-3.1,3.1],[3.1,3.1]]) propCol(x,z,0.3,0,16); }
   // ---- saws running along floor slots ----
   const saws=[]; const sawTex=mkTex(256,256,(g,W2,H2)=>{ g.translate(W2/2,H2/2); g.fillStyle='#d8dde6'; g.beginPath(); for(let i=0;i<48;i++){ const a=i/48*Math.PI*2, r=i%2?110:126; g[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r); } g.closePath(); g.fill(); g.fillStyle='#9aa4b4'; g.beginPath(); g.arc(0,0,86,0,7); g.fill(); g.fillStyle='#2a2e36'; g.beginPath(); g.arc(0,0,22,0,7); g.fill(); g.strokeStyle='#ffd21f'; g.lineWidth=8; g.beginPath(); g.arc(0,0,60,0,7); g.stroke(); });
-  for(const [z,ph] of [[-9.5,0],[9.5,Math.PI]]){ const m=new T.Mesh(new T.CylinderGeometry(1.0,1.0,0.12,32),[toon({color:0x9aa4b4}),toon({map:sawTex,metalness:0.5,roughness:0.3}),toon({map:sawTex,metalness:0.5,roughness:0.3})]); m.rotation.x=Math.PI/2; m.position.set(0,0.35,z); m.castShadow=true; W.add(m); const sp=sprite(0xffb040,1.2,0.6); W.add(sp); saws.push({m,sp,z,ph,cd:new Map()}); }
+  for(const [z,ph] of [[-SWX,0],[SWX,Math.PI]]){ const m=new T.Mesh(new T.CylinderGeometry(1.0,1.0,0.12,32),[toon({color:0x9aa4b4}),toon({map:sawTex,metalness:0.5,roughness:0.3}),toon({map:sawTex,metalness:0.5,roughness:0.3})]); m.rotation.z=Math.PI/2; m.position.set(z,0.35,0); m.castShadow=true; W.add(m); const sp=sprite(0xffb040,1.2,0.6); W.add(sp); saws.push({m,sp,z,ph,cd:new Map()}); }
   // ---- the hall: dark walls, pipes, glowing vents, hanging lamps ----
   { const wallT=mkTex(512,256,(g,W2,H2)=>{ g.fillStyle='#2b2624'; g.fillRect(0,0,W2,H2); const r=RNG(12); for(let y=0;y<H2;y+=16) for(let x=(y/16%2)*16;x<W2;x+=32){ g.fillStyle=`hsl(15,${10+r()*8}%,${13+r()*6}%)`; g.fillRect(x+1,y+1,30,14); } g.fillStyle='rgba(255,110,30,.25)'; g.fillRect(0,H2*0.82,W2,H2*0.18); }); wallT.wrapS=wallT.wrapT=T.RepeatWrapping; wallT.repeat.set(8,2);
     const wm=toon({map:wallT}); const hall=[[0,-46,120,40,2],[0,46,120,40,2],[-60,0,2,40,92],[60,0,2,40,92]]; for(const [x,z,w,h,d] of hall){ const m=new T.Mesh(new T.BoxGeometry(w,h,d),wm); m.position.set(x,h/2-6,z); W.add(m); }
@@ -1581,13 +1584,13 @@ function buildFoundry(){
     const tr=[]; for(let z=-40;z<=40;z+=10){ tr.push([new T.BoxGeometry(120,0.8,0.6),MX(0,30,z)]); tr.push([new T.BoxGeometry(120,0.6,0.5),MX(0,26,z)]); for(let x=-56;x<56;x+=8){ const a=V3(x,26,z), b=V3(x+8,30,z), d=V3().subVectors(b,a); tr.push([new T.BoxGeometry(0.35,d.length(),0.35),new T.Matrix4().compose(a.clone().addScaledVector(d,0.5),new T.Quaternion().setFromUnitVectors(V3(0,1,0),d.clone().normalize()),V3(1,1,1))]); } }
     for(const x of [-30,30]) tr.push([new T.BoxGeometry(0.9,0.9,90),MX(x,24,0)]); addMerged(tr,toon({color:0x2e2826}),{cast:false});
     // overhead ladle that tips molten metal into the lava every so often
-    const lg=new T.Group(); lg.position.set(26,17,-20); W.add(lg); const lp=[[0.001,-2.2],[1.6,-2.2],[2.2,-1.4],[2.4,1.4],[2.6,1.6],[2.2,1.6],[2.0,1.4],[1.8,-1.2],[0.001,-1.4]].map(q=>new T.Vector2(q[0],q[1]));
+    const lg=new T.Group(); lg.position.set(30,17,-25); W.add(lg); const lp=[[0.001,-2.2],[1.6,-2.2],[2.2,-1.4],[2.4,1.4],[2.6,1.6],[2.2,1.6],[2.0,1.4],[1.8,-1.2],[0.001,-1.4]].map(q=>new T.Vector2(q[0],q[1]));
     const ladle=new T.Mesh(new T.LatheGeometry(lp,22),toon({color:0x4a3a34,metalness:0.3,side:T.DoubleSide})); lg.add(ladle); const melt=new T.Mesh(new T.CircleGeometry(2.0,22),band); melt.rotation.x=-Math.PI/2; melt.position.y=1.2; lg.add(melt);
     const hang=[]; for(const s of [-1,1]) hang.push([new T.BoxGeometry(0.2,6,0.2),MX(s*2.5,3.6,0)]); hang.push([new T.BoxGeometry(5.4,0.4,0.4),MX(0,6.6,0)]); const hm=new T.Mesh(mergeGeos(hang),toon({color:0x9a7414})); lg.add(hm);
-    const rails=[]; for(const z of [-21.5,-18.5]) rails.push([new T.BoxGeometry(70,1,0.6),MX(0,24.2,z)]); addMerged(rails,toon({color:0x9a7414}),{cast:false});
+    const rails=[]; for(const z of [-26.5,-23.5]) rails.push([new T.BoxGeometry(70,1,0.6),MX(0,24.2,z)]); addMerged(rails,toon({color:0x9a7414}),{cast:false});
     const stream=new T.Mesh(new T.CylinderGeometry(0.35,0.5,1,10,1,true),band); W.add(stream); stream.visible=false; const sg=sprite(0xffa040,7,0); W.add(sg);
     animated.push((t,dt)=>{ const c=t%14; const tip=c<8?0:(c<9.5?(c-8)/1.5:(c<12?1:Math.max(0,1-(c-12)/1.2))); ladle.rotation.z=-tip*1.15; melt.visible=tip<0.7; ladle.parent.rotation.z=0;
-      const pour=tip>0.85; stream.visible=pour; sg.material.opacity=pour?0.6:0; if(pour){ const lip=V3(26+2.3,17+1.2,-20); const len=lip.y+1.6; stream.scale.set(1+Math.sin(t*30)*0.08,len,1); stream.position.set(lip.x+0.4,lip.y-len/2,lip.z); sg.position.set(lip.x+0.4,-1.2,lip.z); if(Math.random()<(dt||0.016)*30) burst(V3(lip.x+0.4,-1.4,lip.z),0xffb040,2,6,0.14,0.7,1.2); } }); }
+      const pour=tip>0.85; stream.visible=pour; sg.material.opacity=pour?0.6:0; if(pour){ const lip=V3(30+2.3,17+1.2,-25); const len=lip.y+1.6; stream.scale.set(1+Math.sin(t*30)*0.08,len,1); stream.position.set(lip.x+0.4,lip.y-len/2,lip.z); sg.position.set(lip.x+0.4,-1.2,lip.z); if(Math.random()<(dt||0.016)*30) burst(V3(lip.x+0.4,-1.4,lip.z),0xffb040,2,6,0.14,0.7,1.2); } }); }
   // rising embers
   { const em=[]; for(let i=0;i<70;i++){ const s=sprite(i%3?0xff8a2a:0xffd060,0.28+rng()*0.3,0.9); s.userData={x:-30+rng()*60,z:-26+rng()*52,sp:0.6+rng()*1.6,ph:rng()*30}; W.add(s); em.push(s); }
     animated.push(t=>{ for(const s of em){ const u=s.userData; const y=((t*u.sp+u.ph)%14); s.position.set(u.x+Math.sin(t*0.7+u.ph)*0.6,-1.4+y,u.z); s.material.opacity=0.9*(1-y/14); } }); }
@@ -1608,17 +1611,17 @@ function buildFoundry(){
     if(was>0.6&&y<=0.6){ shockRing(V3(0,0.06,0),0xffd0a0,7,0.45,2.4); burst(V3(0,0.2,0),0xb0b8c8,26,9,0.14,0.6,0.6); if(state==='fight'||state==='menu') SFX.explode&&SFX.explode(); shakeT=Math.max(shakeT,0.18); }
     if(state==='fight'&&y<2.6&&was>y) for(const f of fighters){ if(f.dead||f.active===false) continue; if(Math.abs(f.pos.x)>2.4+f.radius||Math.abs(f.pos.z)>2.4+f.radius) continue; if(f.pos.y+f.height<y) continue; const d=V3(f.pos.x,0,f.pos.z); if(d.lengthSq()<0.04) d.set(rand(-1,1),0,rand(-1,1)); d.normalize(); hit(f,40,d.clone().multiplyScalar(16),9,0.6,1.2,P.cd,'STOMPED!',0xffffff,null); if(f.ctl!=='net'){ f.pos.x=d.x*(2.5+f.radius); f.pos.z=d.z*(2.5+f.radius); } }
     // saws: run along their slots
-    for(const s of saws){ const x=Math.sin(rt*0.9+s.ph)*9.6; s.m.position.x=x; s.m.rotation.y+=dt*22; s.sp.position.set(x,0.25,s.z); s.sp.material.opacity=0.4+Math.random()*0.4;
-      if(state==='fight'){ if(Math.random()<dt*20) burst(V3(x+rand(-0.8,0.8),0.1,s.z),0xffc060,1,4,0.05,0.3,1.5);
-        for(const f of fighters){ if(f.dead||f.active===false||f.pos.y>1.2) continue; if(Math.abs(f.pos.x-x)>1.0+f.radius*0.6||Math.abs(f.pos.z-s.z)>0.35+f.radius) continue; const d=V3(0,0,Math.sign(f.pos.z-s.z)||1); hit(f,16,d.multiplyScalar(9),9,0.2,0.8,s.cd,'SAWED!',0xffc060,null); } } }
+    for(const s of saws){ const z=Math.sin(rt*0.9+s.ph)*12.4, x=s.z; s.m.position.z=z; s.m.rotation.y+=dt*22; s.sp.position.set(x,0.25,z); s.sp.material.opacity=0.4+Math.random()*0.4;
+      if(state==='fight'){ if(Math.random()<dt*20) burst(V3(x,0.1,z+rand(-0.8,0.8)),0xffc060,1,4,0.05,0.3,1.5);
+        for(const f of fighters){ if(f.dead||f.active===false||f.pos.y>1.2) continue; if(Math.abs(f.pos.z-z)>1.0+f.radius*0.6||Math.abs(f.pos.x-x)>0.35+f.radius) continue; const d=V3(Math.sign(f.pos.x-x)||1,0,0); hit(f,16,d.multiplyScalar(9),9,0.2,0.8,s.cd,'SAWED!',0xffc060,null); } } }
   });
 }
 // a bullet that meets a swinging ball stops there
 function mapHitSphere(p,r){ for(const s of MAPHZ.spheres){ const d=p.distanceTo(s.pos); if(d<s.r+r){ const n=V3().subVectors(p,s.pos); if(n.lengthSq()<1e-6) n.set(0,1,0); return {n:n.normalize(),depth:s.r+r-d}; } } return null; }
 
-MAPS.crane={ name:'The Crane', native:[17,17], scale:1, spawnX:12.4, killY:-12, build(){ buildCrane(); },
+MAPS.crane={ name:'The Crane', native:[23,23], scale:1, spawnX:16.8, killY:-12, build(){ buildCrane(); },
   env:{ fog:[0xcfe0f2,120,520], hemi:[0xdfeaff,0x6a7a5a,0.7], sun:[0xfff1d8,1.25,[30,40,-20]], bloom:[0.18,0.4,0.92] } };
-MAPS.foundry={ name:'Foundry', native:[18,13], scale:1, spawnX:14.6, killY:-1.4, lava:true, hitSphere:mapHitSphere, build(){ buildFoundry(); },
+MAPS.foundry={ name:'Foundry', native:[24,17], scale:1, spawnX:20.5, killY:-1.4, lava:true, hitSphere:mapHitSphere, build(){ buildFoundry(); },
   env:{ fog:[0x2a120c,45,170], hemi:[0xffc9a0,0xff6a1a,0.85], sun:[0xffd2a8,1.0,[-14,30,12]], bloom:[0.35,0.5,0.85] } };
 LOOK_MAP.crane={ exp:1.0, envI:1.0, hemi:0.45, sun:1.3, grade:{sat:1.1,con:0.22,vig:0.28,warm:[1.02,1.0,0.98],cool:[0.95,0.98,1.05]} };
 LOOK_MAP.foundry={ exp:1.05, envI:1.2, hemi:0.6, sun:1.0, grade:{sat:1.18,con:0.26,vig:0.45,warm:[1.07,0.98,0.92],cool:[0.94,0.95,1.02]} };

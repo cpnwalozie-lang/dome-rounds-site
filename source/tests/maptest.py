@@ -22,7 +22,7 @@ async def main():
         L['craneDrift']=await E("[__game.player.pos.x.toFixed(2),__game.player.pos.z.toFixed(2)]")
         await E("__game.holdCam(true); const c=__game.camera; c.position.set(-20,8,10); c.lookAt(4,0,0); __game.render()"); await pg.screenshot(path='/tmp/crane_tilt.png'); await E("__game.holdCam(false)")
         # foundry press: stand player in the middle and wait a cycle
-        await E("(()=>{ const G=__game; G.applyMap('foundry'); G.settings.map='foundry'; G.startSandbox(); G.forceFight(); G.bot.pos.set(14,0,8); })()")
+        await E("(()=>{ const G=__game; G.applyMap('foundry'); G.settings.map='foundry'; G.startSandbox(); G.forceFight(); G.bot.pos.set(20,0,8); })()")
         hp=[]
         for k in range(7*12):
             await E("(()=>{ const P=__game.player; if(Math.abs(P.pos.x)>0.5||Math.abs(P.pos.z)>0.5){ if(P.knockT<=0&&P.onGround){} } for(let i=0;i<5;i++) __game.step(1/60); })()")
@@ -30,9 +30,9 @@ async def main():
             if k==0: await E("(()=>{ const P=__game.player; P.pos.set(0.3,0,0.2); P.vel.set(0,0,0); })()")
         L['pressHp']=sorted(set(hp)); L['afterPressPos']=await E("[__game.player.pos.x.toFixed(1),__game.player.pos.z.toFixed(1)]")
         # ball: stand under left pendulum path
-        await E("(()=>{ const P=__game.player; P.hp=P.maxHp(); P.pos.set(-7,0,3); P.vel.set(0,0,0); })()"); hp=[]
+        await E("(()=>{ const P=__game.player; P.hp=P.maxHp(); P.pos.set(-9.5,0,3); P.vel.set(0,0,0); })()"); hp=[]
         for k in range(40):
-            await E("(()=>{ const P=__game.player; if(P.onGround&&P.knockT<=0){ P.pos.x=-7; P.pos.z=3; } for(let i=0;i<5;i++) __game.step(1/60); })()"); hp.append(await E("Math.round(__game.player.hp)"))
+            await E("(()=>{ const P=__game.player; if(P.onGround&&P.knockT<=0){ P.pos.x=-9.5; P.pos.z=3; } for(let i=0;i<5;i++) __game.step(1/60); })()"); hp.append(await E("Math.round(__game.player.hp)"))
         L['ballHp']=sorted(set(hp))
         await E("__game.holdCam(true); const c=__game.camera; c.position.set(-16,5,9); c.lookAt(-4,2,0); __game.render()"); await pg.screenshot(path='/tmp/foundry_c.png')
         L['errs']=errs[:6]; print(json.dumps(L)); await b.close()
