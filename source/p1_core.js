@@ -15,8 +15,8 @@ const CFG = {
   blockDuration:0.55, step:0.55, winsToTakeMatch:5, roundOverTime:2.8,
   killY:-2.2,
 };
-const NET={on:false,role:null,fireOrigin:null,allowKill:false,started:false,rCards:'',rShot:-1,rBlock:-1,shots:[],shotId:0,blockN:0,mid:0,rMid:0};
-const BASE = { hp:100, dmg:40, ammo:3, reload:1.6, fireInt:0.38, speed:42, size:0.24, blockCd:2.5, dome:4.0, aura:4.5 };
+const NET={on:false,role:null,fireOrigin:null,allowKill:false,started:false,rCards:'',rShot:-1,rBlock:-1,shots:[],shotId:0,blockN:0,mid:0,rMid:0,hits:[],hitSeq:0,hitSeen:{},clk:{}};
+const BASE = { hp:100, dmg:40, ammo:3, reload:4.0, fireInt:0.38, speed:42, size:0.24, blockCd:4.0, dome:4.0, aura:4.5 };
 const TEAM = {
   player:{ body:0x19c8ff, light:0x8fe9ff, dark:0x0b5c88, band:0xffffff, cannon:0x2460e6, ink:0x19b4ff, css:'#19c8ff' },
   bot:   { body:0xff7a1a, light:0xffc27a, dark:0x8a3604, band:0x1b2340, cannon:0xc2301c, ink:0xff7a1a, css:'#ff7a1a' },
@@ -60,10 +60,13 @@ const CARDS = {
   dazzle:     {name:'Dazzle',type:'gun',rar:'common',c:'#ffe45c',tag:'Shots stun the opponent several times. Stars spin round their head and their view goes narrow and hazy',lines:[R25],apply:s=>{s.dazzle+=1;s.reloadAdd+=0.25;}},
   grow:       {name:'Grow',type:'gun',rar:'uncommon',c:'#58d6a8',tag:'Shots swell up the further they travel. Bigger shots hit harder and blow up bigger clouds, blasts and effects',lines:[R25],apply:s=>{s.grow+=1;s.reloadAdd+=0.25;}},
   thruster:   {name:'Thruster',type:'gun',rar:'uncommon',c:'#ff9a76',tag:'A rocket sticks to whoever you hit and blasts them away. Every pellet sticks one',lines:[R25],apply:s=>{s.thruster+=1;s.reloadAdd+=0.25;}},
+  magnet:     {name:'Magnet Shot',type:'gun',rar:'uncommon',c:'#ff4d6d',tag:'Miss near someone and a magnet sticks where your shot lands, then ropes them in towards it. Blocking snaps the rope',lines:[['+1 shield','Grab range',1],R25],apply:s=>{s.magnet+=1;s.reloadAdd+=0.25;}},
+  arcshot:    {name:'Arc Shot',type:'gun',rar:'uncommon',c:'#4fc3ff',tag:'Shots spray out and fall like water. Lob them over cover. More stacks, steeper drop',lines:[['+2','Bullets',1],['+2','Ammo',1],['-30%','DMG',0],R25],apply:s=>{s.arc+=1;s.pellets+=2;s.ammo+=2;s.dmg*=0.7;s.spread=Math.max(s.spread,0.07);s.reloadAdd+=0.25;}},
   ricochet:   {name:'Ricochet',type:'gun',rar:'uncommon',c:'#5ad1c9',tag:'Shots bounce, losing half their speed each time',lines:[['+2','Bullet bounces',1],['+25%','ATKSPD',1],R25],apply:s=>{s.bounces+=2;s.ricochet+=1;s.fireInt/=1.25;s.reloadAdd+=0.25;}},
-  remote:     {name:'Remote',type:'gun',rar:'rare',c:'#7c8cff',tag:'See through your shot and steer it into the target',lines:[['-40%','Bullet speed',0],R25],apply:s=>{s.remote+=1;s.speed*=0.6;s.reloadAdd+=0.25;}},
+  remote:     {name:'Remote',type:'gun',rar:'rare',c:'#7c8cff',tag:'See through your shot and steer it into the target. Slower shots are easier to steer',lines:[['-55%','Bullet speed',0],R25],apply:s=>{s.remote+=1;s.speed*=0.45;s.reloadAdd+=0.25;}},
   demonicpact:{name:'Demonic Pact',type:'gun',rar:'rare',c:'#e0364f',tag:'Shooting costs 10 HP but there is no shooting cooldown',lines:[['+9','Ammo',1],['+2','Splash DMG',1],R25],apply:s=>{s.pact+=1;s.ammo+=9;s.splash+=2;s.reloadAdd+=0.25;}},
   // ---- body ----
+  swift:      {name:'Swift',type:'body',rar:'common',c:'#7fe3c6',tag:'Lighter on your feet. Run rings round them',lines:[['+25%','Move speed',1],['-10%','HP',0]],apply:s=>{s.move+=1;s.hp*=0.9;}},
   tank:       {name:'Tank',type:'body',rar:'common',c:'#5fbf7a',tag:'Built like a wall',lines:[['+100%','HP',1],['-25%','ATKSPD',0],R50],apply:s=>{s.hp*=2;s.fireInt*=1.25;s.reloadAdd+=0.5;}},
   huge:       {name:'Huge',type:'body',rar:'common',c:'#4fd08c',tag:'Just bigger and healthier',lines:[['+80%','HP',1]],apply:s=>{s.hp*=1.8;}},
   glasscannon:{name:'Glass Cannon',type:'body',rar:'uncommon',c:'#ff5d8f',tag:'Hit hard, break easy',lines:[['+100%','DMG',1],['-100%','HP',0],R25],apply:s=>{s.dmg*=2;s.hp*=0.5;s.reloadAdd+=0.25;}},
@@ -102,9 +105,9 @@ const TYPE_LABEL = {gun:'BLASTER', dome:'DOME', aura:'AURA', body:'BODY'};
 function computeStats(ids){
   const s={hp:BASE.hp,dmg:BASE.dmg,ammo:BASE.ammo,reloadAdd:0,reloadMul:1,fireInt:BASE.fireInt,speed:BASE.speed,size:BASE.size,
     pellets:1,spread:0,burst:0,bounces:0,ricochet:0,blockCdAdd:0,blockCdMul:1,dome:BASE.dome,jump:1,lifesteal:0,
-    poison:0,parasite:0,explosive:0,splash:0,timed:0,toxic:0,cold:0,dazzle:0,grow:0,thruster:0,remote:0,pact:0,scavenger:0,
+    poison:0,parasite:0,explosive:0,splash:0,timed:0,toxic:0,cold:0,dazzle:0,grow:0,thruster:0,magnet:0,remote:0,pact:0,scavenger:0,
     frost:0,shock:0,echo:0,bombs:0,emp:0,heal:0,implode:0,overpower:0,saw:0,silence:0,nova:0,tacreload:0,teleport:0,refresh:0,
-    chill:0,staticf:0,drain:0,brawler:0,chase:0,decay:0,phoenix:0,taste:0};
+    chill:0,staticf:0,drain:0,brawler:0,chase:0,decay:0,phoenix:0,taste:0,move:0,arc:0};
   for(const id of ids){ if(CARDS[id]) CARDS[id].apply(s); }
   s.reload=Math.max(0.3,(BASE.reload+s.reloadAdd)*s.reloadMul);
   s.fireInt= s.pact>0 ? 0.1 : Math.max(0.035,s.fireInt);
@@ -124,6 +127,13 @@ function computeStats(ids){
 const SFX=(()=>{
   let ctx=null, master=null, musicGain=null;
   function ensure(){ if(ctx) return ctx; try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=settings.vol; master.connect(ctx.destination); musicGain=ctx.createGain(); musicGain.gain.value=settings.music*0.9; musicGain.connect(ctx.destination); }catch(e){ ctx=null; } return ctx; }
+  // ---- the theme song (music.mp3 next to the game): loud on the menu, quiet under the fight. The synth tracks are the fallback ----
+  const SONG={el:null,g:null,failed:false,want:'off'}; const SONG_LV={menu:1.6,draft:1.0,fight:0.6,off:0};
+  function songOn(m){ if(SONG.failed||!ctx) return false; SONG.want=m;
+    if(!SONG.el){ try{ const a=new Audio(); a.loop=true; a.preload='auto'; a.src='music.mp3'; a.addEventListener('error',()=>{ SONG.failed=true; const w=SONG.want; mode=null; if(SONG.g) SONG.g.disconnect(); SFX.music(w); }); SONG.el=a; const src=ctx.createMediaElementSource(a); SONG.g=ctx.createGain(); SONG.g.gain.value=0; src.connect(SONG.g); SONG.g.connect(musicGain); }catch(e){ SONG.failed=true; return false; } }
+    const lv=SONG_LV[m]===undefined?1:SONG_LV[m], g=SONG.g.gain, t=ctx.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value,t); g.linearRampToValueAtTime(lv,t+(lv>g.value?0.8:1.4));
+    if(lv>0){ if(SONG.el.paused) SONG.el.play().catch(()=>{}); } else setTimeout(()=>{ if(SONG.want==='off'&&SONG.el) SONG.el.pause(); },1500);
+    return true; }
   function tone(f0,f1,dur,type='square',vol=0.08,when=0,dest=null){
     const c=ensure(); if(!c) return; try{
       if(c.state==='suspended') c.resume();
@@ -190,8 +200,8 @@ const SFX=(()=>{
       if(menu&&s%4===2) noise(0.03,0.02,7000,t,musicGain,'highpass');
       step++; nextT+=STEP; }
   }
-  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
-    music(m){ ensure(); if(mode===m) return; mode=m; if(m!=='off'&&!timer&&ctx){ nextT=ctx.currentTime+0.08; timer=setInterval(sched,50); } if(m==='off'&&timer){ clearInterval(timer); timer=null; } },
+  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, songState:()=>SONG.el?{paused:SONG.el.paused,t:+SONG.el.currentTime.toFixed(1),ready:SONG.el.readyState,failed:SONG.failed,g:+SONG.g.gain.value.toFixed(2)}:{failed:SONG.failed,none:1}, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
+    music(m){ ensure(); if(songOn(m)){ mode=m; if(timer){ clearInterval(timer); timer=null; } return; } if(mode===m&&(timer||m==='off')) return; mode=m; if(m!=='off'&&!timer&&ctx){ nextT=ctx.currentTime+0.08; timer=setInterval(sched,50); } if(m==='off'&&timer){ clearInterval(timer); timer=null; } },
     // ---- layered sound effects (see osc / nz below): a body, a transient and some air on each ----
     shoot:()=>{ osc('sine',190,55,0.11,0.375,{a:0.002}); osc('sawtooth',1500,240,0.15,0.138,{lp:[5200,700],q:3,rand:0.05,rv:0.25}); osc('square',2600,900,0.05,0.062,{rand:0.05}); nz(0.03,0.15,6000,3000,{ft:'highpass'}); },
     shootBot:()=>{ osc('sine',150,50,0.11,0.2,{a:0.002}); osc('sawtooth',900,170,0.16,0.09,{lp:[2800,500],q:3,rand:0.05,rv:0.3}); nz(0.03,0.07,4000,2000,{ft:'highpass'}); },

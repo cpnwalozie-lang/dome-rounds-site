@@ -13,3 +13,8 @@
   to = "/404"
   status = 404
   force = true
+
+[[headers]]
+  for = "/play/music.mp3"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

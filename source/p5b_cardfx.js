@@ -71,17 +71,22 @@ function clearBlinkFx(){ for(const p of tpBits){ p.active=false; p.m.visible=fal
 function blinkScale(f,dt){ if(f.tpHide>0) return 0.001; if(f.tpPop>0&&f.tpPop<0.34){ f.tpPop+=dt; const k=Math.min(1,f.tpPop/0.34), c=2.4; return 1+(c+1)*Math.pow(k-1,3)+c*Math.pow(k-1,2); } return 1; }
 
 // ---------- EMP: the dome bursts into energy shards that keep flying outward ----------
-const empBolts=[]; let empGeo=null, empMat=null, empGlow=null;
-function empBurst(f,c,n){ if(!empGeo){ empGeo=new T.OctahedronGeometry(0.4,0); empGeo.scale(0.5,0.22,1); empMat=new T.MeshBasicMaterial({color:col(0x7ff7ea),transparent:true,blending:T.AdditiveBlending,depthWrite:false}); empGlow=new T.SpriteMaterial({map:TX.glow,color:col(0x46e0d0),blending:T.AdditiveBlending,transparent:true,depthWrite:false}); }
-  const cast={hit:new Set(),owner:f,n}; const reach=13+4*(n-1); const rings=[[0.9,14,0],[1.5,9,0.38]];
-  for(const [h,cnt,el] of rings){ const a0=rand(0,6.28); for(let i=0;i<cnt;i++){ const a=a0+i/cnt*Math.PI*2; const dir=V3(Math.cos(a)*Math.cos(el),Math.sin(el),Math.sin(a)*Math.cos(el));
-      const m=new T.Mesh(empGeo,empMat); m.position.set(c.x,c.y+h,c.z); m.quaternion.setFromUnitVectors(V3(0,0,1),dir); const gl=new T.Sprite(empGlow); gl.scale.setScalar(1.6); m.add(gl); scene.add(m);
-      empBolts.push({m,dir,pos:m.position.clone(),d:0,reach,cast,spin:rand(-12,12)}); } }
-  shockRing(V3(c.x,c.y+0.9,c.z),0x7ff7ea,reach*0.35,0.35,0.3,V3(0,1,0)); }
-function updateEmpBolts(dt){ for(let i=empBolts.length-1;i>=0;i--){ const b=empBolts[i]; const sp=17; b.pos.addScaledVector(b.dir,sp*dt); b.d+=sp*dt; b.m.position.copy(b.pos); b.m.rotateZ(b.spin*dt);
-    const k=b.d/b.reach; b.m.scale.setScalar(1+k*0.6); empMat.opacity=1; if(Math.random()<dt*20) burst(b.pos,0x7ff7ea,1,0.6,0.06,0.3,0);
-    for(const e of (state==='fight'?enemies(b.cast.owner):[])){ if(b.cast.hit.has(e)||e.distTo(b.pos)>=0.95) continue; b.cast.hit.add(e); const n=b.cast.n; applySlow(e,0.6,2.2+0.6*n); applyDamage(e,8*n,b.cast.owner,{cause:'dome'}); burst(e.center(),0x46e0d0,16,5,0.1,0.5,0); flashAt(e.center(),0x7ff7ea,2.6,0.2); floatText(e.center().add(V3(0,1.2,0)),'EMP!','status'); SFX.zap(); }
-    if(b.d>=b.reach){ burst(b.pos,0x7ff7ea,4,2,0.07,0.3,0); scene.remove(b.m); empBolts.splice(i,1); } } }
+const empBolts=[]; let empGeo=null, empTex=null;
+// the dome's own hex tiles break off and fly outward (same pattern you see on the dome)
+function empTiles(){ if(empGeo) return; empGeo=new T.CircleGeometry(1,6); const cv=document.createElement('canvas'); cv.width=cv.height=128; const g=cv.getContext('2d'); const hex=(r)=>{ g.beginPath(); for(let k=0;k<6;k++){ const a=k/6*Math.PI*2; g[k?'lineTo':'moveTo'](64+Math.cos(a)*r,64-Math.sin(a)*r); } g.closePath(); };
+  hex(60); const gr=g.createRadialGradient(64,64,4,64,64,60); gr.addColorStop(0,'rgba(170,255,246,0.18)'); gr.addColorStop(1,'rgba(90,240,225,0.5)'); g.fillStyle=gr; g.fill(); g.lineJoin='round'; g.strokeStyle='rgba(120,255,240,0.95)'; g.lineWidth=9; hex(55); g.stroke(); g.strokeStyle='#ffffff'; g.lineWidth=3.5; hex(55); g.stroke(); empTex=new T.CanvasTexture(cv); }
+function empBurst(f,c,n){ empTiles(); const R=f.domeR(); const mat=new T.MeshBasicMaterial({map:empTex,color:0xffffff,transparent:true,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide});
+  const cast={hit:new Set(),owner:f,n,mat,reach:20+5*(n-1),d:0,left:0}; const tile=R*0.19;
+  for(const [el,cnt] of [[0.1,13],[0.45,11],[0.82,8],[1.2,4]]){ const a0=rand(0,6.28); for(let i=0;i<cnt;i++){ const a=a0+(i+(el>0.3&&el<0.6?0.5:0))/cnt*Math.PI*2; const dir=V3(Math.cos(a)*Math.cos(el),Math.sin(el),Math.sin(a)*Math.cos(el));
+      const m=new T.Mesh(empGeo,mat); m.position.copy(c).addScaledVector(dir,R); m.quaternion.setFromUnitVectors(V3(0,0,1),dir); m.scale.setScalar(tile); m.renderOrder=8; scene.add(m);
+      empBolts.push({m,dir,pos:m.position.clone(),cast,spin:rand(-5,5),tum:V3(rand(-1,1),rand(-1,1),rand(-1,1)).normalize(),size:tile}); cast.left++; } }
+  shockRing(V3(c.x,c.y+0.3,c.z),0x7ff7ea,R*1.6,0.35,R,V3(0,1,0)); }
+function updateEmpBolts(dt){ const sp=20; const seen=new Set();
+  for(let i=empBolts.length-1;i>=0;i--){ const b=empBolts[i], C=b.cast; if(!seen.has(C)){ seen.add(C); C.d+=sp*dt; const k=C.d/C.reach; C.mat.opacity=k<0.7?1:Math.max(0,1-(k-0.7)/0.3); }
+    b.pos.addScaledVector(b.dir,sp*dt); b.m.position.copy(b.pos); b.m.rotateZ(b.spin*dt); if(C.d>4) b.m.rotateOnAxis(b.tum,dt*3);
+    if(Math.random()<dt*6) burst(b.pos,0x7ff7ea,1,0.5,0.06,0.3,0);
+    if(C.mat.opacity>0.25) for(const e of (state==='fight'?enemies(C.owner):[])){ if(C.hit.has(e)||e.distTo(b.pos)>=0.7+b.size*0.6) continue; C.hit.add(e); const n=C.n; applySlow(e,0.6,2.2+0.6*n); applyDamage(e,8*n,C.owner,{cause:'dome'}); burst(e.center(),0x46e0d0,16,5,0.1,0.5,0); flashAt(e.center(),0x7ff7ea,2.6,0.2); floatText(e.center().add(V3(0,1.2,0)),'EMP!','status'); SFX.zap(); }
+    if(C.d>=C.reach){ scene.remove(b.m); empBolts.splice(i,1); if(--C.left<=0) C.mat.dispose(); } } } // they just fade out at the end, no extra shatter
 function clearEmpBolts(){ for(const b of empBolts) scene.remove(b.m); empBolts.length=0; }
 
 // ---------- ice: cold shots encase you in a frosty shell with crystals ----------
@@ -108,8 +113,8 @@ function iceHit(target,pos){ const c=target.center(); burst(pos,0xd9f4ff,14,5,0.
   for(let i=0;i<6;i++) spawnShard(pos.clone(),V3(rand(-3,3),rand(1,4),rand(-3,3)),0xd9f4ff,rand(0.08,0.15),0.5,1);
   if((target.coldT||0)<0.4){ SFX.freeze(); floatText(c.add(V3(0,1.3,0)),'FROZEN','status'); } }
 
-function updateCardFx(dt){ updateWorms(dt); updateThrusterFx(dt); updateBlinkFx(dt); updateEmpBolts(dt); for(const f of fighters){ if(f.active===false) continue; updateIce(f,dt); updateStars(f,dt,gameT); } updateDazzleView(dt,gameT); }
-function clearCardFx(){ clearWorms(); clearThrusterFx(); clearBlinkFx(); clearEmpBolts(); }
+function updateCardFx(dt){ updateSparks(dt); updateStaticAuras(dt); updateWorms(dt); updateThrusterFx(dt); updateTethers(dt); updateBlinkFx(dt); updateEmpBolts(dt); for(const f of fighters){ if(f.active===false) continue; updateIce(f,dt); updateStars(f,dt,gameT); } updateDazzleView(dt,gameT); }
+function clearCardFx(){ clearSparks(); clearWorms(); clearThrusterFx(); clearBlinkFx(); clearEmpBolts(); clearTethers(); }
 
 // ---------- dazzle: stars spin round your head, and your view narrows and goes hazy ----------
 let starGeo=null, starMat=null, starOl=null;
@@ -126,7 +131,70 @@ let dzEl=null, dzStars=[], dzAmt=0, dzPulse=0, dzLastN=0;
 function updateDazzleView(dt,t){ if(!dzEl){ dzEl=document.getElementById('dazzle'); if(!dzEl) return; dzStars=[...dzEl.querySelectorAll('b')]; }
   const on=player.dazzleN>0&&!player.dead&&state==='fight'; dzAmt=approach(dzAmt,on?1:0,dt*(on?5:2));
   if(player.dazzleN!==dzLastN){ if(player.dazzleN>0) dzPulse=1; dzLastN=player.dazzleN; } dzPulse=Math.max(0,dzPulse-dt*2.5);
-  const cv=renderer.domElement; if(dzAmt<0.005){ if(cv._dz){ cv._dz=false; cv.style.filter=''; } } else { cv._dz=true; const bl=dzAmt*(3+2.2*Math.min(player.dazzleN,3))+dzPulse*4+Math.sin(t*5)*0.6*dzAmt; cv.style.filter=`blur(${Math.max(0,bl).toFixed(1)}px) saturate(${(1+0.4*dzAmt).toFixed(2)}) brightness(${(1+0.12*dzAmt).toFixed(2)})`; } // really blurs your view
+  const cv=renderer.domElement; if(dzAmt<0.005){ if(cv._dz){ cv._dz=false; cv.style.filter=''; } } else { cv._dz=true; const bl=dzAmt*(1.8+1.3*Math.min(player.dazzleN,3))+dzPulse*2.5+Math.sin(t*5)*0.4*dzAmt; cv.style.filter=`blur(${Math.max(0,bl).toFixed(1)}px) saturate(${(1+0.4*dzAmt).toFixed(2)}) brightness(${(1+0.12*dzAmt).toFixed(2)})`; } // really blurs your view
   dzEl.style.opacity=dzAmt.toFixed(3); if(dzAmt<0.005) return;
-  const r=66-32*dzAmt-dzPulse*10+Math.sin(t*6)*2.5*dzAmt; dzEl.style.setProperty('--r',r.toFixed(1)+'%'); dzEl.style.setProperty('--b',(3+6*dzAmt+dzPulse*4).toFixed(1)+'px');
+  const r=68-24*dzAmt-dzPulse*8+Math.sin(t*6)*2.5*dzAmt; dzEl.style.setProperty('--r',r.toFixed(1)+'%'); dzEl.style.setProperty('--b',(3+6*dzAmt+dzPulse*4).toFixed(1)+'px');
   dzStars.forEach((s,i)=>{ const a=i/dzStars.length*Math.PI*2+t*0.9; s.style.transform=`translate(-50%,-50%) translate(${(Math.cos(a)*40).toFixed(1)}vw,${(Math.sin(a)*38).toFixed(1)}vh) rotate(${(t*120+i*40)%360}deg) scale(${(0.8+0.3*Math.sin(t*5+i)).toFixed(2)})`; }); }
+
+// ================= MAGNET SHOT =================
+// A shot that misses but lands near an enemy plants a magnet there; a glowing rope snaps onto them and reels them in.
+// Range = one shield (your dome) wide, more per stack; stacks also pull for longer. Putting your dome up snaps the rope.
+const tethers=[]; let tetherGeo=null;
+function magnetLand(b,pos){ const n=b.s&&b.s.magnet; if(!n||b.magDone||state!=='fight'||!b.owner) return; b.magDone=true;
+  const {A}=bulletAmp(b); const R=b.owner.domeR()*(1+0.55*(n-1))*Math.sqrt(Math.min(A,1.8));
+  const from=pos.clone().addScaledVector(b.vel.clone().normalize(),-0.25); let best=null, bd=1e9;
+  for(const e of enemies(b.owner)){ const d=e.center().distanceTo(pos); if(d<R+0.5&&d<bd&&hasLOS(from,e.center())){ bd=d; best=e; } }
+  if(!best) return;
+  if(best.blockActive){ burst(pos,0xff4d6d,6,3,0.07,0.3,0); return; } // their dome is up: nothing to grab
+  for(let i=tethers.length-1;i>=0;i--) if(tethers[i].target===best) endTether(i,false); // one rope per target, newest wins
+  const dur=0.42+0.3*(n-1), sp=8.5*Math.pow(A,0.25); // ~3 m of pull at 1 stack, ~5 m at 2: a good tug, not a yank
+  addTether(b.owner,best,from,dur,sp); }
+function addTether(owner,target,anchor,dur,sp){ if(!tetherGeo) tetherGeo=new T.CylinderGeometry(1,1,1,8,1,true).translate(0,0.5,0).rotateX(Math.PI/2);
+  const g=new T.Group(); const C=0xff4d6d;
+  // the magnet: a red horseshoe with silver tips, planted where the shot landed
+  const mag=new T.Group(); const hs=new T.Mesh(new T.TorusGeometry(0.2,0.075,8,18,Math.PI),new T.MeshStandardMaterial({color:C,roughness:0.35,metalness:0.4,emissive:col(C),emissiveIntensity:0.35})); hs.rotation.z=Math.PI; mag.add(hs);
+  for(const sx of [-1,1]){ const tip=new T.Mesh(new T.BoxGeometry(0.15,0.12,0.15),new T.MeshStandardMaterial({color:0xe8edf5,roughness:0.25,metalness:0.8})); tip.position.set(sx*0.2,0.07,0); mag.add(tip); }
+  const mg=sprite(C,1.6,0.75); mag.add(mg); mag.scale.setScalar(1.6); mag.position.copy(anchor); g.add(mag);
+  // the rope: a white-hot core inside a red glow
+  const core=new T.Mesh(tetherGeo,new T.MeshBasicMaterial({color:0xffe6ec,toneMapped:false})); const glow=new T.Mesh(tetherGeo,new T.MeshBasicMaterial({color:C,transparent:true,opacity:0.55,blending:T.AdditiveBlending,depthWrite:false,toneMapped:false})); g.add(core); g.add(glow);
+  const beads=[]; for(let i=0;i<3;i++){ const s=sprite(0xffffff,0.9,0.95); g.add(s); beads.push(s); }
+  // a clamp ring round their middle
+  const clamp=new T.Mesh(new T.TorusGeometry(0.5,0.05,6,26),new T.MeshBasicMaterial({color:C,toneMapped:false})); clamp.rotation.x=Math.PI/2; g.add(clamp);
+  scene.add(g); tethers.push({owner,target,anchor:anchor.clone(),t:0,dur,sp,g,mag,core,glow,beads,clamp,snap:0});
+  burst(anchor,C,10,4,0.08,0.4,0); burst(target.center(),C,8,3,0.08,0.35,0); flashAt(anchor,C,2.2,0.18); SFX.zap(); }
+function endTether(i,snapped){ const tt=tethers[i]; if(!tethers.some((x,k)=>k!==i&&x.target===tt.target)) tt.target.tetherV=null; if(snapped){ const c=tt.target.center(); for(let k=0;k<6;k++) spawnShard(c.clone().lerp(tt.anchor,k/6),V3(rand(-2,2),rand(0,3),rand(-2,2)),0xff4d6d,0.12,0.35,0.5); burst(c,0xff4d6d,10,4,0.08,0.35,0); }
+  scene.remove(tt.g); tt.g.traverse(o=>{ if(o.material&&o.material.dispose) o.material.dispose(); if(o.geometry&&o.geometry!==tetherGeo&&o.geometry.dispose) o.geometry.dispose(); }); tethers.splice(i,1); }
+const _tq=V3(), _tz=V3(0,0,1);
+function updateTethers(dt){ for(let i=tethers.length-1;i>=0;i--){ const tt=tethers[i], f=tt.target; tt.t+=dt;
+    if(f.dead||f.active===false||state!=='fight'){ endTether(i,false); continue; }
+    if(f.blockActive){ endTether(i,true); if(f.isPlayer) floatText(f.center().add(V3(0,1,0)),'ROPE SNAPPED','status'); continue; }
+    const d=V3().subVectors(tt.anchor,f.pos); d.y=0; const L=d.length();
+    if(tt.t>=tt.dur||L<0.9){ endTether(i,false); continue; }
+    if(f.ctl!=='net'){ d.multiplyScalar(1/L); const e=Math.min(1,tt.t/0.08)*Math.min(1,(tt.dur-tt.t)/0.12+0.35)*Math.min(1,L/1.4); f.tetherV=f.tetherV||V3(); f.tetherV.set(d.x*tt.sp*e,(tt.anchor.y>f.pos.y+0.8?3.5:0),d.z*tt.sp*e); }
+    // draw: rope from the magnet to their waist, with light beads racing toward the magnet
+    const a=tt.anchor, c=f.center(); const dir=_tq.subVectors(c,a); const len=dir.length(); const wob=1+Math.sin(tt.t*40)*0.25;
+    for(const [m,r] of [[tt.core,0.035],[tt.glow,0.1*wob]]){ m.position.copy(a); m.quaternion.setFromUnitVectors(_tz,dir.clone().normalize()); m.scale.set(r,r,len); }
+    tt.beads.forEach((s,k)=>{ const u=1-((tt.t*2.6+k/3)%1); s.position.copy(a).addScaledVector(dir,u); });
+    tt.clamp.position.copy(c); tt.clamp.rotation.z+=dt*6; tt.mag.rotation.y+=dt*3; tt.mag.position.y=a.y+Math.sin(tt.t*18)*0.03;
+    if(Math.random()<dt*20) burst(a.clone().addScaledVector(dir,Math.random()),0xff8fa3,1,1.2,0.05,0.25,0); } }
+function clearTethers(){ for(let i=tethers.length-1;i>=0;i--) endTether(i,false); }
+
+// ---------- static field: little bolts crackle inside the aura and jump onto anyone in it ----------
+const sparkPool=[]; let sparkMat=null; const SPK_N=8;
+function sparkGet(){ let s=sparkPool.find(p=>!p.on); if(s) return s; if(sparkPool.length>=48){ s=sparkPool[0]; for(const p of sparkPool) if(p.t>s.t) s=p; return s; }
+  if(!sparkMat) sparkMat=new T.MeshBasicMaterial({color:0xfff2a0,transparent:true,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide});
+  const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(new Float32Array(SPK_N*4*3),3)); const idx=[]; for(let r=0;r<2;r++) for(let k=0;k<SPK_N-1;k++){ const o=r*SPK_N*2+k*2; idx.push(o,o+1,o+2, o+1,o+3,o+2); } g.setIndex(idx);
+  const m=new T.Mesh(g,sparkMat.clone()); m.frustumCulled=false; m.renderOrder=9; m.visible=false; scene.add(m); s={m,on:false,t:0,life:0}; sparkPool.push(s); return s; }
+function sparkLine(a,b,colr,life,w){ const s=sparkGet(); const d=V3().subVectors(b,a), L=d.length(); if(L<0.05) return; d.multiplyScalar(1/L); const p1=V3().crossVectors(d,Math.abs(d.y)>0.9?V3(1,0,0):V3(0,1,0)).normalize(), p2=V3().crossVectors(d,p1); const ww=w||0.035;
+  const arr=s.m.geometry.attributes.position.array; const P=[]; for(let k=0;k<SPK_N;k++){ const u=k/(SPK_N-1), j=(k===0||k===SPK_N-1)?0:Math.sin(Math.PI*u)*L*0.16; P.push(a.clone().lerp(b,u).addScaledVector(p1,rand(-1,1)*j).addScaledVector(p2,rand(-1,1)*j)); }
+  for(let r=0;r<2;r++){ const ax=r?p2:p1; for(let k=0;k<SPK_N;k++){ const o=(r*SPK_N*2+k*2)*3, q=P[k]; arr[o]=q.x+ax.x*ww; arr[o+1]=q.y+ax.y*ww; arr[o+2]=q.z+ax.z*ww; arr[o+3]=q.x-ax.x*ww; arr[o+4]=q.y-ax.y*ww; arr[o+5]=q.z-ax.z*ww; } }
+  s.m.geometry.attributes.position.needsUpdate=true; s.m.material.color.setHex(colr); s.m.material.opacity=1; s.m.visible=true; s.on=true; s.t=0; s.life=life; }
+function updateSparks(dt){ for(const s of sparkPool){ if(!s.on) continue; s.t+=dt; if(s.t>=s.life){ s.on=false; s.m.visible=false; continue; } s.m.material.opacity=Math.min(1,1.6*(1-s.t/s.life))*(Math.random()<0.2?0.45:1); } }
+function clearSparks(){ for(const s of sparkPool){ s.on=false; s.m.visible=false; } }
+function auraPoint(f,R){ const c=f.domeC(), a=rand(0,6.28), el=rand(0.08,1.35), r=R*rand(0.3,0.95); return V3(c.x+Math.cos(a)*Math.cos(el)*r,c.y+Math.sin(el)*r,c.z+Math.sin(a)*Math.cos(el)*r); }
+function updateStaticAuras(dt){ if(state!=='fight'&&state!=='countdown') return; for(const f of fighters){ if(f.dead||f.active===false||!(f.stats.staticf>0)) continue; const R=f.auraR(); if(!(R>0)) continue;
+    for(let q=0;q<3;q++) if(Math.random()<dt*(5+1.5*f.stats.staticf)){ const a=auraPoint(f,R); sparkLine(a,a.clone().add(V3(rand(-1,1),rand(-0.6,0.6),rand(-1,1)).normalize().multiplyScalar(rand(1.0,2.2))),q?0xffe066:0xffffff,rand(0.14,0.22),q?0.05:0.035); }
+    for(const e of enemies(f)) if(e.center().distanceTo(f.domeC())<R+0.3&&Math.random()<dt*9) staticZap(f,e,true); } }
+function staticZap(src,victim,small){ if(!victim||victim.dead) return; const v=victim.center(); const a=auraPoint(src,src.auraR()||3); sparkLine(a,v,0xffe066,small?0.15:0.2,small?0.045:0.065); if(!small){ sparkLine(v,v.clone().add(V3(rand(-0.8,0.8),rand(0.2,1),rand(-0.8,0.8))),0xffffff,0.12,0.025); burst(v,0xffe066,5,3,0.06,0.25,0); } else burst(v,0xfff2a0,1,2,0.05,0.2,0); }
+// ---------- poison: a green splash where the shot lands on them ----------
+function poisonSplash(pos,A){ const a=A||1; burst(pos,0x49d86b,Math.round(14*a),5*Math.sqrt(a),0.13,0.75,1.8); burst(pos,0xb6ff9a,6,3,0.08,0.45,1.4); shockRing(pos.clone(),0x49d86b,1.3*a,0.35,0.1); flashAt(pos,0x49d86b,2.2*a,0.16); }

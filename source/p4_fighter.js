@@ -127,23 +127,24 @@ class Fighter{
     this.blockCdT=0; this.blockActive=false; this.blockT=0; this.dashCdT=0; this.dashT=0;
     this.slowT=0; this.slowAmt=0; this.stunT=0; this.poisons=[]; this.dead=false; this.vel.set(0,0,0);
     this.burstQueue=0; this.burstT=0; this.echoT=-1; this.echoCount=0; this.mood='normal'; this.moodT=0; this.hitFlash=0; this.auraSlow=0; this.squash=0;
-    this.brawlT=0; this.tasteT=0; this.refreshCd=0; this.silenceT=0; this.invulnT=0; this.sawT=0; this.decayPool=0; this.decayAcc=0; this.dazzleN=0; this.dazzleT=0; this.thrusters=[]; this.phoenixUsed=0; this.chasing=false; this.domeHitAge=9; this.respawnT=0; this.lastHitBy=null; this.coldT=0; this.blinkPending=0; this.chillIn=false; this.knockT=0; this.tpHide=0; this.tpPop=0;
+    this.brawlT=0; this.tasteT=0; this.refreshCd=0; this.silenceT=0; this.invulnT=0; this.sawT=0; this.decayPool=0; this.decayAcc=0; this.dazzleN=0; this.dazzleT=0; this.thrusters=[]; this.phoenixUsed=0; this.chasing=false; this.domeHitAge=9; this.respawnT=0; this.lastHitBy=null; this.tetherV=null; this.coldT=0; this.blinkPending=0; this.chillIn=false; this.knockT=0; this.tpHide=0; this.tpPop=0;
     this.mesh.visible=true; this.dome.visible=false; this.dome2.visible=false; this.domeRing.visible=false; this.sawRing.visible=false;
   }
   center(){ return V3(this.pos.x,this.pos.y+this.bodyY,this.pos.z); }
-  distTo(p){ const y=clamp(p.y,this.pos.y+0.4,this.pos.y+1.8); const dx=p.x-this.pos.x, dy=p.y-y, dz=p.z-this.pos.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
+  distTo(p){ const z=this.sz||1; const y=clamp(p.y,this.pos.y+0.4*z,this.pos.y+1.8*z); const dx=p.x-this.pos.x, dy=p.y-y, dz=p.z-this.pos.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
   domeC(){ return V3(this.pos.x,this.pos.y+0.05,this.pos.z); }
-  domeR(){ return this.stats.dome; }
-  auraR(){ return this.silenceT>0?0:this.stats.auraR; }
-  addCard(id){ this.cards.push(id); this.stats=computeStats(this.cards); this.hp=this.stats.hp; this.ammo=this.stats.ammo;
+  domeR(){ return this.stats.dome*(matchKind==='ffa'?1.2:1); }
+  auraR(){ return this.silenceT>0?0:this.stats.auraR*(matchKind==='ffa'?1.25:1); }
+  addCard(id){ this.cards.push(id); this.stats=computeStats(this.cards); this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.applySize();
     const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.domePal= pc.length===0?[team]: pc.slice(0,4); }
   auraPal(){ const s=this.stats,l=[]; if(s.chill) l.push(AURA_PAL.chill); if(s.staticf) l.push(AURA_PAL.staticf); if(s.drain) l.push(AURA_PAL.drain); return l; }
-  setCards(ids){ this.cards=[]; this.stats=computeStats([]); if(ids.length){ for(const id of ids.slice(0,-1)) this.cards.push(id); this.addCard(ids[ids.length-1]); } else { this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.domePal=[new T.Color(this.team.light)]; } }
+  applySize(){ const sz=clamp(Math.pow(this.stats.hp/BASE.hp,0.3),0.75,1.6); this.sz=sz; this.radius=0.5*sz; this.height=2.05*sz; this.bodyY=1.3*sz; this.hitR=0.58*sz; } // more max HP = bigger and a bit slower; less = smaller and quicker
+  setCards(ids){ this.cards=[]; this.stats=computeStats([]); this.applySize(); if(ids.length){ for(const id of ids.slice(0,-1)) this.cards.push(id); this.addCard(ids[ids.length-1]); } else { this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.domePal=[new T.Color(this.team.light)]; } }
   maxHp(){ return Math.round(this.stats.hp*(1+(this.brawlT>0?2*this.stats.brawler:0))); }
   forward(){ return V3(-Math.sin(this.yaw),0,-Math.cos(this.yaw)); }
   aimDir(){ const cp=Math.cos(this.pitch); return V3(-Math.sin(this.yaw)*cp,Math.sin(this.pitch),-Math.cos(this.yaw)*cp); }
   muzzlePos(){ this.mesh.position.copy(this.pos); this.mesh.rotation.y=this.yaw; this.cannon.rotation.x=this.pitch; this.mesh.updateMatrixWorld(true); return this.muzzle.getWorldPosition(V3()); }
-  speedFactor(){ const slow=Math.max(this.slowT>0?this.slowAmt:0,this.auraSlow); let k=(1-clamp(slow,0,0.8))*(this.stunT>0?0:1); if(this.tasteT>0) k*=1+0.5*this.stats.taste; if(this.chasing) k*=1+0.6*this.stats.chase; return k; }
+  speedFactor(){ const slow=Math.max(this.slowT>0?this.slowAmt:0,this.auraSlow); let k=(1-clamp(slow,0,0.8))*(this.stunT>0?0:1); if(this.tasteT>0) k*=1+0.5*this.stats.taste; if(this.chasing) k*=1+0.6*this.stats.chase; k*=1+0.25*this.stats.move; return k/Math.pow(this.sz||1,0.55); }
   setMood(m,t){ this.mood=m; this.moodT=t; }
   auraColor(t){ const s=this.stats, list=[]; if(s.chill) list.push(AURA_COL.chill); if(s.staticf) list.push(AURA_COL.staticf); if(s.drain) list.push(AURA_COL.drain); if(!list.length) return null; const i=Math.floor(t*0.6)%list.length, j=(i+1)%list.length, k=(t*0.6)%1; return new T.Color(list[i]).lerp(new T.Color(list[j]),list.length>1?k*k*(3-2*k):0); }
   updateVisual(dt,t){
@@ -156,7 +157,7 @@ class Fighter{
     const freq=(1.15+0.165*Math.min(sp,10))*w; this.gait=(this.gait+dt*freq)%1; const gph=this.gait*Math.PI*2;
     const amp=Math.min(0.31,0.07+0.034*sp)*w, st=lerp(0.62,0.4,run), liftH=(0.07+0.2*run)*w;
     let mx=0, mz=-1; if(sp>0.2){ mx=vr/sp; mz=-vf/sp; }
-    const big=this.brawlT>0?1.14:1; g.scale.setScalar(big*blinkScale(this,dt));
+    const big=(this.brawlT>0?1.14:1)*(this.sz||1); g.scale.setScalar(big*blinkScale(this,dt));
     const breath=Math.sin(this.idleT*2.2)*0.012, sway=Math.sin(this.idleT*0.9)*(1-w);
     const bounce=(air||dashing)?0:Math.cos(gph*2+0.6)*0.028*w;
     const hipY=this.hipY-0.035-0.05*run*w-this.squash*0.22+bounce+(air?0.03:0);
@@ -212,9 +213,9 @@ class Fighter{
     // block dome
     const dc=this.domeC(), R=this.domeR(); this.domeHitAge+=dt;
     const sawing=this.sawT>0&&!this.dead;
-    if(this.blockActive||sawing){
+    if((this.blockActive&&!this.dead)||sawing){
       let sc=R, fade=1, flash=0;
-      if(this.blockActive){ const el=CFG.blockDuration-this.blockT; const k=Math.min(1,el/0.09); const e=1-Math.pow(1-k,3); const settle=clamp((el-0.09)/0.16,0,1); sc=Math.max(0.01,R*(0.35+0.65*e)*(1.12-0.12*settle)); fade=sawing?1:Math.min(1,this.blockT/0.12); flash=Math.max(0,1-el/0.2); }
+      if(this.blockActive){ const el=CFG.blockDuration-this.blockT; const k=Math.min(1,el/0.09); const e=1-Math.pow(1-k,3); const settle=clamp((el-0.09)/0.16,0,1); sc=Math.max(this.height+0.3,R*(0.35+0.65*e)*(1.12-0.12*settle)); if(sc>R*1.12) sc=Math.max(R*(0.35+0.65*e)*(1.12-0.12*settle),Math.min(sc,this.height+0.3)); fade=sawing?1:Math.min(1,this.blockT/0.12); flash=Math.max(0,1-el/0.2); }
       const u=this.domeMat.uniforms; this.dome.visible=true; this.dome.position.copy(dc); this.dome.scale.setScalar(sc); this.dome.rotation.y=sawing? t*9 : t*0.25; u.opacity.value=fade; u.time.value=t; u.flash.value=flash; u.hitAge.value=this.domeHitAge; u.hitDir.value.copy(this.domeHitDir).applyAxisAngle(UP,-this.dome.rotation.y); setPal(this.domeMat,sawing?SAW_PAL:this.domePal);
       const u2=this.domeMat2.uniforms; this.dome2.visible=true; this.dome2.position.copy(dc); this.dome2.scale.setScalar(sc*0.93); this.dome2.rotation.y=-t*0.6; u2.opacity.value=fade*0.55; u2.time.value=t*0.7+3; u2.flash.value=flash*0.5; u2.hitAge.value=9;
       this.domeRing.visible=true; this.domeRing.position.set(dc.x,dc.y+0.03,dc.z); this.domeRing.scale.setScalar(sc*1.02); this.domeRing.material.opacity=0.9*fade;
@@ -225,7 +226,7 @@ class Fighter{
     else { this.aura.visible=false; this.auraRing.visible=false; }
     const gY=groundAt(this.pos.x,this.pos.z,this.pos.y+50,0.3); const vis=gY!==null && !this.dead && this.active!==false;
     this.shadow.visible=vis; this.marker.visible=vis&&this.mesh.visible;
-    if(vis){ this.shadow.position.set(this.pos.x,gY+0.015,this.pos.z); const h=clamp(this.pos.y-gY,0,6); this.shadow.scale.setScalar(1.05-h*0.1); this.shadow.material.opacity=0.38-h*0.045; this.marker.position.set(this.pos.x,gY+0.02,this.pos.z); this.marker.rotation.z=t*1.5; }
+    if(vis){ this.shadow.position.set(this.pos.x,gY+0.015,this.pos.z); const h=clamp(this.pos.y-gY,0,6); this.shadow.scale.setScalar((1.05-h*0.1)*(this.sz||1)); this.shadow.material.opacity=0.38-h*0.045; this.marker.position.set(this.pos.x,gY+0.02,this.pos.z); this.marker.rotation.z=t*1.5; }
     const slowed=(this.slowT>0||this.auraSlow>0)&&!this.dead; const sil=this.silenceT>0; this.statusRing.visible=(slowed||this.stunT>0||sil)&&!this.dead; this.statusRing.position.set(this.pos.x,this.pos.y+0.08,this.pos.z); this.statusRing.material.color.copy(col(this.stunT>0?0xffe14d:(sil?0x9aa7c7:0x9be7ff))); this.statusRing.rotation.z+=dt*3; this.statusRing.scale.setScalar(1+Math.sin(t*8)*0.05);
   }
 }

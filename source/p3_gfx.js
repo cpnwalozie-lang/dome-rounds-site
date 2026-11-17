@@ -153,7 +153,7 @@ function boxEdges(x0,x1,y0,y1,z0,z1,t,mat,cornerMat){ const w=x1-x0,h=y1-y0,d=z1
   addMerged(L,mat); if(cornerMat){ const C=[]; for(const x of [x0,x1]) for(const y of [y0,y1]) for(const z of [z0,z1]) C.push([new T.BoxGeometry(t*1.7,t*1.7,t*1.7),MX(x,y,z)]); addMerged(C,cornerMat,{cast:false}); } }
 function propCol(x,z,r,y0,y1){ collider(x-r,x+r,y0,y1,z-r,z+r,true); if(r<0.3) boxes[boxes.length-1].noStand=true; }
 // close any gap between solid objects that is narrower than a body, so nobody gets wedged half inside two things
-function sealGaps(rad){ const out=[], L=boxes.filter(b=>!b.filler&&(b.max.x-b.min.x)<40&&(b.max.y-b.min.y)>=0.3);
+function sealGaps(rad){ const out=[], L=boxes.filter(b=>!b.filler&&!b.noSeal&&(b.max.x-b.min.x)<40&&(b.max.y-b.min.y)>=0.3);
   for(let i=0;i<L.length;i++) for(let j=i+1;j<L.length;j++){ const a=L[i], b=L[j]; const yLo=Math.max(a.min.y,b.min.y), yHi=Math.min(a.max.y,b.max.y); if(yHi-yLo<0.3) continue;
     const gx=Math.max(0,b.min.x-a.max.x,a.min.x-b.max.x), gz=Math.max(0,b.min.z-a.max.z,a.min.z-b.max.z); if(gx===0&&gz===0) continue; if(Math.hypot(gx,gz)>=2*rad*0.98) continue;
     const rx=gx>0?(a.max.x<=b.min.x?[a.max.x,b.min.x]:[b.max.x,a.min.x]):[Math.max(a.min.x,b.min.x),Math.min(a.max.x,b.max.x)];
@@ -391,43 +391,10 @@ function buildArena(){
 
 // ---------- scenery ----------
 function buildScenery(){
-  const hillMat=new T.MeshBasicMaterial({map:TX.hill,fog:true}), hillFar=new T.MeshBasicMaterial({map:TX.hillFar,fog:true});
-  for(const [x,z,s,h] of [[-120,-150,60,0.5],[10,-190,90,0.55],[150,-140,55,0.5],[270,120,70,0.45],[260,-130,60,0.5],[-190,60,65,0.5],[40,210,95,0.5],[-110,170,50,0.5],[120,190,60,0.4]]){ const m=new T.Mesh(new T.SphereGeometry(s,20,14,0,Math.PI*2,0,Math.PI/2),hillMat); m.position.set(x,-1.3,z); m.scale.y=h; W.add(m); }
-  for(const [x,z,s] of [[-260,-260,130],[80,-330,170],[300,-180,120],[-340,40,150],[330,160,140],[-160,320,150],[160,340,130]]){ const m=new T.Mesh(new T.SphereGeometry(s,18,12,0,Math.PI*2,0,Math.PI/2),hillFar); m.position.set(x,-1.3,z); m.scale.y=0.45; W.add(m); }
-  // suspension bridge far north-east
-  { const g=new T.Group(); const mat=toon({color:0xf4f6fb}), red=toon({color:0xe85a4f}); const deck=new T.Mesh(new T.BoxGeometry(320,1.6,7),mat); deck.position.y=12; g.add(deck);
-    for(const x of [-70,70]){ for(const z of [-3,3]){ const t=new T.Mesh(new T.BoxGeometry(3,52,2.2),red); t.position.set(x,24,z); g.add(t); } for(const y of [22,36,48]){ const c=new T.Mesh(new T.BoxGeometry(2.2,2,8),red); c.position.set(x,y,0); g.add(c); } const p=new T.Mesh(new T.BoxGeometry(8,14,12),toon({color:0x9aa5b5})); p.position.set(x,4,0); g.add(p); }
-    const cable=(pts)=>{ const c=new T.CatmullRomCurve3(pts.map(p=>V3(p[0],p[1],0))); for(const z of [-3,3]){ const t=new T.Mesh(new T.TubeGeometry(c,40,0.35,5),red); t.position.z=z; g.add(t); } };
-    cable([[-160,13],[-115,26],[-70,50]]); cable([[-70,50],[-35,24],[0,15],[35,24],[70,50]]); cable([[70,50],[115,26],[160,13]]);
-    for(let x=-150;x<=150;x+=10){ const ax=Math.abs(x); let y; if(ax<=70){ const k=ax/70; y=15+35*k*k; } else { const k=(160-ax)/90; y=13+37*k*k; } for(const z of [-3,3]){ const h=new T.Mesh(new T.BoxGeometry(0.25,Math.max(0.5,y-12.8),0.25),red); h.position.set(x,12.8+(y-12.8)/2,z); g.add(h); } }
-    g.position.set(200,-1,-10); g.rotation.y=Math.PI/2-0.22; W.add(g); }
-  // far shore town
-  { const rng=RNG(5); const cols=[0xffd9a8,0xffb3c1,0xbfe3ff,0xfff1b8,0xc9f2d0,0xe6d4ff]; const shore=new T.Mesh(new T.BoxGeometry(260,3,60),toon({color:0xe8d9a8})); shore.position.set(-170,-1.2,-40); shore.rotation.y=1.3; W.add(shore);
-    // the town: three rows of buildings facing the harbour, tree groves between them and a fountain plaza
-    const ang=1.3, Lx=Math.cos(ang), Lz=-Math.sin(ang), Dx=Math.sin(ang), Dz=Math.cos(ang), top=0.3, face=ang+Math.PI*0.5, grp=W;
-    const at=(u,d)=>[-170+Lx*u+Dx*d,-40+Lz*u+Dz*d];
-    const pick=['bA','bB','bC','bD','bA','bC','bB','bD','bG'];
-    // pack each row by real footprint (Kenney tiles are 1x1 units) so neighbours never intersect
-    for(const [d,sc] of [[17,10],[3,12],[-12.6,14]]){ let cur=-120, fountainDone=d!==17;
-      while(cur<116){ const r=rng(); let name, s, ry=face;
-        if(!fountainDone&&cur>-6){ name='fountain'; s=11; fountainDone=true; }
-        else if(r<0.16){ name='trees'; s=sc*0.95; ry=Math.floor(r*40)*Math.PI/2; }
-        else { name=pick[Math.floor(rng()*pick.length)]; s=sc*(0.92+rng()*0.16); if(d<0&&r>0.8) ry+=Math.PI; }
-        const w=s*1.08; const [x,z]=at(cur+w/2,d); kenPlace({name,x,y:top,z,ry,s,group:grp}); cur+=w+0.8+rng()*1.6; } }
-    for(const u of [-140,140]){ const [x,z]=at(u,4); kenPlace({name:'trees',x,y:top,z,ry:0,s:13,group:grp}); }
-  }
-  // neighbouring pier with cranes + stacked containers
-  { const pier=new T.Mesh(new T.BoxGeometry(90,3,26),toon({color:0x8f9aa8})); pier.position.set(20,-1.4,62); W.add(pier); const cc=[0x2f6fe4,0xf2892e,0x17a79c,0xe23d6d,0xffd21f,0xf4f6fb]; const rng=RNG(12);
-    for(let i=0;i<9;i++) for(let k=0;k<1+Math.floor(rng()*3);k++){ const c=new T.Mesh(new T.BoxGeometry(7.6,2.9,2.9),toon({color:cc[Math.floor(rng()*6)]})); c.position.set(-18+i*8.4,1.55+k*2.95,56+(i%2)*4); W.add(c); }
-    const crane=(x,c)=>{ const g=new T.Group(), m=toon({color:c}); for(const lx of [-5,5]) for(const lz of [-4,4]){ const l=new T.Mesh(new T.BoxGeometry(1,26,1),m); l.position.set(lx,13,lz); g.add(l); } const top=new T.Mesh(new T.BoxGeometry(12,2,10),m); top.position.y=26; g.add(top); const boom=new T.Mesh(new T.BoxGeometry(2,1.6,40),m); boom.position.set(0,28,-12); g.add(boom); const cab=new T.Mesh(new T.BoxGeometry(3,3,3),M.white); cab.position.set(0,25,-8); g.add(cab); const mast=new T.Mesh(new T.BoxGeometry(1,10,1),m); mast.position.set(0,33,2); g.add(mast); for(const zz of [-28,-6]){ const a=V3(0,38,2), b=V3(0,28.8,zz); const st=new T.Mesh(new T.BoxGeometry(0.3,0.3,a.distanceTo(b)),m); st.position.copy(a).add(b).multiplyScalar(0.5); st.lookAt(b); g.add(st); } g.position.set(x,0,70); W.add(g); };
-    crane(0,0xf2892e); crane(34,0x2f6fe4);
-    for(const [x,ry] of [[-12,Math.PI/2],[14,-Math.PI/2],[40,Math.PI/2]]) kenPlace({name:'truckR',x,y:0.1,z:51.6,ry,s:2.2,group:W}); }
+  // (background islands, bridge, town, crane pier, cargo ship and sailboats removed: open sea all round)
   // billboard
-  { const g=new T.Group(); for(const x of [-5,5]){ const p=new T.Mesh(new T.CylinderGeometry(0.3,0.3,9,8),M.navy); p.position.set(x,3.5,0); g.add(p); } const bd=new T.Mesh(new T.BoxGeometry(15,7.5,0.5),[M.navy,M.navy,M.navy,M.navy,basic({map:TX.billboard}),M.navy]); bd.position.y=10; g.add(bd); const base=new T.Mesh(new T.CylinderGeometry(9,10,3,20),toon({color:0xe8d9a8})); base.position.y=-1.4; g.add(base); g.position.set(-4,0,-34); W.add(g); palm(-11.5,-29.5,7,0.5,2.2).position.y=0; palm(2.5,-39.5,6,0.4,5); }
-  // cargo ship
-  { const g=new T.Group(); const hull=new T.Mesh(new T.BoxGeometry(70,7,12),M.navy); hull.position.y=1.5; g.add(hull); const keel=new T.Mesh(new T.BoxGeometry(70.2,2,12.2),M.red); keel.position.y=-1.2; g.add(keel); const cc=[0x2f6fe4,0xf2892e,0x17a79c,0xe23d6d,0xffd21f]; const rng=RNG(3); for(let i=0;i<7;i++) for(let j=0;j<3;j++) for(let k=0;k<1+Math.floor(rng()*3);k++){ const c=new T.Mesh(new T.BoxGeometry(6.6,2.6,3.2),toon({color:cc[Math.floor(rng()*5)]})); c.position.set(-26+i*7,6.4+k*2.65,-3.6+j*3.6); g.add(c); } const br=new T.Mesh(new T.BoxGeometry(7,12,10),M.white); br.position.set(30,11,0); g.add(br); const fn=new T.Mesh(new T.CylinderGeometry(1.4,1.6,5,10),M.red); fn.position.set(30,19,0); g.add(fn); g.position.set(-95,0,90); g.rotation.y=-0.5; W.add(g); animated.push(t=>{ g.position.y=Math.sin(t*0.5)*0.25; }); }
-  // sailboats + buoys
-  for(const [x,z,c,r] of [[42,-48,0xff4fa3,0.4],[-52,-38,0xffe14d,2.2],[70,22,0x5dff9b,4],[-40,40,0xffffff,1]]){ const g=new T.Group(); const hull=new T.Mesh(new T.BoxGeometry(5,1.1,1.8),M.white); hull.position.y=0; g.add(hull); const mast=new T.Mesh(new T.CylinderGeometry(0.07,0.07,6.5,6),M.navy); mast.position.y=3.6; g.add(mast); const sg=new T.BufferGeometry(); sg.setAttribute('position',new T.Float32BufferAttribute([0.1,0.9,0, 2.6,0.9,0, 0.1,6.6,0, -0.1,1.2,0, -0.1,5.6,0, -1.9,1.2,0],3)); sg.computeVertexNormals(); const sail=new T.Mesh(sg,toon({color:c,side:T.DoubleSide})); g.add(sail); g.position.set(x,-0.9,z); g.rotation.y=r; W.add(g); const ph=rand(0,6); animated.push(t=>{ g.position.y=-0.9+Math.sin(t*1.1+ph)*0.15; g.rotation.z=Math.sin(t*0.9+ph)*0.05; }); }
+  { const g=new T.Group(); for(const x of [-5,5]){ const p=new T.Mesh(new T.CylinderGeometry(0.3,0.3,9,8),M.navy); p.position.set(x,3.5,0); g.add(p); } const bd=new T.Mesh(new T.BoxGeometry(15,7.5,0.5),[M.navy,M.navy,M.navy,M.navy,basic({map:TX.billboard}),M.navy]); bd.position.y=10; g.add(bd); const pm=toon({color:0x8f9aa8}); for(const x of [-5,5]){ const pl=new T.Mesh(new T.CylinderGeometry(0.75,0.9,3.2,12),pm); pl.position.set(x,-1.4,0); g.add(pl); } g.position.set(-4,0,-34); W.add(g); }
+  // buoys
   for(const [x,z] of [[26,20],[-27,-19],[-24,22],[25,-21],[0,30],[9,-25]]){ const g=new T.Group(); const b=new T.Mesh(new T.CylinderGeometry(0.5,0.7,1.2,10),M.red); g.add(b); const w=new T.Mesh(new T.CylinderGeometry(0.52,0.52,0.3,10),M.white); w.position.y=0.2; g.add(w); const t=new T.Mesh(new T.ConeGeometry(0.4,0.9,10),M.red); t.position.y=1.05; g.add(t); const l=new T.Mesh(new T.SphereGeometry(0.16,8,6),basic({color:0xffe14d})); l.position.y=1.6; g.add(l); g.position.set(x,-0.9,z); W.add(g); const ph=rand(0,6); animated.push(t2=>{ g.position.y=-0.9+Math.sin(t2*1.4+ph)*0.14; g.rotation.x=Math.sin(t2*1.2+ph)*0.12; g.rotation.z=Math.cos(t2+ph)*0.1; }); }
   // clouds
   { const geo=new T.SphereGeometry(1,12,9); for(let i=0;i<20;i++){ const g=new T.Group(); const n=4+Math.floor(Math.random()*4); for(let j=0;j<n;j++){ const s=new T.Mesh(geo,M.cloud); const r=5+Math.random()*6; s.scale.set(r,r*0.62,r*0.8); s.position.set(j*6-n*3+Math.random()*3,Math.random()*2.5,Math.random()*4); g.add(s); } const base=new T.Mesh(geo,M.cloud); base.scale.set(n*4,2.6,7); base.position.y=-2; g.add(base); const a=Math.random()*Math.PI*2, r=120+Math.random()*190; g.position.set(Math.cos(a)*r,48+Math.random()*40,Math.sin(a)*r); W.add(g); animated.push((t,dt)=>{ g.position.x+=dt*1.2; if(g.position.x>340) g.position.x=-340; }); } }

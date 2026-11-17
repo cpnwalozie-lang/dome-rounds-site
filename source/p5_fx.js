@@ -7,7 +7,7 @@ const enemies=f=>fighters.filter(x=>x!==f&&x.side!==f.side&&!x.dead&&x.active!==
 function fxMats(key,tints){ const k=key+'_'+tints.join('.'); if(FXM[k]) return FXM[k]; const tc=TEAM[key]; const a=tints[0], b=tints[1]||a, c3=tints[2]||b;
   return FXM[k]={ core:basic({color:a?col(a).lerp(col(0xffffff),0.72).getHex():0xffffff}), shell:new T.MeshBasicMaterial({color:col(a||tc.ink),transparent:true,opacity:a?0.8:0.6,depthWrite:false,blending:T.AdditiveBlending}), ring:basic({color:b||tc.light}),
     tail:new T.MeshBasicMaterial({color:col(c3||tc.light),transparent:true,opacity:0.55,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide}), glow:new T.SpriteMaterial({map:TX.glow,color:col(a||tc.ink),blending:T.AdditiveBlending,depthWrite:false,transparent:true,opacity:0.85}) }; }
-function bulletTints(s){ const l=[]; if(s.poison) l.push(0x3fe06a); if(s.toxic) l.push(0xa6e22e); if(s.cold) l.push(0x6fc8ff); if(s.explosive) l.push(0xff6a2c); if(s.timed) l.push(0xffb347); if(s.parasite) l.push(0xd070e0); if(s.dazzle) l.push(0xffe45c); if(s.thruster) l.push(0xff9a76); return l; }
+function bulletTints(s){ const l=[]; if(s.poison) l.push(0x3fe06a); if(s.toxic) l.push(0xa6e22e); if(s.cold) l.push(0x6fc8ff); if(s.explosive) l.push(0xff6a2c); if(s.timed) l.push(0xffb347); if(s.parasite) l.push(0xd070e0); if(s.dazzle) l.push(0xffe45c); if(s.thruster) l.push(0xff9a76); if(s.magnet) l.push(0xff4d6d); return l; }
 function bulletTint(s){ return bulletTints(s)[0]||0; }
 function spawnBullet(owner,origin,dir,o={}){
   const s=owner.stats, r=s.size, key=owner.team.id, tints=bulletTints(s), tint=tints[0]||0, fm=fxMats(key,tints);
@@ -87,7 +87,7 @@ function updateFields(dt,t){
       fd.ring.rotation.z=-t*3; fd.ring.scale.setScalar(fd.r*(1-0.6*k));
       const R1=fd.r*1.9; for(const p of fd.flow){ p.rr-=dt*(3+7/(p.rr+0.3)); p.a+=dt*(2.5+9/(p.rr+0.5)); if(p.rr<0.9*cs*0.7){ p.rr=rand(0.75,1)*R1; p.a=rand(0,6.28); p.y=rand(-0.5,1.0); } const yk=p.rr/R1; p.m.position.set(Math.cos(p.a)*p.rr,fd.H+p.y*yk,Math.sin(p.a)*p.rr); p.m.scale.set(0.05+0.05*(1-yk),0.05,0.05+0.05*(1-yk)); p.m.visible=pull; }
       if(pull&&Math.random()<dt*8){ const a=rand(0,6.28), rr=rand(0.6,1)*R1; burst(V3(fd.pos.x+Math.cos(a)*rr,fd.pos.y+0.1,fd.pos.z+Math.sin(a)*rr),0xb07aff,1,0.6,0.08,0.5,-0.2); }
-      for(const e of (state==='fight'?enemies(fd.owner):[])){ const c=V3(fd.pos.x,fd.pos.y+0.4,fd.pos.z); const d=V3().subVectors(c,e.pos); const dist=d.length(); if(dist<fd.r*3&&pull){ d.y=0; const hl=d.length(); if(hl>0.25){ d.multiplyScalar(1/hl); const pw=Math.min(15+5*fd.n,hl*9); e.vel.x=lerp(e.vel.x,d.x*pw,Math.min(1,dt*14)); e.vel.z=lerp(e.vel.z,d.z*pw,Math.min(1,dt*14)); } else { e.vel.x*=0.5; e.vel.z*=0.5; } e.dashT=0; if(Math.random()<dt*14) burst(e.center(),0xff4fd8,1,2,0.08,0.4,0); } }
+      for(const e of (state==='fight'?enemies(fd.owner):[])){ const c=V3(fd.pos.x,fd.pos.y+0.4,fd.pos.z); const d=V3().subVectors(c,e.pos); const dist=d.length(); if(dist<fd.r*(3+0.6*(fd.n-1))&&pull){ tickDamage(fd.owner,'novaAcc'+e.id,5*fd.n,dt,e,'nova',0xb07aff); d.y=0; const hl=d.length(); if(hl>0.25){ d.multiplyScalar(1/hl); const pw=Math.min(15+5*fd.n,hl*9); e.vel.x=lerp(e.vel.x,d.x*pw,Math.min(1,dt*14)); e.vel.z=lerp(e.vel.z,d.z*pw,Math.min(1,dt*14)); } else { e.vel.x*=0.5; e.vel.z*=0.5; } e.dashT=0; if(Math.random()<dt*14) burst(e.center(),0xff4fd8,1,2,0.08,0.4,0); } }
       if(fd.t>=fd.dur&&!fd.done){ fd.done=true; const R=fd.r, c=V3(fd.pos.x,fd.pos.y+fd.H,fd.pos.z), gp=V3(fd.pos.x,fd.pos.y+0.08,fd.pos.z);
         spawnExplosionFx(c,R*1.7,0xff4fd8); spawnExplosionFx(c,R*0.95,0xffffff); flashAt(c,0xffffff,R*5,0.35); flashAt(c,0xff4fd8,R*8,0.6);
         shockRing(gp,0xff4fd8,R*3.4,0.75,0.6); shockRing(gp,0xffffff,R*2.4,0.5,0.4); shockRing(V3(gp.x,gp.y+0.05,gp.z),0xffa040,R*4.2,1.0,0.8); shockRing(c,0xffc8f4,R*2.8,0.6,0.4,V3().subVectors(camera.position,c).normalize());
@@ -157,10 +157,11 @@ function hitFighter(b,target){
   if(b.owner.isPlayer&&target!==player){ hitMarkerT=0.24; SFX.confirm(); matchStats.hits++; roundInfo.hits++; }
   applyDamage(target,dmg,b.owner,{cause:'shot'}); if(b.owner.isPlayer&&target!==player&&target.dead){ hitMarkerT=0.45; killMarkT=0.45; }
   if(target.dead||state!=='fight') { if(s.explosive>0) spawnExplosionFx(b.pos.clone(),2.2,b.owner.color); return; }
-  if(s.poison>0) target.poisons.push({dps:7*s.poison*clamp(dmg/BASE.dmg,0.6,2)*P,t:3,src:b.owner,col:0x49d86b});
+  if(s.poison>0){ target.poisons.push({dps:5.5*s.poison*clamp(dmg/BASE.dmg,0.6,2)*P,t:3,src:b.owner,col:0x49d86b}); poisonSplash(b.pos.clone(),A); }
+  if(false) target.poisons.push({dps:7*s.poison*clamp(dmg/BASE.dmg,0.6,2)*P,t:3,src:b.owner,col:0x49d86b});
   if(s.parasite>0) target.poisons.push({dps:5*s.parasite*clamp(dmg/BASE.dmg,0.6,2)*P,t:5,src:b.owner,col:0xd070e0});
   if(s.cold>0){ iceHit(target,b.pos.clone()); applySlow(target,Math.min(0.85,0.7*(1+(P-1)*0.4)),(1.0+0.6*s.cold)*P); target.coldT=Math.max(target.coldT||0,(1.0+0.6*s.cold)*P); }
-  if(s.dazzle>0){ target.stunT=Math.max(target.stunT,0.25*P); target.dazzleN=1+s.dazzle+Math.floor(P-1+0.5); target.dazzleT=0.6; floatText(target.center().add(V3(0,1.3,0)),'DAZZLED','status'); }
+  if(s.dazzle>0&&target.dazzleN<=0&&!(target.dazzleImm>0)&&target.dzVol!==b.vol){ target.dzVol=b.vol; target.stunT=Math.max(target.stunT,0.18*P); applySlow(target,0.3,0.6); target.dazzleN=1+s.dazzle+Math.floor(P-1+0.5); target.dazzleT=0.6; floatText(target.center().add(V3(0,1.3,0)),'DAZZLED','status'); }
   if(s.thruster>0){ // a mini rocket sticks where the shot landed and drives them away from that side, turning with their body
     const off=V3().subVectors(b.pos,target.center()); off.y=clamp(off.y,-0.75,0.6); let h=Math.hypot(off.x,off.z); if(h<0.05){ off.x=-dir.x; off.z=-dir.z; h=Math.hypot(off.x,off.z)||1; }
     const surf=V3(off.x/h*0.47,off.y,off.z/h*0.47); const th={local:surf.applyAxisAngle(UP,-target.yaw),world:V3(),dir:V3(),t:1.0,f:(5.6+dmg*0.12)*(1+0.6*(s.thruster-1))*P}; thrAim(target,th);
@@ -169,14 +170,14 @@ function hitFighter(b,target){
 }
 function bulletImpact(b,hit){
   const er=b.r*(b.k||1); burst(b.pos,b.tint,7,5,0.09,0.4,0.2); burst(b.pos,0xffffff,3,3,0.06,0.25,0); shockRing(b.pos.clone().addScaledVector(hit.n,-er+0.02),b.tint,0.7+er*2.2,0.3,0.08,hit.n); flashAt(b.pos,b.tint,1.2+er*3,0.14);
-  impactExtras(b,b.pos.clone(),null);
+  impactExtras(b,b.pos.clone(),null); magnetLand(b,b.pos.clone());
 }
 function tryFire(f,pressed){
   if(f.dead||state!=='fight') return false;
   if(f.isPlayer&&remoteCtl.b){ if(pressed){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } return false; }
   if(f.stunT>0||f.reloading||f.fireCd>0||f.ammo<=0) return false;
   if(f.stats.pact>0){ const cost=10*f.stats.pact; if(f.hp<=cost){ if(f.isPlayer&&pressed) floatText(f.center().add(V3(0,1.3,0)),'NOT ENOUGH HP','status'); return false; } f.hp-=cost; f.hitFlash=0.08; }
-  f.fireCd=f.stats.fireInt; f.ammo--;
+  f.fireCd=f.stats.fireInt; f.ammo--; f.sinceShot=0;
   firePellets(f);
   if(f.stats.burst>0){ f.burstQueue=f.stats.burst; f.burstT=0.07; }
   if(f.ammo<=0){ f.reloading=true; f.reloadT=f.stats.reload; }
@@ -190,12 +191,12 @@ function firePellets(f){
   const at=(f.isPlayer&&settings.assist&&f.stats.remote===0)? assistTarget(origin,dir) : null;
   if(at){ const tgt=at.center(); const tf=tgt.distanceTo(origin)/f.stats.speed; tgt.addScaledVector(at.vel,Math.min(tf,0.7)*0.9); const want=V3().subVectors(tgt,origin).normalize(); const lim=pad.used?0.26:0.2, ang=dir.angleTo(want); if(ang<lim&&hasLOS(origin,at.center())) dir.lerp(want,ang<lim*0.5?1:0.85).normalize(); }
   if(NET.on&&!NET.fireOrigin&&(f.isPlayer||(f.ctl==='ai'&&NET.role==='host'))) netRecordShot(origin,dir,f);
-  const n=f.stats.pellets, spread=f.stats.spread; let lead=null;
+  const n=f.stats.pellets, spread=f.stats.spread; let lead=null; f.volN=(f.volN||0)+1; const vol=f.id*100000+f.volN;
   for(let i=0;i<n;i++){
     const d=dir.clone();
     if(n>1||spread>0){ const sp=(n>1?Math.max(spread,0.05):spread); const a=rand(0,Math.PI*2), m=Math.sqrt(Math.random())*sp; const up=Math.abs(d.y)>0.9?V3(1,0,0):V3(0,1,0); const r=V3().crossVectors(d,up).normalize(); const u=V3().crossVectors(r,d).normalize(); d.addScaledVector(r,Math.cos(a)*m).addScaledVector(u,Math.sin(a)*m).normalize(); }
     const rem=f.stats.remote>0&&!NET.fireOrigin; const steer=rem&&i===0&&!(f.isPlayer&&remoteCtl.b);
-    const b=spawnBullet(f,origin,d,{remote:steer});
+    const fr=f.stats.size*1.25; const o2=fr>0.32&&!NET.fireOrigin?origin.clone().addScaledVector(d,Math.min(fr-0.2,1.2)):origin; const b=spawnBullet(f,o2,d,{remote:steer}); b.sid=NET.fireOrigin?(NET.curSid|0):(f.lastSid|0); b.pi=i; b.vol=vol;
     if(steer){ lead=b; if(f.isPlayer){ remoteCtl.b=b; const dd=dir; remoteCtl.yaw=Math.atan2(-dd.x,-dd.z); remoteCtl.pitch=Math.asin(clamp(dd.y,-1,1)); } }
     else if(rem){ const L=lead||(f.isPlayer?remoteCtl.b:null); if(L){ b.follow=L; b.fq=new T.Quaternion().setFromUnitVectors(L.vel.clone().normalize(),d); b.life=L.life; } }
   }
@@ -228,9 +229,9 @@ function doBlock(f,isEcho,afterBlink){
   if(s.implode>0&&ed<R*2+1&&!(s.shock>0&&ed<R+0.6)){ const dir=V3().subVectors(f.pos,e.pos); dir.y=0; if(dir.lengthSq()>0.3){ dir.normalize(); const force=13+4*(s.implode-1); e.vel.x=dir.x*force; e.vel.z=dir.z*force; e.vel.y=Math.max(e.vel.y,3.5); e.onGround=false; floatText(e.center().add(V3(0,1.2,0)),'PULLED!','status'); for(let i=0;i<4;i++) ghostAt(e.center().lerp(f.center(),i/5),0x8f7bff); } shockRing(V3(c.x,c.y+0.08,c.z),0x8f7bff,R*0.3,0.45,R*2); }
   }
   if(s.bombs>0){ const n=6+3*(s.bombs-1); const a0=rand(0,6.28); for(let i=0;i<n;i++){ const a=a0+i/n*Math.PI*2; spawnBomb(f,f.center(),V3(Math.cos(a),0,Math.sin(a)),R); } }
-  if(s.emp>0){ const m=domeMat(0x46e0d0,0.1); setPal(m,[new T.Color(0x46e0d0),new T.Color(0xa8f7ee),new T.Color(f.team.light)]); const mesh=new T.Mesh(domeGeo,m); mesh.position.copy(c); mesh.renderOrder=7; mesh.scale.setScalar(R); scene.add(mesh); empShards.push({mesh,m,c:c.clone(),r0:R,r1:R*1.7,t:0,dur:0.4,owner:f,n:s.emp,hit:new Set(fighters)}); empBurst(f,c,s.emp); SFX.zap(); }
+  if(s.emp>0){ const m=domeMat(0x46e0d0,0.1); setPal(m,[new T.Color(0x46e0d0),new T.Color(0xa8f7ee),new T.Color(f.team.light)]); const mesh=new T.Mesh(domeGeo,m); mesh.position.copy(c); mesh.renderOrder=7; mesh.scale.setScalar(R); scene.add(mesh); empShards.push({mesh,m,c:c.clone(),r0:R,r1:R*2.3,t:0,dur:0.45,owner:f,n:s.emp,hit:new Set(fighters)}); empBurst(f,c,s.emp); SFX.zap(); }
   if(s.heal>0) addField('heal',c.clone(),R,4,f,s.heal);
-  if(s.nova>0){ const fw=f.forward(); const p=V3(c.x+fw.x*R*0.9,c.y,c.z+fw.z*R*0.9); const g=groundAt(p.x,p.z,c.y+1,0.1); addField('nova',g===null?c.clone():V3(p.x,g,p.z),R*1.2,1.5,f,s.nova); }
+  if(s.nova>0){ const fw=f.forward(); const p=V3(c.x+fw.x*R*0.9,c.y,c.z+fw.z*R*0.9); const g=groundAt(p.x,p.z,c.y+1,0.1); addField('nova',g===null?c.clone():V3(p.x,g,p.z),R*1.2*(1+0.2*(s.nova-1)),1.5,f,s.nova); }
   if(s.saw>0) f.sawT=1.6+0.8*s.saw;
   if(s.tacreload>0){ f.ammo=s.ammo; f.reloading=false; if(f.isPlayer) SFX.tick(); }
   if(s.echo>0&&!isEcho){ f.echoT=0.65; f.echoCount=s.echo; }
@@ -248,7 +249,7 @@ function updateBombs(dt){
     if(k>=1){ scene.remove(w.mesh); w.m.dispose(); empShards.splice(i,1); } }
 }
 function killFighter(f,source){
-  if(f.dead||state!=='fight') return; if(NET.on&&NET.role==='guest'&&!NET.allowKill) return; f.dead=true; f.hp=0; f.mesh.visible=false; f.dome.visible=false; f.dome2.visible=false; f.domeRing.visible=false; f.sawRing.visible=false;
+  if(f.dead||state!=='fight') return; if(NET.on&&NET.role==='guest'&&!NET.allowKill) return; f.dead=true; f.hp=0; f.blockActive=false; f.blockT=0; f.sawT=0; f.echoT=-1; f.echoCount=0; f.blinkPending=0; f.dazzleN=0; f.tetherV=null; f.burstQueue=0; f.mesh.visible=false; f.dome.visible=false; f.dome2.visible=false; f.domeRing.visible=false; f.sawRing.visible=false;
   const c=f.center(), tc=f.team;
   burst(c,tc.body,34,12,0.16,1.0,0.5); burst(c,0xffffff,16,8,0.1,0.6,0.2); flashAt(c,tc.light,11,0.4); SFX.ko();
   for(let i=0;i<26;i++){ const d=V3(rand(-1,1),rand(-0.2,1),rand(-1,1)).normalize(); spawnShard(c.clone(),d.multiplyScalar(rand(4,11)),i%2?tc.body:tc.light,rand(0.25,0.55),rand(0.6,1.1),0.7); }

@@ -126,7 +126,7 @@ function startMatch(){
   UI.roundSub.textContent= matchKind==='2v2'? (NET.on?'2V2 · FIRST TO 5 · ROOM '+NET.code:'2V2 · FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOTS') : matchKind==='ffa'? (NET.on?'FREE FOR ALL · FIRST TO 5 · ROOM '+NET.code:'FREE FOR ALL · FIRST TO 5') : NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
-function toMenu(){ if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
+function toMenu(){ hideTags(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
 function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
   if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
@@ -274,7 +274,7 @@ function updateHUD(){
   UI.vignette.style.opacity=String(clamp((0.35-ph)*2.4,0,0.85)); UI.hurt.style.opacity=String(clamp(hurtT*2.5,0,0.8));
   UI.hitmark.style.opacity=hitMarkerT>0?'1':'0'; UI.hitmark.classList.toggle('kill',killMarkT>0); UI.hitmark.style.transform=`translate(-50%,-50%) rotate(45deg) scale(${(1+hitMarkerT*3).toFixed(2)})`;
   UI.crosshair.style.setProperty('--k',(crossKick*10).toFixed(1)+'px');
-  if(matchKind!=='1v1') updateFFAHud(); else if(UI.specMsg._on){ UI.specMsg._on=false; UI.specMsg.style.display='none'; }
+  if(matchKind!=='1v1') updateFFAHud(); else { hideTags(); if(UI.specMsg._on){ UI.specMsg._on=false; UI.specMsg.style.display='none'; } }
   const steering=!!remoteCtl.b; if(UI.steer._on!==steering){ UI.steer._on=steering; UI.steer.style.display=steering?'block':'none'; }
   const tips=tipsT>0&&state==='fight'; if(UI.tips._on!==tips){ UI.tips._on=tips; UI.tips.style.display=tips?'block':'none'; }
   if(dmgDirT>0&&!player.dead){ const to=V3().subVectors(dmgFrom,player.pos); const a=Math.atan2(-to.x,-to.z)-player.yaw; UI.dmgdir.style.opacity=String(Math.min(1,dmgDirT*1.6)); UI.dmgdir.style.transform=`translate(-50%,-50%) rotate(${(-a*180/Math.PI).toFixed(1)}deg)`; } else UI.dmgdir.style.opacity='0';
@@ -317,6 +317,7 @@ function botThink(b,dt){
   const aimTarget=p.center(); const tFly=clamp(dist/b.stats.speed,0,1.2); aimTarget.addScaledVector(p.vel,tFly*(D===DIFF.easy?0.35:0.8));
   const err=D.err+(b.dazzleN>0?0.3:0); aimTarget.x+=rand(-err,err)*dist; aimTarget.y+=rand(-err,err)*dist*0.6; aimTarget.z+=rand(-err,err)*dist;
   const faceDir=V3().subVectors(p.center(),b.center()); b.yaw=Math.atan2(-faceDir.x,-faceDir.z);
+  if(b.stats.arc>0){ const tf=aimTarget.distanceTo(b.center())/b.stats.speed; aimTarget.y+=0.5*CFG.gravity*(0.42+0.28*(b.stats.arc-1))*tf*tf; } // bots lob Arc Shots
   const aimDir=V3().subVectors(aimTarget,b.center()); if(aimDir.lengthSq()<0.01) aimDir.set(1,0,0); aimDir.normalize(); b.botAim=aimDir; b.pitch=clamp(Math.asin(clamp(aimDir.y,-1,1)),-1,1);
   botState.strafeT-=dt; if(botState.strafeT<=0){ botState.strafe*=-1; botState.strafeT=rand(0.8,2.2); }
   const right=V3(-dir.z,0,dir.x); const wish=V3();
@@ -341,8 +342,9 @@ function botThink(b,dt){
 function moveFighter(f,dt,wish,wantJump){ if(dt>0.02){ moveFighter(f,dt*0.5,wish,wantJump); moveFighter(f,dt*0.5,wish,false); return; }
   f.chasing=false; if(f.stats.chase>0&&wish.lengthSq()>0.1){ for(const e of enemies(f)){ const d=V3().subVectors(e.pos,f.pos); d.y=0; if(d.lengthSq()>0.01&&wish.dot(d.normalize())>0.45&&hasLOS(f.center(),e.center())){ f.chasing=true; break; } } }
   const sp=CFG.moveSpeed*f.speedFactor();
-  if(f.dashT>0){ f.vel.x=f.dashDir.x*CFG.dashSpeed; f.vel.z=f.dashDir.z*CFG.dashSpeed; f.dashT-=dt; if(Math.random()<0.3) ghostAt(f.center(),f.team.light); if(Math.random()<0.7) burst(f.center(),f.team.light,1,1.5,0.1,0.3,0); }
+  if(f.dashT>0){ f.vel.x=f.dashDir.x*CFG.dashSpeed; f.vel.z=f.dashDir.z*CFG.dashSpeed; if(!f.onGround&&f.vel.y<0) f.vel.y*=0.6; f.dashT-=dt; if(Math.random()<0.3) ghostAt(f.center(),f.team.light); if(Math.random()<0.7) burst(f.center(),f.team.light,1,1.5,0.1,0.3,0); }
   else { if(f.knockT>0) f.knockT-=dt; const acc=(f.onGround?44:22)*(f.thrusters.length?0.5:1)*(f.knockT>0?0.22:1); f.vel.x=approach(f.vel.x,wish.x*sp,acc*dt); f.vel.z=approach(f.vel.z,wish.z*sp,acc*dt); }
+  if(f.tetherV&&f.dashT<=0){ f.vel.x=f.tetherV.x+wish.x*sp*0.3; f.vel.z=f.tetherV.z+wish.z*sp*0.3; if(f.tetherV.y>0&&f.vel.y<f.tetherV.y){ f.vel.y=f.tetherV.y; f.onGround=false; } } // a Magnet Shot rope reels them in (they can fight it a little)
   for(let i=f.thrusters.length-1;i>=0;i--){ const th=f.thrusters[i]; if(!th) continue; th.t-=dt; if(th.local) thrAim(f,th); f.vel.addScaledVector(th.dir,th.f*dt*2.4); if(th.dir.y>0.1&&f.vel.y>1) f.onGround=false; if(th.t<=0) f.thrusters.splice(i,1); }
   f.coyote=f.onGround?0.12:Math.max(0,(f.coyote||0)-dt); if(wantJump&&(f.onGround||f.coyote>0)&&f.vel.y<=0.5&&f.stunT<=0){ f.coyote=0; f.vel.y=CFG.jumpVel*Math.sqrt(f.stats.jump); f.onGround=false; if(f.isPlayer){ jumpBuffer=0; SFX.jump(); } shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),0xffffff,1.1,0.3); burst(V3(f.pos.x,f.pos.y+0.1,f.pos.z),0xffffff,5,2.2,0.08,0.3,0.2); }
   f.vel.y-=CFG.gravity*dt;
@@ -352,7 +354,7 @@ function moveFighter(f,dt,wish,wantJump){ if(dt>0.02){ moveFighter(f,dt*0.5,wish
   f.wasGround=f.onGround;
   if(g!==null&&f.vel.y<=0&&(f.pos.y<=g+0.01||(f.wasGround&&f.pos.y-g<0.35))){ if(!f.wasGround&&f.vel.y<-7){ f.squash=Math.min(1,-f.vel.y/18); burst(V3(f.pos.x,g+0.1,f.pos.z),0xe9edf3,7,2.8,0.09,0.35,0.3); shockRing(V3(f.pos.x,g+0.06,f.pos.z),0xffffff,1.3,0.3); if(f.isPlayer) SFX.land(); } f.pos.y=g; f.vel.y=0; f.onGround=true; } else f.onGround=false;
   if(f.pos.y+f.height>18){ f.pos.y=18-f.height; f.vel.y=Math.min(f.vel.y,0); }
-  if((f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)&&!f.dead&&state==='fight'){ const wet=curMapId==='dock'; if(wet){ burst(V3(f.pos.x,-1,f.pos.z),0xbfe6ff,24,7,0.16,0.9); burst(V3(f.pos.x,-1,f.pos.z),0xffffff,12,5,0.12,0.7); } floatText(V3(f.pos.x,0.6,f.pos.z),wet?'SPLASH!':'FELL!','status'); f.invulnT=0; fatal(f,f.lastHitBy,'fall'); }
+  if((f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)&&!f.dead&&state==='fight'){ const wet=curMapId==='dock', lava=!!curMap.lava; if(wet){ burst(V3(f.pos.x,-1,f.pos.z),0xbfe6ff,24,7,0.16,0.9); burst(V3(f.pos.x,-1,f.pos.z),0xffffff,12,5,0.12,0.7); } if(lava){ burst(V3(f.pos.x,-1.3,f.pos.z),0xff6a1a,30,8,0.18,1.0,-0.4); burst(V3(f.pos.x,-1.3,f.pos.z),0xffd060,14,5,0.12,0.8,-0.6); flashAt(V3(f.pos.x,-0.8,f.pos.z),0xff6a1a,6,0.4); } floatText(V3(f.pos.x,0.6,f.pos.z),wet?'SPLASH!':(lava?'MELTED!':'FELL!'),'status'); f.invulnT=0; fatal(f,f.lastHitBy,'fall'); }
 }
 function separateFighters(){ const L0=fighters.filter(f=>!f.dead&&f.active!==false); for(let i=0;i<L0.length;i++) for(let j=i+1;j<L0.length;j++){ const a=L0[i], b=L0[j]; if(Math.abs(a.pos.y-b.pos.y)>1.8) continue; const d=V3().subVectors(b.pos,a.pos); d.y=0; const L=d.length(); const min=a.radius+b.radius+0.1; if(L<min&&L>0.001){ d.multiplyScalar((min-L)/L*0.5); if(b.ctl!=='net') b.pos.add(d); if(a.ctl!=='net') a.pos.sub(d); } } }
 function tickDamage(f,key,dps,dt,target,cause,colr){ f[key]=(f[key]||0)+dps*dt; if(f[key]>=3){ const n=Math.floor(f[key]); f[key]-=n; applyDamage(target,n,f,{tick:true,cause}); if(colr) burst(target.center(),colr,2,1.5,0.08,0.5,-0.3); return n; } return 0; }
@@ -362,39 +364,45 @@ function updateFighterTimers(f,dt){
   if(f.tasteT>0) f.tasteT-=dt; if(f.refreshCd>0) f.refreshCd-=dt; if(f.silenceT>0) f.silenceT-=dt; if(f.invulnT>0) f.invulnT-=dt;
   if(f.brawlT>0){ f.brawlT-=dt; if(f.brawlT<=0) f.hp=Math.min(f.hp,s.hp); }
   if(f.reloading){ f.reloadT-=dt; if(f.reloadT<=0){ f.reloading=false; f.ammo=s.ammo; if(f.isPlayer) SFX.tick(); } }
-  if(f.blockActive){ f.blockT-=dt; if(f.blockT<=0){ f.blockActive=false; if(f.sawT<=0){ shatterDome(f.domeC(),f.domeR(),f.team.light,26,4.5); SFX.shatter(); } } }
+  else if(f.ammo<s.ammo){ f.sinceShot=(f.sinceShot||0)+dt; if(f.sinceShot>=s.reload){ f.ammo=s.ammo; f.sinceShot=0; if(f.isPlayer) SFX.tick(); } } else f.sinceShot=0;
+  if(f.dazzleImm>0) f.dazzleImm-=dt;
+  if(f.blockActive){ f.blockT-=dt; if(f.blockT<=0){ f.blockActive=false; if(f.sawT<=0&&!(s.emp>0)){ shatterDome(f.domeC(),f.domeR(),f.team.light,26,4.5); SFX.shatter(); } } }
+  if(f.blockActive&&!(s.saw>0)&&!f.dead){ const c=f.domeC(), R=f.domeR(); for(const e of enemies(f)){ if(e.ctl==='net'||e.pos.y>c.y+R*0.9) continue; const d=V3(e.pos.x-c.x,0,e.pos.z-c.z); const L=d.length(), lim=R+e.radius*0.9; if(L>=lim) continue; if(L<0.05) d.set(Math.cos(f.yaw),0,-Math.sin(f.yaw)); else d.multiplyScalar(1/L); const k=Math.min(1,dt*18); e.pos.x+=d.x*(lim-L)*k; e.pos.z+=d.z*(lim-L)*k; const vn=e.vel.x*d.x+e.vel.z*d.z; if(vn<0){ e.vel.x-=d.x*vn; e.vel.z-=d.z*vn; } } }
   if(f.sawT>0){ f.sawT-=dt; for(const e of enemies(f)) if(e.center().distanceTo(f.domeC())<f.domeR()+0.5){ tickDamage(f,'sawAcc'+e.id,24*s.saw,dt,e,'dome',0xff5252); } if(f.sawT<=0&&!f.blockActive){ shatterDome(f.domeC(),f.domeR(),0xff6b6b,22,5); SFX.shatter(); } }
   if(f.echoT>0){ f.echoT-=dt; if(f.echoT<=0&&!f.dead&&state==='fight'&&f.silenceT<=0){ doBlock(f,true); f.echoCount--; if(f.echoCount>0) f.echoT=0.65; } }
   if(f.burstQueue>0){ f.burstT-=dt; if(f.burstT<=0){ if(!f.dead&&state==='fight') firePellets(f); f.burstQueue--; f.burstT=0.07; } }
-  if(f.dazzleN>0){ f.dazzleT-=dt; if(f.dazzleT<=0){ f.dazzleN--; f.dazzleT=0.6; f.stunT=Math.max(f.stunT,0.25); burst(f.center().add(V3(0,0.9,0)),0xffe45c,6,3,0.09,0.4,0); } }
+  if(f.dazzleN>0){ f.dazzleT-=dt; if(f.dazzleT<=0){ f.dazzleN--; f.dazzleT=0.6; f.stunT=Math.max(f.stunT,0.16); applySlow(f,0.3,0.5); if(f.dazzleN<=0) f.dazzleImm=1.2; burst(f.center().add(V3(0,0.9,0)),0xffe45c,6,3,0.09,0.4,0); } }
   if(f.decayPool>0){ const d=Math.min(f.decayPool,Math.max(2,f.decayRate||0)*dt); f.decayPool-=d; f.decayAcc+=d; if(f.decayAcc>=2||f.decayPool<=0.001){ const n=Math.round(f.decayAcc); f.decayAcc-=n; if(n>0) applyDamage(f,n,f.decaySrc||null,{tick:true,fromDecay:true}); } if(f.decayPool<=0.001){ f.decayPool=0; f.decayRate=0; } }
+  if(f.poisons.length&&!f.dead&&Math.random()<dt*22){ const z=f.sz||1; burst(V3(f.pos.x+rand(-0.35,0.35)*z,f.pos.y+rand(0.5,1.7)*z,f.pos.z+rand(-0.35,0.35)*z),f.poisons[0].col||0x49d86b,1,0.5,0.13,0.9,2.2); } // green drip while poisoned
   for(let i=f.poisons.length-1;i>=0;i--){ const p=f.poisons[i]; if(!p) continue; p.t-=dt; p.acc=(p.acc||0)+p.dps*dt; if(p.acc>=4){ const n=Math.floor(p.acc); p.acc-=n; applyDamage(f,n,p.src,{tick:true,cause:'poison'}); burst(f.center(),p.col||0x5dff9b,2,1.5,0.08,0.5,-0.3); } if(p.t<=0&&f.poisons[i]===p) f.poisons.splice(i,1); }
   f.auraSlow=0; f.chillIn=false; for(const e of enemies(f)){ const aR=e.auraR(); if(!(aR>0&&!f.dead&&f.center().distanceTo(e.domeC())<aR+0.3)) continue; const es=e.stats;
-    if(es.chill){ f.auraSlow=Math.max(f.auraSlow,Math.min(0.78,0.45+0.12*(es.chill-1))); f.chillIn=true; } if(es.staticf){ f.auraSlow=Math.max(f.auraSlow,0.15+0.05*es.staticf); if(tickDamage(e,'staticAcc'+f.id,6*es.staticf,dt,f,'aura',0xffe066)) SFX.zap(); }
-    if(es.drain){ lifeWorm(f,e,'aura'+e.id+'_'+f.id,0.12,1.15); const n=tickDamage(e,'drainAcc'+f.id,9*es.drain,dt,f,'aura',0xff6b9d); if(n&&e.hp<e.maxHp()){ e.hp=Math.min(e.maxHp(),e.hp+n); floatText(e.center().add(V3(0,1,0)),'+'+n,'heal'); } }
+    if(es.chill){ f.auraSlow=Math.max(f.auraSlow,Math.min(0.78,0.45+0.12*(es.chill-1))); f.chillIn=true; } if(es.staticf){ f.auraSlow=Math.max(f.auraSlow,0.15+0.05*es.staticf); if(tickDamage(e,'staticAcc'+f.id,7.5*es.staticf,dt,f,'aura',0xffe066)){ SFX.zap(); staticZap(e,f); } }
+    if(es.drain){ lifeWorm(f,e,'aura'+e.id+'_'+f.id,0.12,1.15); const n=tickDamage(e,'drainAcc'+f.id,11*es.drain,dt,f,'aura',0xff6b9d); if(n&&e.hp<e.maxHp()){ e.hp=Math.min(e.maxHp(),e.hp+n); floatText(e.center().add(V3(0,1,0)),'+'+n,'heal'); } }
     if(Math.random()<dt*7) burst(f.center().add(V3(rand(-0.5,0.5),rand(-0.3,0.6),rand(-0.5,0.5))),e.auraColor(gameT).getHex(),1,0.6,0.07,0.7,-0.2); }
 }
 function homeTarget(b){ let best=null, ba=9; const d=b.vel.clone().normalize(); for(const e of enemies(b.owner)){ const a=d.angleTo(V3().subVectors(e.center(),b.pos)); if(a<ba){ ba=a; best=e; } } return best; }
 function updateBullets(dt){
   for(let i=bullets.length-1;i>=0;i--){
-    const b=bullets[i]; b.life-=dt; b.age+=dt; if(b.life<=0){ burst(b.pos,b.tint,4,2,0.07,0.3,0); removeBullet(i); continue; }
+    const b=bullets[i]; b.life-=dt; b.age+=dt; if(b.life<=0){ burst(b.pos,b.tint,4,2,0.07,0.3,0); magnetLand(b,b.pos.clone()); removeBullet(i); continue; }
     const speed=b.vel.length();
     if(b.remote){ if(b.owner.isPlayer&&remoteCtl.b===b){ const cp=Math.cos(remoteCtl.pitch); b.vel.set(-Math.sin(remoteCtl.yaw)*cp,Math.sin(remoteCtl.pitch),-Math.cos(remoteCtl.yaw)*cp).multiplyScalar(speed); }
       else if(!b.owner.isPlayer){ const e=homeTarget(b); if(e){ const want=V3().subVectors(e.center(),b.pos).normalize(); const cur=b.vel.clone().normalize(); const ang=cur.angleTo(want); const k=ang<1e-4?1:Math.min(1,1.3*b.s.remote*dt/ang); b.vel.copy(cur.lerp(want,k).normalize().multiplyScalar(speed)); } } }
     if(b.follow){ const L=b.follow; if(L.gone||L.owner!==b.owner) b.follow=null; else b.vel.copy(L.vel).normalize().applyQuaternion(b.fq).multiplyScalar(speed); }
     if(b.s.grow>0) b.k=Math.min(4.2,1+b.dist*0.075*b.s.grow);
+    if(b.s.arc>0&&!b.remote&&!b.follow&&remoteCtl.b!==b) b.vel.y-=CFG.gravity*(0.42+0.28*(b.s.arc-1))*dt; // Arc Shot: falls like water
     const steps=Math.max(1,Math.ceil(speed*dt/0.35)); const sdt=dt/steps; let done=false; const br=b.r*b.k;
     for(let s=0;s<steps&&!done;s++){
       b.pos.addScaledVector(b.vel,sdt); b.dist+=speed*sdt;
       let refl=false;
       for(const e of fighters){ if(e.side===b.owner.side||e.dead||e.active===false) continue;
         if(e.blockActive&&b.pos.distanceTo(e.domeC())<e.domeR()+br&&b.pos.y>e.pos.y-0.3){ for(let k=0;k<5;k++) spawnShard(b.pos.clone(),V3(rand(-1,1),rand(0,1),rand(-1,1)).multiplyScalar(4),e.team.light,0.2,0.35,0.6); reflectBullet(b,e); refl=true; break; }
-        if(e.distTo(b.pos)<e.hitR+br){ hitFighter(b,e); removeBullet(i); done=true; break; } }
+        if(e.distTo(b.pos)<e.hitR+br){ if(netRemoteBullet(b)){ if(!b.passed) b.passed=new Set(); if(!b.passed.has(e)){ b.passed.add(e); burst(b.pos,b.tint,3,2,0.06,0.2,0); } continue; } if(NET.on&&e.ctl!=='local') e.lastLocalHit=performance.now(); netRecordHit(b,e); hitFighter(b,e); removeBullet(i); done=true; break; } }
       if(done||refl) break;
-      if(b.bounced&&b.age>0.25&&!b.owner.dead&&b.owner.distTo(b.pos)<b.owner.hitR+br){ hitFighter(b,b.owner); removeBullet(i); done=true; break; }
-      const hit=pointVsWorld(b.pos,br);
+      if(b.bounced&&b.age>0.25&&!b.owner.dead&&b.owner.distTo(b.pos)<b.owner.hitR+br&&!netRemoteBullet(b)){ netRecordHit(b,b.owner); hitFighter(b,b.owner); removeBullet(i); done=true; break; }
+      const hit=pointVsWorld(b.pos,Math.min(br,0.32))||(curMap.hitSphere?curMap.hitSphere(b.pos,Math.min(br,0.32)):null);
       if(hit){ if(b.bounces>0){ b.bounces--; b.bounced=true; b.pos.addScaledVector(hit.n,hit.depth+0.01); const vn=b.vel.dot(hit.n); b.vel.addScaledVector(hit.n,-2*vn); if(b.s.ricochet>0) b.vel.multiplyScalar(0.5); burst(b.pos,b.tint,4,3,0.07,0.3,0); shockRing(b.pos.clone(),b.tint,0.7,0.25,0.08,hit.n); if(b.remote&&remoteCtl.b===b){ const d=b.vel.clone().normalize(); remoteCtl.yaw=Math.atan2(-d.x,-d.z); remoteCtl.pitch=Math.asin(clamp(d.y,-1,1)); } } else { bulletImpact(b,hit); removeBullet(i); done=true; break; } }
       if(b.pos.y<CFG.killY-1||Math.abs(b.pos.x)>HX+70||Math.abs(b.pos.z)>HZ+70){ removeBullet(i); done=true; break; }
+      if(curMap.lava&&b.pos.y<-1.5){ burst(b.pos,0xff8a2a,6,3,0.1,0.5,-0.3); removeBullet(i); done=true; break; }
       if(curMapId==='dock'&&b.pos.y<-0.9){ burst(b.pos,0xbfe6ff,5,3,0.1,0.5); removeBullet(i); done=true; break; }
     }
     if(!done) placeBulletMesh(b,dt);
@@ -418,7 +426,7 @@ function updateCamera(dt){ if(camHold) return;
   if(remoteCtl.b&&state==='fight'){ const b=remoteCtl.b; const d=b.vel.clone().normalize(); if(Math.abs(camera.fov-80)>0.1){ camera.fov=lerp(camera.fov,80,Math.min(1,dt*10)); camera.updateProjectionMatrix(); } camera.position.copy(b.pos).addScaledVector(d,-1.7).add(V3(0,0.3,0)); camera.lookAt(b.pos.clone().addScaledVector(d,5)); return; }
   const cf=camFighter();
   const fovT=68+(cf.dashT>0?7:0); if(Math.abs(camera.fov-fovT)>0.05){ camera.fov=lerp(camera.fov,fovT,Math.min(1,dt*12)); camera.updateProjectionMatrix(); }
-  const pivot=cf.pos.clone().add(V3(0,1.95,0)); if(cf.visY!==undefined&&cf.onGround) pivot.y=cf.visY+1.95; const dir=cf.aimDir(); const right=V3(Math.cos(cf.yaw),0,-Math.sin(cf.yaw));
+  const ph=1.95*Math.pow(cf.sz||1,0.85); const pivot=cf.pos.clone().add(V3(0,ph,0)); if(cf.visY!==undefined&&cf.onGround) pivot.y=cf.visY+ph; const dir=cf.aimDir(); const right=V3(Math.cos(cf.yaw),0,-Math.sin(cf.yaw));
   const desired=pivot.clone().addScaledVector(right,1.0).addScaledVector(dir,-5.2).add(V3(0,0.4,0));
   let th=segmentHitsBoxes(pivot,desired,0.28,true); if(th!==null&&th<=0.001) th=segmentHitsBoxes(pivot,desired,0,true); camDist=th===null? Math.min(1,camDist+dt*3) : Math.min(camDist,Math.max(0.08,th-0.02)); const pos=pivot.clone().lerp(desired,camDist); pos.y+=(1-camDist)*0.7;
   if(pos.y<0.3&&Math.abs(pos.x)<HX&&Math.abs(pos.z)<HZ) pos.y=0.3; if(pos.y<-0.8) pos.y=-0.8;
@@ -458,7 +466,8 @@ function update(dt){
   const steering=!!remoteCtl.b;
   const fwd=player.forward(); const right=V3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
   const wish=V3(); if(!steering&&!player.dead){ if(keys.KeyW) wish.add(fwd); if(keys.KeyS) wish.sub(fwd); if(keys.KeyD) wish.add(right); if(keys.KeyA) wish.sub(right); if(pad.lx||pad.ly){ wish.addScaledVector(fwd,-pad.ly).addScaledVector(right,pad.lx); } if(wish.lengthSq()>1) wish.normalize(); }
-  if(wantDash){ wantDash=false; if(!steering&&player.onGround&&player.dashCdT<=0&&!player.dead&&player.stunT<=0){ player.dashDir.copy(fwd); player.dashT=CFG.dashTime; player.dashCdT=CFG.dashCd; SFX.dash(); } }
+  if(player.onGround) player.airDashed=false;
+  if(wantDash){ wantDash=false; const air=!player.onGround; if(!steering&&(!air||!player.airDashed)&&player.dashCdT<=0&&!player.dead&&player.stunT<=0){ const dd=wish.lengthSq()>0.04?V3(wish.x,0,wish.z).normalize():fwd; player.dashDir.copy(dd); player.dashT=CFG.dashTime; player.dashCdT=CFG.dashCd; if(air){ player.airDashed=true; player.vel.y=Math.max(player.vel.y,1.5); } SFX.dash(); } }
   if(blockBuf>0){ if(steering){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } if(tryBlock(player,!blockFresh)) blockBuf=0; else { if(blockFresh&&player.blockCdT>0.5&&!player.blockActive){ UI.blockCd.classList.remove('deny'); void UI.blockCd.offsetWidth; UI.blockCd.classList.add('deny'); SFX.hover(); } blockBuf-=dt; } blockFresh=false; }
   if((fireHeld||keys.KeyF||pad.fire||firePressed)&&!steerLatch&&!player.dead) tryFire(player,firePressed); firePressed=false;
   if(!player.dead){ updateFighterTimers(player,dt); moveFighter(player,dt,wish,jumpBuffer>0&&!steering); }
@@ -484,7 +493,7 @@ show(UI.start,true,'block'); { const el=UI.loading; let gone=false; const go=()=
 requestAnimationFrame(frame);
 
 // debug / test hooks
-/*DEBUG-START*/window.__game={ look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
+/*DEBUG-START*/window.__game={ sparks:()=>sparkPool, NET, tethers:()=>tethers, cardHTML:(id)=>cardHTML(id,0,0,false), magnetLand:(b,p)=>magnetLand(b,p), look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
   step(dt){ update(dt); }, setAuto(v){ autoRun=v; testMode=!v; }, setRender(v){ doRender=v; }, startMatch, beginRound, startDraft, startSandbox, openSandbox, tryFire, tryBlock, firePellets, doBlock, give(f,id){ (f==='bot'?bot:player).addCard(id); updateCardStrips(); }, clearCards(){ player.setCards([]); bot.setCards([]); },
   forceFight(){ state='fight'; show(UI.countdown,false); }, keys, setMouse(v){ fireHeld=v; if(v){ firePressed=true; steerLatch=false; } }, block(){ pressBlock(); }, dash(){ wantDash=true; }, jump(){ jumpBuffer=0.15; }, get frames(){return frames;}, art:ART.svg, killFighter, hasLOS, render(){ drawFrame(); }, get paused(){return paused;}, pause, camera, explode, endMatch, coachPick, applyDamage, applyMap, applyQuality, toMenu, get map(){return curMapId;} };
 /*DEBUG-END*/

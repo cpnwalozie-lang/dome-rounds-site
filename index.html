@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dome Rounds: free 3D card-stacking arena shooter you play in your browser</title>
-<meta name="description" content="Dome Rounds is a free 3D arena shooter. Blast, block with your dome, lose a round, grab a power-up card and stack the chaos. 54 cards, three maps, bots, online 1v1, 2v2 and 4-player free-for-all with room codes. Play in your browser.">
+<meta name="description" content="Dome Rounds is a free 3D arena shooter. Blast, block with your dome, lose a round, grab a power-up card and stack the chaos. 57 cards, five maps, bots, online 1v1, 2v2 and 4-player free-for-all with room codes. Play in your browser.">
 <link rel="canonical" href="https://dome-rounds.netlify.app/">
 <meta name="theme-color" content="#14081f">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Dome Rounds">
 <meta property="og:title" content="Dome Rounds: lose a round, grab a card, stack the chaos">
-<meta property="og:description" content="A free 3D arena shooter with 54 stacking power-up cards, online 1v1 and 4-player free-for-all. Play it in your browser.">
+<meta property="og:description" content="A free 3D arena shooter with 57 stacking power-up cards, online 1v1 and 4-player free-for-all. Play it in your browser.">
 <meta property="og:url" content="https://dome-rounds.netlify.app/">
 <meta property="og:image" content="https://dome-rounds.netlify.app/media/og.jpg">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
@@ -22,7 +22,7 @@
 <meta name="twitter:image" content="https://dome-rounds.netlify.app/media/og.jpg">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"VideoGame","name":"Dome Rounds","url":"https://dome-rounds.netlify.app/","image":"https://dome-rounds.netlify.app/media/og.jpg",
-"description":"A free 3D third-person arena shooter. Lose a round, pick a power-up card, and stack effects. 54 cards, three maps, bots, online 1v1, 2v2 and 4-player free-for-all with room codes.",
+"description":"A free 3D third-person arena shooter. Lose a round, pick a power-up card, and stack effects. 57 cards, five maps, bots, online 1v1, 2v2 and 4-player free-for-all with room codes.",
 "genre":["Arena shooter","Action","Card game"],"gamePlatform":"Web browser","applicationCategory":"Game","operatingSystem":"Any","playMode":["SinglePlayer","MultiPlayer"],"numberOfPlayers":{"@type":"QuantitativeValue","minValue":1,"maxValue":2},
 "author":{"@type":"Organization","name":"Nitor Digital"},"publisher":{"@type":"Organization","name":"Nitor Digital"},
 "offers":{"@type":"Offer","price":"0","priceCurrency":"GBP","availability":"https://schema.org/InStock"},
@@ -130,7 +130,7 @@ section{padding:110px 0}
 .map:hover img{transform:scale(1.04)}
 .map .t{position:relative;padding:70px 26px 26px;width:100%;background:linear-gradient(0deg,rgba(20,8,31,.95),rgba(20,8,31,0))}
 .map h3{font-family:var(--disp);font-weight:400;font-size:34px;margin:0 0 4px}
-.map.dock h3{color:var(--coral)}.map.neon h3{color:var(--cy)}
+.map.dock h3{color:var(--coral)}.map.neon h3{color:var(--cy)}.map.crane h3{color:var(--ye)}.map.foundry h3{color:#ff8a3a}
 .map p{margin:0;max-width:38ch}
 @media (max-width:880px){.maps .pair{grid-template-columns:1fr}.map,.map.wide{min-height:320px}}
 /* ---------- online ---------- */
@@ -199,17 +199,17 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 
   <section class="deck" id="cards" aria-labelledby="h-cards">
     <div class="wrap">
-      <h2 class="slam" id="h-cards">54 cards. Every one stacks.</h2>
+      <h2 class="slam" id="h-cards">57 cards. Every one stacks.</h2>
       <p class="lede">Blaster cards change your shots. Body cards change you. Dome cards go off when you block. Aura cards hurt anyone who gets close.</p>
       <div class="filters" role="group" aria-label="Filter cards by type">
-        <button type="button" data-f="all" aria-pressed="true"><span>All<em>54</em></span></button>
-        <button type="button" data-f="gun" aria-pressed="false"><span>Blaster<em>25</em></span></button>
+        <button type="button" data-f="all" aria-pressed="true"><span>All<em>57</em></span></button>
+        <button type="button" data-f="gun" aria-pressed="false"><span>Blaster<em>27</em></span></button>
         <button type="button" data-f="dome" aria-pressed="false"><span>Dome<em>16</em></span></button>
-        <button type="button" data-f="body" aria-pressed="false"><span>Body<em>10</em></span></button>
+        <button type="button" data-f="body" aria-pressed="false"><span>Body<em>11</em></span></button>
         <button type="button" data-f="aura" aria-pressed="false"><span>Aura<em>3</em></span></button>
       </div>
       <div class="cards" id="cardGrid" aria-live="polite"></div>
-      <div class="more"><button type="button" id="moreBtn">Show all 54 cards</button></div>
+      <div class="more"><button type="button" id="moreBtn">Show all 57 cards</button></div>
     </div>
   </section>
 
@@ -227,10 +227,12 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 
   <section class="maps" aria-labelledby="h-maps">
     <div class="wrap">
-      <h2 class="slam" id="h-maps">Three arenas</h2>
+      <h2 class="slam" id="h-maps">Five arenas</h2>
       <div class="pair">
         <article class="map dock"><img src="media/shots/dockside.jpg" alt="Dockside arena at sunset" loading="lazy"><div class="t"><h3>Dockside</h3><p>A sunset harbour full of containers, ramps and a long drop into the sea.</p></div></article>
         <article class="map neon"><img src="media/shots/neon.jpg" alt="Neon City rooftop arena at night" loading="lazy"><div class="t"><h3>Neon City</h3><p>A rooftop arena above a glowing city. Mind the edge.</p></div></article>
+        <article class="map crane"><img src="media/shots/crane.jpg" alt="The Crane: an octagon deck hanging from a tower crane high above a city" loading="lazy"><div class="t"><h3>The Crane</h3><p>A deck swinging off a crane over the city. Too many of you on one side and it tips.</p></div></article>
+        <article class="map foundry"><img src="media/shots/foundry.jpg" alt="Foundry: a steel floor over lava with a press in the middle and spiked balls on chains" loading="lazy"><div class="t"><h3>Foundry</h3><p>Steel floor, lava under it. Dodge the press, the swinging spike balls and the floor saws.</p></div></article>
         <article class="map ffa wide"><img src="media/shots/crossroads.jpg" alt="Neon Crossroads, a square rooftop with four coloured corner bases and a raised cross in the middle" loading="lazy"><div class="t"><h3>Neon Crossroads</h3><p>The free-for-all map. Four corner bases, one tower in the middle, and only one of you walks away.</p></div></article>
       </div>
     </div>
