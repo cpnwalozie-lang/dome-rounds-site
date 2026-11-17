@@ -1,7 +1,7 @@
 // ================= WORLD + FIGHTERS =================
 const BASE_POS={player:V3(), bot:V3()};
 function applyMap(id){ setMap(id); bakeLoad(id); bakeUse(id); detailApply(curMap.group); bakeHook(scene); lookMap(id); const sx=curMap.spawnX*curMap.scale; BASE_POS.player.set(-sx,1,0); BASE_POS.bot.set(sx,1,0); }
-applyQuality(settings.quality==='auto'?'high':settings.quality);
+applyQuality(settings.quality==='auto'?(TOUCH.on?'medium':'high'):settings.quality);
 applyMap(settings.gm==='ffa'?'ffa':settings.map);
 const player=new Fighter('YOU',true,TEAM.player), bot=new Fighter('BOT',false,TEAM.bot);
 const other=f=>f===player?bot:player; // 1v1 only
@@ -46,7 +46,7 @@ function show(el,on,disp){ el.style.display=on?(disp||'flex'):'none'; }
 function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!settings[k]; else el.value=String(settings[k]); });
   document.querySelectorAll('.k-shoot').forEach(e=>e.textContent=settings.swap?'RMB':'LMB'); document.querySelectorAll('.k-block').forEach(e=>e.textContent=settings.swap?'LMB':'RMB');
   document.querySelectorAll('[data-seg]').forEach(seg=>{ const k=seg.dataset.seg; const v=k==='sbot'?sandbox.bot:settings[k]; seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }); }
-document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?'high':settings.quality); } saveSettings(); syncSettingsUI(); }); });
+document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?(TOUCH.on?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
   if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
@@ -76,7 +76,7 @@ let lastBtns=0, lastBlockPress=0;
 window.addEventListener('mousedown',e=>{ lastBtns=e.buttons|0; },true); window.addEventListener('mouseup',e=>{ lastBtns=e.buttons|0; },true);
 window.addEventListener('contextmenu',e=>{ e.preventDefault(); if(blockBtn()===2&&performance.now()-lastBlockPress>250&&state==='fight'&&!paused){ pressBlock(); } });
 document.addEventListener('mousemove',e=>{ mouseX=e.clientX/window.innerWidth; { const bm=e.buttons|0, bit=blockBtn()===2?2:1; if((bm&bit)&&!(lastBtns&bit)&&performance.now()-lastBlockPress>250&&(locked||mouseFallback)&&state==='fight'&&!paused) pressBlock(); lastBtns=bm; } if(locked||(mouseFallback&&!paused&&(state==='fight'||state==='countdown'))){ const s=0.0022*settings.sens; look(e.movementX*s,e.movementY*s); } });
-function requestLock(){ if(locked||pad.used) return; try{ const p=canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ mouseFallback=true; }); }catch(err){ mouseFallback=true; } }
+function requestLock(){ if(locked||pad.used||TOUCH.on) return; try{ const p=canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ mouseFallback=true; }); }catch(err){ mouseFallback=true; } }
 document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(locked) mouseFallback=false; document.body.classList.toggle('nolock',!locked&&mouseFallback); if(!locked&&(state==='fight'||state==='countdown')&&!paused&&!pad.used) pause(); });
 document.addEventListener('pointerlockerror',()=>{ mouseFallback=true; document.body.classList.add('nolock'); });
 document.addEventListener('mouseleave',()=>{ mouseX=0.5; }); window.addEventListener('blur',()=>{ mouseX=0.5; });
@@ -164,6 +164,8 @@ function renderSandbox(){
 }
 UI.sbxCards.addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; if(e.shiftKey){ const i=sandbox.cards.lastIndexOf(b.dataset.id); if(i>=0) sandbox.cards.splice(i,1); } else if(sandbox.cards.filter(c=>c===b.dataset.id).length<5) sandbox.cards.push(b.dataset.id); SFX.hover(); renderSandbox(); });
 UI.sbxCards.addEventListener('contextmenu',e=>{ const b=e.target.closest('.chip'); if(!b) return; e.preventDefault(); const i=sandbox.cards.lastIndexOf(b.dataset.id); if(i>=0) sandbox.cards.splice(i,1); renderSandbox(); });
+{ let lp=null, lpDone=false; UI.sbxCards.addEventListener('touchstart',e=>{ const b=e.target.closest('.chip'); if(!b) return; lpDone=false; clearTimeout(lp); lp=setTimeout(()=>{ const i=sandbox.cards.lastIndexOf(b.dataset.id); if(i>=0){ sandbox.cards.splice(i,1); lpDone=true; try{ navigator.vibrate&&navigator.vibrate(15); }catch(_){} SFX.hover(); renderSandbox(); } },450); },{passive:true}); // press and hold removes a copy on touch
+  for(const ev of ['touchend','touchmove','touchcancel']) UI.sbxCards.addEventListener(ev,()=>clearTimeout(lp),{passive:true}); UI.sbxCards.addEventListener('click',e=>{ if(lpDone){ lpDone=false; e.stopImmediatePropagation(); } },true); }
 UI.sbxClear.addEventListener('click',()=>{ sandbox.cards=[]; renderSandbox(); });
 UI.sbxQuit.addEventListener('click',()=>toMenu());
 UI.sandboxBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); openSandbox(); });
@@ -172,13 +174,13 @@ function openSandbox(){ sandbox.open=true; if(state==='fight') paused=true; exit
 function sandboxBotSpot(){ const sx=BASE_POS.player.x+9; const g=groundAt(sx,0,3,0.3); return V3(sx,g===null?0:g,0); }
 function setupSandboxBot(){ bot.setCards([]); bot.resetRound(); aiReset(bot); if(sandbox.bot==='none'){ bot.dead=true; bot.mesh.visible=false; bot.respawnT=0; } else if(sandbox.bot==='dummy'){ bot.pos.copy(sandboxBotSpot()); bot.yaw=Math.PI/2; } else { bot.pos.copy(BASE_POS.bot); bot.yaw=Math.PI/2; } bot.vel.set(0,0,0); show(UI.botPanel,sandbox.bot!=='none'); }
 function applySandboxLoadout(){ const hpFrac=1; player.setCards(sandbox.cards); player.hp=player.maxHp()*hpFrac; player.ammo=player.stats.ammo; player.reloading=false; player.blockCdT=0; updateCardStrips(); }
-function closeSandbox(){ sandbox.open=false; paused=false; show(UI.sandbox,false); applySandboxLoadout(); if(sandbox.botWas!==sandbox.bot){ sandbox.botWas=sandbox.bot; setupSandboxBot(); } requestLock(); last=performance.now(); toast('Loadout updated. <b>TAB</b> to change it again.','you'); }
+function closeSandbox(){ sandbox.open=false; paused=false; show(UI.sandbox,false); applySandboxLoadout(); if(sandbox.botWas!==sandbox.bot){ sandbox.botWas=sandbox.bot; setupSandboxBot(); } requestLock(); last=performance.now(); toast('Loadout updated. '+(TOUCH.on?'Tap the cards button':'<b>TAB</b>')+' to change it again.','you'); }
 function startSandbox(){
   roster1v1(); UI.hud.classList.remove('ffamode'); mode='sandbox'; sandbox.open=false; sandbox.remap=false; paused=false; if(curMapId!==settings.map) applyMap(settings.map);
   show(UI.sandbox,false); show(UI.start,false); show(UI.matchover,false); show(UI.draft,false); show(UI.pause,false); show(UI.countdown,false);
   for(const k in matchStats) matchStats[k]=0; score.player=0; score.bot=0; roundNum=1; clearProjectiles(); resetInputs();
   player.setCards(sandbox.cards); player.resetRound(); placeAtBases(); sandbox.botWas=sandbox.bot; setupSandboxBot();
-  state='fight'; show(UI.hud,true,'block'); UI.hud.classList.add('sandboxmode'); UI.roundPill.textContent='SANDBOX'; UI.roundSub.textContent='TAB = CHANGE POWERS'; tipsT=9; updateCardStrips(); updateHUD(); SFX.music('fight'); requestLock(); last=performance.now();
+  state='fight'; show(UI.hud,true,'block'); UI.hud.classList.add('sandboxmode'); UI.roundPill.textContent='SANDBOX'; UI.roundSub.textContent=TOUCH.on?'CARDS BUTTON = CHANGE POWERS':'TAB = CHANGE POWERS'; tipsT=9; updateCardStrips(); updateHUD(); SFX.music('fight'); requestLock(); last=performance.now();
 }
 function respawn(f){ const keepCd=f.dashCdT; f.resetRound(); if(f.isPlayer){ f.pos.copy(BASE_POS.player); f.yaw=-Math.PI/2; f.pitch=0; } else if(sandbox.bot==='dummy') f.pos.copy(sandboxBotSpot()); else f.pos.copy(BASE_POS.bot); f.vel.set(0,0,0); f.invulnT=1; burst(f.center(),f.team.light,14,5,0.1,0.5,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2,0.4); }
 
@@ -466,11 +468,11 @@ function update(dt){
   if(sbx){ for(const f of [player,bot]) if(f.dead&&f.respawnT>0){ f.respawnT-=dt; if(f.respawnT<=0) respawn(f); } if(sandbox.bot==='dummy'&&!bot.dead&&bot.hp<bot.maxHp()) bot.hp=Math.min(bot.maxHp(),bot.hp+dt*12); }
   const steering=!!remoteCtl.b;
   const fwd=player.forward(); const right=V3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
-  const wish=V3(); if(!steering&&!player.dead){ if(keys.KeyW) wish.add(fwd); if(keys.KeyS) wish.sub(fwd); if(keys.KeyD) wish.add(right); if(keys.KeyA) wish.sub(right); if(pad.lx||pad.ly){ wish.addScaledVector(fwd,-pad.ly).addScaledVector(right,pad.lx); } if(wish.lengthSq()>1) wish.normalize(); }
+  const wish=V3(); if(!steering&&!player.dead){ if(keys.KeyW) wish.add(fwd); if(keys.KeyS) wish.sub(fwd); if(keys.KeyD) wish.add(right); if(keys.KeyA) wish.sub(right); if(pad.lx||pad.ly){ wish.addScaledVector(fwd,-pad.ly).addScaledVector(right,pad.lx); } if(TOUCH.mx||TOUCH.my){ wish.addScaledVector(fwd,-TOUCH.my).addScaledVector(right,TOUCH.mx); } if(wish.lengthSq()>1) wish.normalize(); }
   if(player.onGround) player.airDashed=false;
   if(wantDash){ wantDash=false; const air=!player.onGround; if(!steering&&(!air||!player.airDashed)&&player.dashCdT<=0&&!player.dead&&player.stunT<=0){ const dd=wish.lengthSq()>0.04?V3(wish.x,0,wish.z).normalize():fwd; player.dashDir.copy(dd); player.dashT=CFG.dashTime; player.dashCdT=CFG.dashCd; if(air){ player.airDashed=true; player.vel.y=Math.max(player.vel.y,1.5); } SFX.dash(); } }
   if(blockBuf>0){ if(steering){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } if(tryBlock(player,!blockFresh)) blockBuf=0; else { if(blockFresh&&player.blockCdT>0.5&&!player.blockActive){ UI.blockCd.classList.remove('deny'); void UI.blockCd.offsetWidth; UI.blockCd.classList.add('deny'); SFX.hover(); } blockBuf-=dt; } blockFresh=false; }
-  if((fireHeld||keys.KeyF||pad.fire||firePressed)&&!steerLatch&&!player.dead) tryFire(player,firePressed); firePressed=false;
+  if((fireHeld||keys.KeyF||pad.fire||TOUCH.fire||firePressed)&&!steerLatch&&!player.dead) tryFire(player,firePressed); firePressed=false;
   if(!player.dead){ updateFighterTimers(player,dt); moveFighter(player,dt,wish,jumpBuffer>0&&!steering); }
   for(const f of fighters){ if(f===player||f.active===false) continue;
     if(f.ctl==='net'){ if(!f.dead) updateFighterTimers(f,dt); netApplyRemote(f,dt); continue; }

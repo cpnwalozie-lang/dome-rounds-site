@@ -31,6 +31,7 @@ const SLOT_TEAMS=['player','bot','green','purple']; // FFA seat colours, same on
 const INK = 0x0b1026;
 
 // ================= SETTINGS =================
+const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
 const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'' };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
@@ -2050,7 +2051,7 @@ function firePellets(f){
   if(f.isPlayer){ dir=V3().subVectors(aimPoint,origin); if(dir.lengthSq()<0.25||dir.dot(f.aimDir())<0) dir=f.aimDir(); dir.normalize(); matchStats.shots++; roundInfo.shots++; }
   else dir=f.botAim? f.botAim.clone():f.aimDir();
   const at=(f.isPlayer&&settings.assist&&f.stats.remote===0)? assistTarget(origin,dir) : null;
-  if(at){ const tgt=at.center(); const tf=tgt.distanceTo(origin)/f.stats.speed; tgt.addScaledVector(at.vel,Math.min(tf,0.7)*0.9); const want=V3().subVectors(tgt,origin).normalize(); const lim=pad.used?0.26:0.2, ang=dir.angleTo(want); if(ang<lim&&hasLOS(origin,at.center())) dir.lerp(want,ang<lim*0.5?1:0.85).normalize(); }
+  if(at){ const tgt=at.center(); const tf=tgt.distanceTo(origin)/f.stats.speed; tgt.addScaledVector(at.vel,Math.min(tf,0.7)*0.9); const want=V3().subVectors(tgt,origin).normalize(); const lim=(pad.used||TOUCH.on)?0.28:0.2, ang=dir.angleTo(want); if(ang<lim&&hasLOS(origin,at.center())) dir.lerp(want,ang<lim*0.5?1:0.85).normalize(); }
   if(NET.on&&!NET.fireOrigin&&(f.isPlayer||(f.ctl==='ai'&&NET.role==='host'))) netRecordShot(origin,dir,f);
   const n=f.stats.pellets, spread=f.stats.spread; let lead=null; f.volN=(f.volN||0)+1; const vol=f.id*100000+f.volN;
   for(let i=0;i<n;i++){
@@ -2332,7 +2333,7 @@ function poisonSplash(pos,A){ const a=A||1; burst(pos,0x49d86b,Math.round(14*a),
 // ================= WORLD + FIGHTERS =================
 const BASE_POS={player:V3(), bot:V3()};
 function applyMap(id){ setMap(id); bakeLoad(id); bakeUse(id); detailApply(curMap.group); bakeHook(scene); lookMap(id); const sx=curMap.spawnX*curMap.scale; BASE_POS.player.set(-sx,1,0); BASE_POS.bot.set(sx,1,0); }
-applyQuality(settings.quality==='auto'?'high':settings.quality);
+applyQuality(settings.quality==='auto'?(TOUCH.on?'medium':'high'):settings.quality);
 applyMap(settings.gm==='ffa'?'ffa':settings.map);
 const player=new Fighter('YOU',true,TEAM.player), bot=new Fighter('BOT',false,TEAM.bot);
 const other=f=>f===player?bot:player; // 1v1 only
@@ -2377,7 +2378,7 @@ function show(el,on,disp){ el.style.display=on?(disp||'flex'):'none'; }
 function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!settings[k]; else el.value=String(settings[k]); });
   document.querySelectorAll('.k-shoot').forEach(e=>e.textContent=settings.swap?'RMB':'LMB'); document.querySelectorAll('.k-block').forEach(e=>e.textContent=settings.swap?'LMB':'RMB');
   document.querySelectorAll('[data-seg]').forEach(seg=>{ const k=seg.dataset.seg; const v=k==='sbot'?sandbox.bot:settings[k]; seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }); }
-document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?'high':settings.quality); } saveSettings(); syncSettingsUI(); }); });
+document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?(TOUCH.on?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
   if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
@@ -2407,7 +2408,7 @@ let lastBtns=0, lastBlockPress=0;
 window.addEventListener('mousedown',e=>{ lastBtns=e.buttons|0; },true); window.addEventListener('mouseup',e=>{ lastBtns=e.buttons|0; },true);
 window.addEventListener('contextmenu',e=>{ e.preventDefault(); if(blockBtn()===2&&performance.now()-lastBlockPress>250&&state==='fight'&&!paused){ pressBlock(); } });
 document.addEventListener('mousemove',e=>{ mouseX=e.clientX/window.innerWidth; { const bm=e.buttons|0, bit=blockBtn()===2?2:1; if((bm&bit)&&!(lastBtns&bit)&&performance.now()-lastBlockPress>250&&(locked||mouseFallback)&&state==='fight'&&!paused) pressBlock(); lastBtns=bm; } if(locked||(mouseFallback&&!paused&&(state==='fight'||state==='countdown'))){ const s=0.0022*settings.sens; look(e.movementX*s,e.movementY*s); } });
-function requestLock(){ if(locked||pad.used) return; try{ const p=canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ mouseFallback=true; }); }catch(err){ mouseFallback=true; } }
+function requestLock(){ if(locked||pad.used||TOUCH.on) return; try{ const p=canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ mouseFallback=true; }); }catch(err){ mouseFallback=true; } }
 document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(locked) mouseFallback=false; document.body.classList.toggle('nolock',!locked&&mouseFallback); if(!locked&&(state==='fight'||state==='countdown')&&!paused&&!pad.used) pause(); });
 document.addEventListener('pointerlockerror',()=>{ mouseFallback=true; document.body.classList.add('nolock'); });
 document.addEventListener('mouseleave',()=>{ mouseX=0.5; }); window.addEventListener('blur',()=>{ mouseX=0.5; });
@@ -2495,6 +2496,8 @@ function renderSandbox(){
 }
 UI.sbxCards.addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; if(e.shiftKey){ const i=sandbox.cards.lastIndexOf(b.dataset.id); if(i>=0) sandbox.cards.splice(i,1); } else if(sandbox.cards.filter(c=>c===b.dataset.id).length<5) sandbox.cards.push(b.dataset.id); SFX.hover(); renderSandbox(); });
 UI.sbxCards.addEventListener('contextmenu',e=>{ const b=e.target.closest('.chip'); if(!b) return; e.preventDefault(); const i=sandbox.cards.lastIndexOf(b.dataset.id); if(i>=0) sandbox.cards.splice(i,1); renderSandbox(); });
+{ let lp=null, lpDone=false; UI.sbxCards.addEventListener('touchstart',e=>{ const b=e.target.closest('.chip'); if(!b) return; lpDone=false; clearTimeout(lp); lp=setTimeout(()=>{ const i=sandbox.cards.lastIndexOf(b.dataset.id); if(i>=0){ sandbox.cards.splice(i,1); lpDone=true; try{ navigator.vibrate&&navigator.vibrate(15); }catch(_){} SFX.hover(); renderSandbox(); } },450); },{passive:true}); // press and hold removes a copy on touch
+  for(const ev of ['touchend','touchmove','touchcancel']) UI.sbxCards.addEventListener(ev,()=>clearTimeout(lp),{passive:true}); UI.sbxCards.addEventListener('click',e=>{ if(lpDone){ lpDone=false; e.stopImmediatePropagation(); } },true); }
 UI.sbxClear.addEventListener('click',()=>{ sandbox.cards=[]; renderSandbox(); });
 UI.sbxQuit.addEventListener('click',()=>toMenu());
 UI.sandboxBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); openSandbox(); });
@@ -2503,13 +2506,13 @@ function openSandbox(){ sandbox.open=true; if(state==='fight') paused=true; exit
 function sandboxBotSpot(){ const sx=BASE_POS.player.x+9; const g=groundAt(sx,0,3,0.3); return V3(sx,g===null?0:g,0); }
 function setupSandboxBot(){ bot.setCards([]); bot.resetRound(); aiReset(bot); if(sandbox.bot==='none'){ bot.dead=true; bot.mesh.visible=false; bot.respawnT=0; } else if(sandbox.bot==='dummy'){ bot.pos.copy(sandboxBotSpot()); bot.yaw=Math.PI/2; } else { bot.pos.copy(BASE_POS.bot); bot.yaw=Math.PI/2; } bot.vel.set(0,0,0); show(UI.botPanel,sandbox.bot!=='none'); }
 function applySandboxLoadout(){ const hpFrac=1; player.setCards(sandbox.cards); player.hp=player.maxHp()*hpFrac; player.ammo=player.stats.ammo; player.reloading=false; player.blockCdT=0; updateCardStrips(); }
-function closeSandbox(){ sandbox.open=false; paused=false; show(UI.sandbox,false); applySandboxLoadout(); if(sandbox.botWas!==sandbox.bot){ sandbox.botWas=sandbox.bot; setupSandboxBot(); } requestLock(); last=performance.now(); toast('Loadout updated. <b>TAB</b> to change it again.','you'); }
+function closeSandbox(){ sandbox.open=false; paused=false; show(UI.sandbox,false); applySandboxLoadout(); if(sandbox.botWas!==sandbox.bot){ sandbox.botWas=sandbox.bot; setupSandboxBot(); } requestLock(); last=performance.now(); toast('Loadout updated. '+(TOUCH.on?'Tap the cards button':'<b>TAB</b>')+' to change it again.','you'); }
 function startSandbox(){
   roster1v1(); UI.hud.classList.remove('ffamode'); mode='sandbox'; sandbox.open=false; sandbox.remap=false; paused=false; if(curMapId!==settings.map) applyMap(settings.map);
   show(UI.sandbox,false); show(UI.start,false); show(UI.matchover,false); show(UI.draft,false); show(UI.pause,false); show(UI.countdown,false);
   for(const k in matchStats) matchStats[k]=0; score.player=0; score.bot=0; roundNum=1; clearProjectiles(); resetInputs();
   player.setCards(sandbox.cards); player.resetRound(); placeAtBases(); sandbox.botWas=sandbox.bot; setupSandboxBot();
-  state='fight'; show(UI.hud,true,'block'); UI.hud.classList.add('sandboxmode'); UI.roundPill.textContent='SANDBOX'; UI.roundSub.textContent='TAB = CHANGE POWERS'; tipsT=9; updateCardStrips(); updateHUD(); SFX.music('fight'); requestLock(); last=performance.now();
+  state='fight'; show(UI.hud,true,'block'); UI.hud.classList.add('sandboxmode'); UI.roundPill.textContent='SANDBOX'; UI.roundSub.textContent=TOUCH.on?'CARDS BUTTON = CHANGE POWERS':'TAB = CHANGE POWERS'; tipsT=9; updateCardStrips(); updateHUD(); SFX.music('fight'); requestLock(); last=performance.now();
 }
 function respawn(f){ const keepCd=f.dashCdT; f.resetRound(); if(f.isPlayer){ f.pos.copy(BASE_POS.player); f.yaw=-Math.PI/2; f.pitch=0; } else if(sandbox.bot==='dummy') f.pos.copy(sandboxBotSpot()); else f.pos.copy(BASE_POS.bot); f.vel.set(0,0,0); f.invulnT=1; burst(f.center(),f.team.light,14,5,0.1,0.5,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2,0.4); }
 
@@ -2797,11 +2800,11 @@ function update(dt){
   if(sbx){ for(const f of [player,bot]) if(f.dead&&f.respawnT>0){ f.respawnT-=dt; if(f.respawnT<=0) respawn(f); } if(sandbox.bot==='dummy'&&!bot.dead&&bot.hp<bot.maxHp()) bot.hp=Math.min(bot.maxHp(),bot.hp+dt*12); }
   const steering=!!remoteCtl.b;
   const fwd=player.forward(); const right=V3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
-  const wish=V3(); if(!steering&&!player.dead){ if(keys.KeyW) wish.add(fwd); if(keys.KeyS) wish.sub(fwd); if(keys.KeyD) wish.add(right); if(keys.KeyA) wish.sub(right); if(pad.lx||pad.ly){ wish.addScaledVector(fwd,-pad.ly).addScaledVector(right,pad.lx); } if(wish.lengthSq()>1) wish.normalize(); }
+  const wish=V3(); if(!steering&&!player.dead){ if(keys.KeyW) wish.add(fwd); if(keys.KeyS) wish.sub(fwd); if(keys.KeyD) wish.add(right); if(keys.KeyA) wish.sub(right); if(pad.lx||pad.ly){ wish.addScaledVector(fwd,-pad.ly).addScaledVector(right,pad.lx); } if(TOUCH.mx||TOUCH.my){ wish.addScaledVector(fwd,-TOUCH.my).addScaledVector(right,TOUCH.mx); } if(wish.lengthSq()>1) wish.normalize(); }
   if(player.onGround) player.airDashed=false;
   if(wantDash){ wantDash=false; const air=!player.onGround; if(!steering&&(!air||!player.airDashed)&&player.dashCdT<=0&&!player.dead&&player.stunT<=0){ const dd=wish.lengthSq()>0.04?V3(wish.x,0,wish.z).normalize():fwd; player.dashDir.copy(dd); player.dashT=CFG.dashTime; player.dashCdT=CFG.dashCd; if(air){ player.airDashed=true; player.vel.y=Math.max(player.vel.y,1.5); } SFX.dash(); } }
   if(blockBuf>0){ if(steering){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } if(tryBlock(player,!blockFresh)) blockBuf=0; else { if(blockFresh&&player.blockCdT>0.5&&!player.blockActive){ UI.blockCd.classList.remove('deny'); void UI.blockCd.offsetWidth; UI.blockCd.classList.add('deny'); SFX.hover(); } blockBuf-=dt; } blockFresh=false; }
-  if((fireHeld||keys.KeyF||pad.fire||firePressed)&&!steerLatch&&!player.dead) tryFire(player,firePressed); firePressed=false;
+  if((fireHeld||keys.KeyF||pad.fire||TOUCH.fire||firePressed)&&!steerLatch&&!player.dead) tryFire(player,firePressed); firePressed=false;
   if(!player.dead){ updateFighterTimers(player,dt); moveFighter(player,dt,wish,jumpBuffer>0&&!steering); }
   for(const f of fighters){ if(f===player||f.active===false) continue;
     if(f.ctl==='net'){ if(!f.dead) updateFighterTimers(f,dt); netApplyRemote(f,dt); continue; }
@@ -2829,6 +2832,71 @@ requestAnimationFrame(frame);
   step(dt){ update(dt); }, setAuto(v){ autoRun=v; testMode=!v; }, setRender(v){ doRender=v; }, startMatch, beginRound, startDraft, startSandbox, openSandbox, tryFire, tryBlock, firePellets, doBlock, give(f,id){ (f==='bot'?bot:player).addCard(id); updateCardStrips(); }, clearCards(){ player.setCards([]); bot.setCards([]); },
   forceFight(){ state='fight'; show(UI.countdown,false); }, keys, setMouse(v){ fireHeld=v; if(v){ firePressed=true; steerLatch=false; } }, block(){ pressBlock(); }, dash(){ wantDash=true; }, jump(){ jumpBuffer=0.15; }, get frames(){return frames;}, art:ART.svg, killFighter, hasLOS, render(){ drawFrame(); }, get paused(){return paused;}, pause, camera, explode, endMatch, coachPick, applyDamage, applyMap, applyQuality, toMenu, get map(){return curMapId;} };
 /*DEBUG-END*/
+
+// ================= TOUCH CONTROLS (phones + tablets) =================
+// Landscape layout built for thumbs:
+//  left thumb  - a floating stick that appears wherever you put your thumb on the left side
+//  right thumb - a big FIRE button resting at the bottom-right, with JUMP, DOME and DASH fanned round it in
+//                the arc your thumb naturally sweeps. Drag anywhere on the right (or keep dragging on FIRE) to aim.
+(()=>{
+  const ui=document.getElementById('touchUI'), stick=document.getElementById('tStick'), knob=stick.querySelector('i');
+  const B={}; for(const el of ui.querySelectorAll('[data-t]')) B[el.dataset.t]=el;
+  const rot=document.getElementById('rotate');
+  const st={ stick:null, look:null, fire:null, active:false, shown:false };
+  const enable=()=>{ if(TOUCH.on) return; TOUCH.on=true; document.body.classList.add('touch'); onTouchMode(); };
+  function onTouchMode(){ document.body.classList.add('touch'); const s=document.getElementById('steer'); if(s) s.textContent='STEERING YOUR SHOT · drag to steer · tap FIRE to let go'; }
+  if(TOUCH.on) onTouchMode();
+  window.addEventListener('touchstart',enable,{capture:true,passive:true});
+  const unit=()=>parseFloat(getComputedStyle(ui).getPropertyValue('--u'))||64;
+  const R=()=>unit()*0.95;
+  function placeStick(x,y){ stick.style.left=x+'px'; stick.style.top=y+'px'; }
+  function setKnob(dx,dy){ knob.style.transform=`translate(calc(-50% + ${dx.toFixed(1)}px),calc(-50% + ${dy.toFixed(1)}px))`; }
+  function resetStick(){ st.stick=null; TOUCH.mx=0; TOUCH.my=0; stick.classList.remove('live'); stick.style.left=''; stick.style.top=''; setKnob(0,0); }
+  const lookK=()=>0.0062*settings.sens, lookKy=()=>0.0048*settings.sens;
+  function press(k,t){ const el=B[k]; if(!el) return; el.classList.add('down'); el._id=t.identifier; try{ if(navigator.vibrate) navigator.vibrate(k==='fire'?6:10); }catch(e){}
+    if(k==='fire'){ st.fire={id:t.identifier,x:t.clientX,y:t.clientY}; TOUCH.fire=true; firePressed=true; steerLatch=false; }
+    else if(k==='jump') jumpBuffer=0.15;
+    else if(k==='block'){ if(remoteCtl.b){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } pressBlock(); }
+    else if(k==='dash') wantDash=true;
+    else if(k==='pause'){ if(state==='fight'||state==='countdown') pause(); }
+    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight') openSandbox(); } }
+  function release(id){ for(const k in B){ if(B[k]._id===id){ B[k].classList.remove('down'); B[k]._id=null; } } if(st.fire&&st.fire.id===id){ st.fire=null; TOUCH.fire=false; } if(st.stick&&st.stick.id===id) resetStick(); if(st.look&&st.look.id===id) st.look=null; }
+  ui.addEventListener('touchstart',e=>{ if(!st.active) return; e.preventDefault(); SFX.unlock();
+    for(const t of e.changedTouches){ const el=t.target&&t.target.closest?t.target.closest('[data-t]'):null;
+      if(el){ press(el.dataset.t,t); continue; }
+      const W=window.innerWidth;
+      if(t.clientX<W*0.46&&!st.stick&&!player.dead){ st.stick={id:t.identifier,cx:t.clientX,cy:t.clientY}; stick.classList.add('live'); placeStick(t.clientX,t.clientY); setKnob(0,0); }
+      else if(!st.look) st.look={id:t.identifier,x:t.clientX,y:t.clientY}; } },{passive:false});
+  ui.addEventListener('touchmove',e=>{ if(!st.active) return; e.preventDefault();
+    for(const t of e.changedTouches){
+      if(st.stick&&t.identifier===st.stick.id){ const r=R(); let dx=t.clientX-st.stick.cx, dy=t.clientY-st.stick.cy; let L=Math.hypot(dx,dy);
+        if(L>r*1.35){ const k=(L-r*1.35)/L; st.stick.cx+=dx*k; st.stick.cy+=dy*k; placeStick(st.stick.cx,st.stick.cy); dx=t.clientX-st.stick.cx; dy=t.clientY-st.stick.cy; L=Math.hypot(dx,dy); } // the stick follows a thumb that wanders off
+        const c=Math.min(L,r); const nx=L>0?dx/L:0, ny=L>0?dy/L:0; setKnob(nx*c,ny*c); const m=c/r; const dz=0.14; const mm=m<dz?0:Math.min(1,(m-dz)/(1-dz)*1.08); TOUCH.mx=nx*mm; TOUCH.my=ny*mm; continue; }
+      const L=(st.look&&t.identifier===st.look.id)?st.look:(st.fire&&t.identifier===st.fire.id)?st.fire:null;
+      if(L){ const dx=t.clientX-L.x, dy=t.clientY-L.y; L.x=t.clientX; L.y=t.clientY; if(!paused&&(state==='fight'||state==='countdown')) look(dx*lookK(),dy*lookKy()); } } },{passive:false});
+  const end=e=>{ for(const t of e.changedTouches) release(t.identifier); };
+  ui.addEventListener('touchend',end,{passive:false}); ui.addEventListener('touchcancel',end,{passive:false});
+  function releaseAll(){ for(const k in B){ B[k].classList.remove('down'); B[k]._id=null; } st.fire=null; TOUCH.fire=false; st.look=null; resetStick(); }
+  // fullscreen + landscape lock when you start playing (Android; iPhone ignores it)
+  function goFull(){ if(!TOUCH.on) return; try{ const d=document.documentElement; if(!document.fullscreenElement&&d.requestFullscreen){ const p=d.requestFullscreen({navigationUI:'hide'}); if(p&&p.then) p.then(()=>{ try{ screen.orientation.lock('landscape').catch(()=>{}); }catch(e){} }).catch(()=>{}); } }catch(e){} }
+  for(const id of ['startBtn','sandboxBtn','sbxGo','olCreate','olJoin','olStart','againBtn']){ const el=document.getElementById(id); if(el) el.addEventListener('click',goFull,true); }
+  const cd=(el,frac,txt)=>{ el.style.setProperty('--cd',(frac*100).toFixed(1)+'%'); const b=el.querySelector('b'); if(b&&b._t!==txt){ b._t=txt; b.textContent=txt; } el.classList.toggle('cooling',frac>0); };
+  function frame(){ requestAnimationFrame(frame);
+    const portrait=TOUCH.on&&window.innerHeight>window.innerWidth*1.05; if(rot._p!==portrait){ rot._p=portrait; rot.style.display=portrait?'flex':'none'; }
+    const act=TOUCH.on&&(state==='fight'||state==='countdown')&&!paused&&!sandbox.open&&!portrait;
+    if(act!==st.active){ st.active=act; if(!act) releaseAll(); }
+    if(act!==st.shown){ st.shown=act; ui.style.display=act?'block':'none'; }
+    if(!act) return;
+    ui.classList.toggle('dead',!!player.dead); ui.classList.toggle('sbx',mode==='sandbox');
+    const s=player.stats;
+    cd(B.block,player.blockCdT>0?clamp(player.blockCdT/s.blockCd,0,1):0,player.blockCdT>0.05?player.blockCdT.toFixed(player.blockCdT<1?1:0):'');
+    B.block.classList.toggle('silenced',player.silenceT>0);
+    cd(B.dash,player.dashCdT>0?clamp(player.dashCdT/CFG.dashCd,0,1):0,'');
+    B.dash.classList.toggle('air',!player.onGround&&!!player.airDashed);
+    cd(B.fire,player.reloading?clamp(player.reloadT/s.reload,0,1):0,player.reloading?'':String(player.ammo));
+    B.jump.classList.toggle('air',!player.onGround); }
+  requestAnimationFrame(frame);
+})();
 
 // ================= ONLINE 1v1: create a room, share the code, fight =================
 // Each player owns their own fighter's movement (instant feel); the room creator (host) is the referee for HP, knockouts,

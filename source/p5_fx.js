@@ -189,7 +189,7 @@ function firePellets(f){
   if(f.isPlayer){ dir=V3().subVectors(aimPoint,origin); if(dir.lengthSq()<0.25||dir.dot(f.aimDir())<0) dir=f.aimDir(); dir.normalize(); matchStats.shots++; roundInfo.shots++; }
   else dir=f.botAim? f.botAim.clone():f.aimDir();
   const at=(f.isPlayer&&settings.assist&&f.stats.remote===0)? assistTarget(origin,dir) : null;
-  if(at){ const tgt=at.center(); const tf=tgt.distanceTo(origin)/f.stats.speed; tgt.addScaledVector(at.vel,Math.min(tf,0.7)*0.9); const want=V3().subVectors(tgt,origin).normalize(); const lim=pad.used?0.26:0.2, ang=dir.angleTo(want); if(ang<lim&&hasLOS(origin,at.center())) dir.lerp(want,ang<lim*0.5?1:0.85).normalize(); }
+  if(at){ const tgt=at.center(); const tf=tgt.distanceTo(origin)/f.stats.speed; tgt.addScaledVector(at.vel,Math.min(tf,0.7)*0.9); const want=V3().subVectors(tgt,origin).normalize(); const lim=(pad.used||TOUCH.on)?0.28:0.2, ang=dir.angleTo(want); if(ang<lim&&hasLOS(origin,at.center())) dir.lerp(want,ang<lim*0.5?1:0.85).normalize(); }
   if(NET.on&&!NET.fireOrigin&&(f.isPlayer||(f.ctl==='ai'&&NET.role==='host'))) netRecordShot(origin,dir,f);
   const n=f.stats.pellets, spread=f.stats.spread; let lead=null; f.volN=(f.volN||0)+1; const vol=f.id*100000+f.volN;
   for(let i=0;i<n;i++){

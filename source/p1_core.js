@@ -28,6 +28,7 @@ const SLOT_TEAMS=['player','bot','green','purple']; // FFA seat colours, same on
 const INK = 0x0b1026;
 
 // ================= SETTINGS =================
+const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
 const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'' };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
