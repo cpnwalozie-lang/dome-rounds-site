@@ -317,7 +317,7 @@ function botThink(b,dt){
   const aimTarget=p.center(); const tFly=clamp(dist/b.stats.speed,0,1.2); aimTarget.addScaledVector(p.vel,tFly*(D===DIFF.easy?0.35:0.8));
   const err=D.err+(b.dazzleN>0?0.3:0); aimTarget.x+=rand(-err,err)*dist; aimTarget.y+=rand(-err,err)*dist*0.6; aimTarget.z+=rand(-err,err)*dist;
   const faceDir=V3().subVectors(p.center(),b.center()); b.yaw=Math.atan2(-faceDir.x,-faceDir.z);
-  if(b.stats.arc>0){ const tf=aimTarget.distanceTo(b.center())/b.stats.speed; aimTarget.y+=0.5*CFG.gravity*(0.42+0.28*(b.stats.arc-1))*tf*tf; } // bots lob Arc Shots
+  if(b.stats.arc>0){ const tf=aimTarget.distanceTo(b.center())/b.stats.speed; aimTarget.y+=0.5*CFG.gravity*(0.85+0.4*(b.stats.arc-1))*tf*tf; } // bots lob Arc Shots
   const aimDir=V3().subVectors(aimTarget,b.center()); if(aimDir.lengthSq()<0.01) aimDir.set(1,0,0); aimDir.normalize(); b.botAim=aimDir; b.pitch=clamp(Math.asin(clamp(aimDir.y,-1,1)),-1,1);
   botState.strafeT-=dt; if(botState.strafeT<=0){ botState.strafe*=-1; botState.strafeT=rand(0.8,2.2); }
   const right=V3(-dir.z,0,dir.x); const wish=V3();
@@ -389,7 +389,7 @@ function updateBullets(dt){
       else if(!b.owner.isPlayer){ const e=homeTarget(b); if(e){ const want=V3().subVectors(e.center(),b.pos).normalize(); const cur=b.vel.clone().normalize(); const ang=cur.angleTo(want); const k=ang<1e-4?1:Math.min(1,1.3*b.s.remote*dt/ang); b.vel.copy(cur.lerp(want,k).normalize().multiplyScalar(speed)); } } }
     if(b.follow){ const L=b.follow; if(L.gone||L.owner!==b.owner) b.follow=null; else b.vel.copy(L.vel).normalize().applyQuaternion(b.fq).multiplyScalar(speed); }
     if(b.s.grow>0) b.k=Math.min(4.2,1+b.dist*0.075*b.s.grow);
-    if(b.s.arc>0&&!b.remote&&!b.follow&&remoteCtl.b!==b) b.vel.y-=CFG.gravity*(0.42+0.28*(b.s.arc-1))*dt; // Arc Shot: falls like water
+    if(b.s.arc>0&&!b.remote&&!b.follow&&remoteCtl.b!==b) b.vel.y-=CFG.gravity*(0.85+0.4*(b.s.arc-1))*dt; // Arc Shot: falls like water
     const steps=Math.max(1,Math.ceil(speed*dt/0.35)); const sdt=dt/steps; let done=false; const br=b.r*b.k;
     for(let s=0;s<steps&&!done;s++){
       b.pos.addScaledVector(b.vel,sdt); b.dist+=speed*sdt;
