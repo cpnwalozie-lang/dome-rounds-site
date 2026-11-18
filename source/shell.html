@@ -534,6 +534,12 @@
   .dt-heart{color:#ff4f9a;border-color:#ff9ac8;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M8 13.5S2 9.8 2 6.2A3 3 0 0 1 8 4.8a3 3 0 0 1 6 1.4c0 3.6-6 7.3-6 7.3z' fill='%23ffffff' fill-opacity='.85'/%3E%3C/svg%3E") 0 0/16px 16px,radial-gradient(circle at 50% 100%,#ff9ac8,#ff4f9a 60%,#b0206a);animation:dtBeat 1.1s ease-in-out infinite}
   @keyframes dtBeat{0%,70%,100%{background-size:16px 16px,auto}80%{background-size:18px 18px,auto}}
   .dt-noir{color:#ffd27a;border-color:#ffd27a;background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.18),transparent 30%),radial-gradient(circle at 50% 110%,#2a2a33,#050507 70%)}
+  .dt-bloodleaf{color:#ff1f3d;border-color:#ff4a5e;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='30'%3E%3Cg fill='%23a0101e' stroke='%23000' stroke-width='1.2'%3E%3Cpath d='M2 22 Q14 4 30 10 Q22 26 2 22Z'/%3E%3Cpath d='M18 30 Q28 14 42 20 Q34 34 18 30Z'/%3E%3C/g%3E%3Cg stroke='%23ff3b4f' stroke-width='.9' fill='none'%3E%3Cpath d='M2 22 L30 10 M10 18 l2 -5 M16 15.5 l2 -4 M22 13 l1 -3'/%3E%3Cpath d='M18 30 L42 20'/%3E%3C/g%3E%3C/svg%3E") 0 0/40px 30px,radial-gradient(circle at 50% 100%,#3a0008,#080002);animation:dtVein 2.4s ease-in-out infinite}
+  @keyframes dtVein{50%{filter:brightness(1.35) saturate(1.2)}}
+  .dt-abyss{color:#4ff0ff;border-color:#4ff0ff;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='46'%3E%3Cg fill='none' stroke='%237ff6ff' stroke-width='1.4'%3E%3Cpath d='M12 18 a7 6 0 0 1 14 0 z'/%3E%3Cpath d='M14 18 q-1 6 1 11 M19 18 q1 6 -1 12 M24 18 q1 5 -1 10'/%3E%3C/g%3E%3Ccircle cx='38' cy='10' r='2' fill='%237ff6ff' fill-opacity='.7'/%3E%3Ccircle cx='6' cy='38' r='1.5' fill='%237ff6ff' fill-opacity='.6'/%3E%3Ccircle cx='34' cy='36' r='3' fill='%237ff6ff' fill-opacity='.35'/%3E%3C/svg%3E") 0 0/46px 46px,radial-gradient(circle at 50% 100%,#08304a,#010814 75%);animation:dtRise 4s linear infinite}
+  @keyframes dtRise{to{background-position:0 -46px,0 0}}
+  .dt-topo{color:#ffb43a;border-color:#ffd27a;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40'%3E%3Cg fill='none' stroke='%23633008' stroke-width='1.3'%3E%3Cpath d='M-5 30 C10 18 20 36 32 24 S52 10 66 20'/%3E%3Cpath d='M-5 22 C8 12 22 28 32 16 S50 4 66 12'/%3E%3Cpath d='M-5 14 C8 4 20 18 30 8 S50 -4 66 4'/%3E%3Cpath d='M-5 38 C12 26 22 44 34 32 S54 18 66 28'/%3E%3Cellipse cx='44' cy='26' rx='6' ry='3.5'/%3E%3C/g%3E%3C/svg%3E") 0 0/60px 40px,linear-gradient(180deg,#ffd27a,#ff9a2a);animation:dtFlow 6s linear infinite}
+  @keyframes dtFlow{to{background-position:60px 0,0 0}}
   .st-info{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
   .st-info b{font-family:var(--disp);font-weight:400;font-size:26px;color:var(--ye)}
   .st-info span{font-size:14px;opacity:.85}
@@ -549,7 +555,7 @@
   .sw.pick input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
   .studioB{display:inline-flex;align-items:center;gap:8px;border-color:var(--pink)!important;box-shadow:4px 4px 0 var(--pink)!important}
   .mdome{width:22px;height:11px;border-radius:22px 22px 0 0;background:conic-gradient(from 200deg at 50% 100%,#ff8ad8,#ffe48a,#8affc4,#8ad8ff,#c08aff,#ff8ad8);border:1.5px solid #fff;border-bottom:0;animation:dtHue 4s linear infinite}
-  @media (max-height:520px){ .st-panel{gap:1.2vh;width:min(470px,52vw)} .st-grid{gap:7px} .st-tile{padding:6px 4px 5px;font-size:12px} .dthumb{width:min(70px,8vw,13vh)} .st-head p{display:none} .st-info b{font-size:20px} .sw{width:26px;height:26px} }
+  @media (max-height:520px){ .st-panel{gap:1.2vh;width:min(500px,56vw)} .st-grid{gap:6px;grid-template-columns:repeat(5,1fr)} .st-tile{padding:6px 4px 5px;font-size:12px} .dthumb{width:min(70px,8vw,13vh)} .st-head p{display:none} .st-info b{font-size:20px} .sw{width:26px;height:26px} }
   @media (prefers-reduced-motion:reduce){ .dthumb,.dthumb i,.mdome{animation:none!important} .st-panel{transition:none} }
 </style>
 </head>
@@ -646,7 +652,7 @@
         <span><kbd>Mouse</kbd></span><span>Look and aim (arrow keys work too)</span>
         <span><kbd class="k-shoot">LMB</kbd> <kbd>F</kbd></span><span>Shoot your blaster (hold)</span>
         <span><kbd class="k-block">RMB</kbd> <kbd>E</kbd></span><span>Block: pop your dome</span>
-        <span><kbd>Shift</kbd></span><span>Dash the way you're moving (once in the air too)</span>
+        <span><kbd>Shift</kbd></span><span>Dash the way you're moving (on the ground)</span>
         <span><kbd>Space</kbd></span><span>Jump</span>
         <span><kbd>Esc</kbd> <kbd>P</kbd></span><span>Pause</span>
         <span><kbd>Pad</kbd></span><span>Controller: sticks move and aim, RT shoot, LT block, A jump, B dash</span>

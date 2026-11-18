@@ -83,7 +83,7 @@
     cd(B.block,player.blockCdT>0?clamp(player.blockCdT/s.blockCd,0,1):0,player.blockCdT>0.05?player.blockCdT.toFixed(player.blockCdT<1?1:0):'');
     B.block.classList.toggle('silenced',player.silenceT>0);
     cd(B.dash,player.dashCdT>0?clamp(player.dashCdT/CFG.dashCd,0,1):0,'');
-    B.dash.classList.toggle('air',!player.onGround&&!!player.airDashed);
+    B.dash.classList.toggle('air',!player.onGround);
     cd(B.fire,player.reloading?clamp(player.reloadT/s.reload,0,1):0,player.reloading?'':String(player.ammo));
     B.jump.classList.toggle('air',!player.onGround); }
   requestAnimationFrame(frame);

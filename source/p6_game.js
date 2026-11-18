@@ -126,6 +126,7 @@ function startMatch(){
   UI.roundSub.textContent= matchKind==='2v2'? (NET.on?'2V2 · FIRST TO 5 · ROOM '+NET.code:'2V2 · FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOTS') : matchKind==='ffa'? (NET.on?'FREE FOR ALL · FIRST TO 5 · ROOM '+NET.code:'FREE FOR ALL · FIRST TO 5') : NET.on? 'ONLINE · FIRST TO 5 · ROOM '+NET.code : 'FIRST TO 5 · '+botLevel().name.toUpperCase()+' BOT';
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
+const menuCam={key:'',a:0};
 function toMenu(){ hideTags(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
 function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
@@ -427,7 +428,10 @@ function updateCamera(dt){ if(camHold) return;
     const off=V3(s*R*2.15,R*0.95,-s*R*1.25).applyAxisAngle(UP,a); const ctr=V3(p.x,p.y+R*0.42,p.z); const cp=ctr.clone().add(off); camera.position.copy(cp);
     const fw=V3().subVectors(ctr,cp).normalize(), rt=V3().crossVectors(fw,UP).normalize(); const asp=camera.aspect||1.6; camera.lookAt(ctr.clone().addScaledVector(rt,R*(asp>1.3?0.62:0.15))); return; }
   if(state==='menu'){ const p=player.pos, s=p.x>0.5?-1:1; camera.fov=50; camera.updateProjectionMatrix(); // always film from the arena side (an online guest stands at the far base)
-    const head=V3(p.x,p.y+1.6,p.z), want=V3(p.x+4.3*s+Math.sin(t*0.3)*0.15,p.y+1.6,p.z-1.9*s+Math.cos(t*0.25)*0.12); const hit=segmentHitsBoxes(head,want,0.25,true); if(hit!==null) want.lerpVectors(head,want,Math.max(0.35,hit-0.05)); camera.position.copy(want); camera.lookAt(p.x,p.y+1.2,p.z+1.3*s); return; }
+    const head=V3(p.x,p.y+1.6,p.z); const key=curMapId+'|'+p.x.toFixed(1)+'|'+p.z.toFixed(1);
+    if(menuCam.key!==key){ menuCam.key=key; let best=0, bestF=-1; for(const a of [0,0.6,-0.6,1.2,-1.2,1.9,-1.9,2.6,-2.6]){ const o=V3(4.3*s,0,-1.9*s).applyAxisAngle(UP,a); const w=head.clone().add(o); const h=segmentHitsBoxes(head,w,0.3,true); const f=h===null?1:h; if(f>bestF+0.02){ bestF=f; best=a; } if(f>=1) break; } menuCam.a=best; } // pick the first angle with a clear view of you
+    const off=V3(4.3*s+Math.sin(t*0.3)*0.15,0,-1.9*s+Math.cos(t*0.25)*0.12).applyAxisAngle(UP,menuCam.a); const want=head.clone().add(off); const hit=segmentHitsBoxes(head,want,0.25,true); if(hit!==null) want.lerpVectors(head,want,Math.max(0.35,hit-0.05)); camera.position.copy(want);
+    const la=V3(0,0,1.3*s).applyAxisAngle(UP,menuCam.a); camera.lookAt(p.x+la.x,p.y+1.2,p.z+la.z); return; }
   if(state==='draft'||state==='picked'||state==='matchover'){ const a=t*0.12+0.7; camera.fov=55; camera.updateProjectionMatrix(); camera.position.set(Math.cos(a)*(HX+10),17,Math.sin(a)*(HZ+12)); camera.lookAt(0,0.5,0); return; }
   if(remoteCtl.b&&state==='fight'){ const b=remoteCtl.b; const d=b.vel.clone().normalize(); if(Math.abs(camera.fov-80)>0.1){ camera.fov=lerp(camera.fov,80,Math.min(1,dt*10)); camera.updateProjectionMatrix(); } camera.position.copy(b.pos).addScaledVector(d,-1.7).add(V3(0,0.3,0)); camera.lookAt(b.pos.clone().addScaledVector(d,5)); return; }
   const cf=camFighter();
@@ -446,7 +450,7 @@ function update(dt){
   gameT+=dt; const t=gameT;
   for(const fn of animated) fn(t,dt);
   const vis=()=>{ for(const f of fighters) if(f.active!==false) f.updateVisual(dt,t); };
-  if(state==='menu'){ const ms=player.pos.x>0.5?-1:1; player.yaw=(ms>0?-Math.PI/2:Math.PI/2)-0.05*ms+Math.sin(t*0.7)*0.22; player.pitch=0.1+Math.sin(t*0.9)*0.1; const cyc=Math.floor(t/2.6)%4; player.mood=['normal','happy','angry','normal'][cyc]; player.moodT=1; vis(); updateCamera(dt); fxUpdate(dt); return; }
+  if(state==='menu'){ const ms=player.pos.x>0.5?-1:1; player.yaw=(ms>0?-Math.PI/2:Math.PI/2)-0.05*ms+(menuCam.a||0)+Math.sin(t*0.7)*0.22; player.pitch=0.1+Math.sin(t*0.9)*0.1; const cyc=Math.floor(t/2.6)%4; player.mood=['normal','happy','angry','normal'][cyc]; player.moodT=1; vis(); updateCamera(dt); fxUpdate(dt); return; }
   if(crossKick>0) crossKick=Math.max(0,crossKick-dt*6); if(hurtT>0) hurtT-=dt; if(hitMarkerT>0) hitMarkerT-=dt; if(killMarkT>0) killMarkT-=dt; if(dmgDirT>0) dmgDirT-=dt;
   const lk=(keys.ArrowLeft?1:0)-(keys.ArrowRight?1:0), lv=(keys.ArrowUp?1:0)-(keys.ArrowDown?1:0);
   if(state==='fight'||state==='countdown'){ if(lk||lv) look(-lk*2.6*dt,-(settings.invertY?-1:1)*lv*1.6*dt);  }
@@ -473,7 +477,7 @@ function update(dt){
   const fwd=player.forward(); const right=V3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
   const wish=V3(); if(!steering&&!player.dead){ if(keys.KeyW) wish.add(fwd); if(keys.KeyS) wish.sub(fwd); if(keys.KeyD) wish.add(right); if(keys.KeyA) wish.sub(right); if(pad.lx||pad.ly){ wish.addScaledVector(fwd,-pad.ly).addScaledVector(right,pad.lx); } if(TOUCH.mx||TOUCH.my){ wish.addScaledVector(fwd,-TOUCH.my).addScaledVector(right,TOUCH.mx); } if(wish.lengthSq()>1) wish.normalize(); }
   if(player.onGround) player.airDashed=false;
-  if(wantDash){ wantDash=false; const air=!player.onGround; if(!steering&&(!air||!player.airDashed)&&player.dashCdT<=0&&!player.dead&&player.stunT<=0){ const dd=wish.lengthSq()>0.04?V3(wish.x,0,wish.z).normalize():fwd; player.dashDir.copy(dd); player.dashT=CFG.dashTime; player.dashCdT=CFG.dashCd; if(air){ player.airDashed=true; player.vel.y=Math.max(player.vel.y,1.5); } SFX.dash(); } }
+  if(wantDash){ wantDash=false; const air=!player.onGround; if(!steering&&!air&&player.dashCdT<=0&&!player.dead&&player.stunT<=0){ const dd=wish.lengthSq()>0.04?V3(wish.x,0,wish.z).normalize():fwd; player.dashDir.copy(dd); player.dashT=CFG.dashTime; player.dashCdT=CFG.dashCd; if(air){ player.airDashed=true; player.vel.y=Math.max(player.vel.y,1.5); } SFX.dash(); } }
   if(blockBuf>0){ if(steering){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } if(tryBlock(player,!blockFresh)) blockBuf=0; else { if(blockFresh&&player.blockCdT>0.5&&!player.blockActive){ UI.blockCd.classList.remove('deny'); void UI.blockCd.offsetWidth; UI.blockCd.classList.add('deny'); SFX.hover(); } blockBuf-=dt; } blockFresh=false; }
   if((fireHeld||keys.KeyF||pad.fire||TOUCH.fire||firePressed)&&!steerLatch&&!player.dead) tryFire(player,firePressed); firePressed=false;
   if(!player.dead){ updateFighterTimers(player,dt); moveFighter(player,dt,wish,jumpBuffer>0&&!steering); }

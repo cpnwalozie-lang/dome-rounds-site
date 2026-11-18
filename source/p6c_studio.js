@@ -14,8 +14,8 @@
   function pop(){ if(!player) return; player.domeHitAge=0; const a=Math.random()*6.28; player.domeHitDir.set(Math.cos(a)*0.7,0.6,Math.sin(a)*0.7).normalize(); player.previewFlash=0.4; lastHit=performance.now(); }
   grid.addEventListener('click',e=>{ const b=e.target.closest('.st-tile'); if(!b) return; settings.domeSkin=+b.dataset.i; saveSettings(); SFX.pick(); refresh(); pop(); });
   colsEl.addEventListener('click',e=>{ const b=e.target.closest('button.sw'); if(!b) return; settings.domeCol=b.dataset.c; saveSettings(); SFX.hover(); refresh(false); pop(); });
-  function open(){ if(state!=='menu') return; STUDIO.open=true; SFX.unlock(); refresh(); document.getElementById('start').style.display='none'; ov.style.display='flex'; requestAnimationFrame(()=>ov.classList.add('in')); if(player){ player.domePreview=true; pop(); } }
-  function close(){ STUDIO.open=false; ov.classList.remove('in'); ov.style.display='none'; if(player){ player.domePreview=false; player.previewFlash=0; } if(state==='menu') document.getElementById('start').style.display=''; SFX.confirm(); }
+  function open(){ if(state!=='menu') return; STUDIO.open=true; SFX.unlock(); refresh(); const sm=document.getElementById('start'); ov._startDisp=sm.style.display&&sm.style.display!=='none'?sm.style.display:'block'; sm.style.display='none'; ov.style.display='flex'; requestAnimationFrame(()=>ov.classList.add('in')); if(player){ player.domePreview=true; pop(); } }
+  function close(){ STUDIO.open=false; ov.classList.remove('in'); ov.style.display='none'; if(player){ player.domePreview=false; player.previewFlash=0; } if(state==='menu') document.getElementById('start').style.display=ov._startDisp||'block'; SFX.confirm(); }
   document.getElementById('studioBtn').addEventListener('click',open);
   document.getElementById('stDone').addEventListener('click',close);
   document.getElementById('stTest').addEventListener('click',()=>{ pop(); SFX.block(); });
