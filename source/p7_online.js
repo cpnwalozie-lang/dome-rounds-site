@@ -212,7 +212,7 @@ function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.
   $id('olCancel').textContent=host?'CLOSE ROOM':'LEAVE ROOM';
   const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (multi? (n<need?`Waiting for players… (${n}/4). ${two?'2v2 needs 4':'You need 3'} to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (multi?`${n} in the room. Waiting for the host to start…`:'Get ready…');
   const nm=$id('olName'); if(nm&&document.activeElement!==nm) nm.value=settings.name||''; }
-$id('onlineBtn').addEventListener('click',()=>{ SFX.unlock(); const p=$id('online'); p.classList.toggle('open'); if(p.classList.contains('open')){ olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } });
+$id('onlineBtn').addEventListener('click',()=>{ SFX.unlock(); const p=$id('online'); p.classList.toggle('open'); if(p.classList.contains('open')){ setTimeout(()=>{ try{ p.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },30); olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } });
 function newCode(){ let c=''; for(let i=0;i<5;i++) c+=NET_ALPHA[Math.floor(Math.random()*NET_ALPHA.length)]; return c; }
 $id('olCreate').addEventListener('click',()=>{ SFX.unlock(); if(NET.on) return; netOpen(newCode(),'host'); });
 const codeIn=$id('olCode'); codeIn.addEventListener('input',()=>{ codeIn.value=codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });

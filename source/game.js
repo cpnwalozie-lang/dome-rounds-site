@@ -32,7 +32,7 @@ const INK = 0x0b1026;
 
 // ================= SETTINGS =================
 const STUDIO={ open:false };
-const GPU_WEAK=(()=>{ try{ const c=document.createElement('canvas'), g=c.getContext('webgl'); const e=g&&g.getExtension('WEBGL_debug_renderer_info'); const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):''; return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic/i.test(r); }catch(e){ return false; } })(); // built-in laptop graphics // Dome Studio (cosmetic dome styles)
+const GPU_WEAK=(()=>{ try{ const c=document.createElement('canvas'), g=c.getContext('webgl'); const e=g&&g.getExtension('WEBGL_debug_renderer_info'); const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=g&&g.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(_){} return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic/i.test(r); }catch(e){ return false; } })(); // built-in laptop graphics // Dome Studio (cosmetic dome styles)
 const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
 const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
@@ -2401,7 +2401,7 @@ function updateEmpBolts(dt){ const sp=20; const seen=new Set();
     if(Math.random()<dt*6) burst(b.pos,0x7ff7ea,1,0.5,0.06,0.3,0);
     if(C.mat.opacity>0.25) for(const e of (state==='fight'?enemies(C.owner):[])){ if(C.hit.has(e)||e.distTo(b.pos)>=0.7+b.size*0.6) continue; C.hit.add(e); const n=C.n; applySlow(e,0.6,2.2+0.6*n); applyDamage(e,8*n,C.owner,{cause:'dome'}); burst(e.center(),0x46e0d0,16,5,0.1,0.5,0); flashAt(e.center(),0x7ff7ea,2.6,0.2); floatText(e.center().add(V3(0,1.2,0)),'EMP!','status'); SFX.zap(); }
     if(C.d>=C.reach){ scene.remove(b.m); empBolts.splice(i,1); if(--C.left<=0) C.mat.dispose(); } } } // they just fade out at the end, no extra shatter
-function clearEmpBolts(){ for(const b of empBolts) scene.remove(b.m); empBolts.length=0; }
+function clearEmpBolts(){ const ms=new Set(); for(const b of empBolts){ scene.remove(b.m); if(b.cast&&b.cast.mat) ms.add(b.cast.mat); } for(const m of ms) m.dispose(); empBolts.length=0; }
 
 // ---------- ice: cold shots encase you in a frosty shell with crystals ----------
 let iceRes=null;
@@ -2567,7 +2567,7 @@ document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
   syncSettingsUI(); }); });
 syncSettingsUI();
-UI.howBtn.addEventListener('click',()=>{ UI.how.classList.toggle('open'); });
+UI.howBtn.addEventListener('click',()=>{ UI.how.classList.toggle('open'); if(UI.how.classList.contains('open')) setTimeout(()=>{ try{ UI.how.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },30); }); // on short laptop screens the panel opens below the fold
 UI.fsBtn.addEventListener('click',()=>{ try{ if(document.fullscreenElement) document.exitFullscreen(); else { const p=document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(()=>{}); } }catch(e){} });
 const firstGesture=()=>{ SFX.unlock(); if(state==='menu') SFX.music('menu'); window.removeEventListener('pointerdown',firstGesture); window.removeEventListener('keydown',firstGesture); };
 window.addEventListener('pointerdown',firstGesture); window.addEventListener('keydown',firstGesture);
@@ -3074,6 +3074,7 @@ requestAnimationFrame(frame);
   function onTouchMode(){ document.body.classList.add('touch'); const s=document.getElementById('steer'); if(s) s.textContent='STEERING YOUR SHOT · drag to steer · tap FIRE to let go'; }
   if(TOUCH.on) onTouchMode();
   window.addEventListener('touchstart',enable,{capture:true,passive:true});
+  window.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse'&&TOUCH.on&&!matchMedia('(pointer: coarse)').matches&&!editing){ TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); } },{capture:true,passive:true});
   const unit=()=>parseFloat(getComputedStyle(ui).getPropertyValue('--u'))||64;
   const R=()=>unit()*0.95;
   function placeStick(x,y){ stick.style.left=x+'px'; stick.style.top=y+'px'; }
@@ -3367,7 +3368,7 @@ function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.
   $id('olCancel').textContent=host?'CLOSE ROOM':'LEAVE ROOM';
   const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (multi? (n<need?`Waiting for players… (${n}/4). ${two?'2v2 needs 4':'You need 3'} to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (multi?`${n} in the room. Waiting for the host to start…`:'Get ready…');
   const nm=$id('olName'); if(nm&&document.activeElement!==nm) nm.value=settings.name||''; }
-$id('onlineBtn').addEventListener('click',()=>{ SFX.unlock(); const p=$id('online'); p.classList.toggle('open'); if(p.classList.contains('open')){ olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } });
+$id('onlineBtn').addEventListener('click',()=>{ SFX.unlock(); const p=$id('online'); p.classList.toggle('open'); if(p.classList.contains('open')){ setTimeout(()=>{ try{ p.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },30); olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } });
 function newCode(){ let c=''; for(let i=0;i<5;i++) c+=NET_ALPHA[Math.floor(Math.random()*NET_ALPHA.length)]; return c; }
 $id('olCreate').addEventListener('click',()=>{ SFX.unlock(); if(NET.on) return; netOpen(newCode(),'host'); });
 const codeIn=$id('olCode'); codeIn.addEventListener('input',()=>{ codeIn.value=codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });

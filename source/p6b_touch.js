@@ -37,6 +37,7 @@
   function onTouchMode(){ document.body.classList.add('touch'); const s=document.getElementById('steer'); if(s) s.textContent='STEERING YOUR SHOT · drag to steer · tap FIRE to let go'; }
   if(TOUCH.on) onTouchMode();
   window.addEventListener('touchstart',enable,{capture:true,passive:true});
+  window.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse'&&TOUCH.on&&!matchMedia('(pointer: coarse)').matches&&!editing){ TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); } },{capture:true,passive:true});
   const unit=()=>parseFloat(getComputedStyle(ui).getPropertyValue('--u'))||64;
   const R=()=>unit()*0.95;
   function placeStick(x,y){ stick.style.left=x+'px'; stick.style.top=y+'px'; }

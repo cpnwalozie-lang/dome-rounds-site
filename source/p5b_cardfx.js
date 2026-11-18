@@ -87,7 +87,7 @@ function updateEmpBolts(dt){ const sp=20; const seen=new Set();
     if(Math.random()<dt*6) burst(b.pos,0x7ff7ea,1,0.5,0.06,0.3,0);
     if(C.mat.opacity>0.25) for(const e of (state==='fight'?enemies(C.owner):[])){ if(C.hit.has(e)||e.distTo(b.pos)>=0.7+b.size*0.6) continue; C.hit.add(e); const n=C.n; applySlow(e,0.6,2.2+0.6*n); applyDamage(e,8*n,C.owner,{cause:'dome'}); burst(e.center(),0x46e0d0,16,5,0.1,0.5,0); flashAt(e.center(),0x7ff7ea,2.6,0.2); floatText(e.center().add(V3(0,1.2,0)),'EMP!','status'); SFX.zap(); }
     if(C.d>=C.reach){ scene.remove(b.m); empBolts.splice(i,1); if(--C.left<=0) C.mat.dispose(); } } } // they just fade out at the end, no extra shatter
-function clearEmpBolts(){ for(const b of empBolts) scene.remove(b.m); empBolts.length=0; }
+function clearEmpBolts(){ const ms=new Set(); for(const b of empBolts){ scene.remove(b.m); if(b.cast&&b.cast.mat) ms.add(b.cast.mat); } for(const m of ms) m.dispose(); empBolts.length=0; }
 
 // ---------- ice: cold shots encase you in a frosty shell with crystals ----------
 let iceRes=null;

@@ -52,7 +52,7 @@ document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
   syncSettingsUI(); }); });
 syncSettingsUI();
-UI.howBtn.addEventListener('click',()=>{ UI.how.classList.toggle('open'); });
+UI.howBtn.addEventListener('click',()=>{ UI.how.classList.toggle('open'); if(UI.how.classList.contains('open')) setTimeout(()=>{ try{ UI.how.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },30); }); // on short laptop screens the panel opens below the fold
 UI.fsBtn.addEventListener('click',()=>{ try{ if(document.fullscreenElement) document.exitFullscreen(); else { const p=document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(()=>{}); } }catch(e){} });
 const firstGesture=()=>{ SFX.unlock(); if(state==='menu') SFX.music('menu'); window.removeEventListener('pointerdown',firstGesture); window.removeEventListener('keydown',firstGesture); };
 window.addEventListener('pointerdown',firstGesture); window.addEventListener('keydown',firstGesture);
