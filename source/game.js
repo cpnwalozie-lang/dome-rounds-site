@@ -3284,7 +3284,10 @@ const CLIP=(()=>{
       try{ SFX.confirm(); }catch(e){}
     }catch(e){ console.warn('clip save',e); toast('Could not save that clip'); }
     finally{ busy=false; setUI(); } }
-  function download(c){ const a=document.createElement('a'); a.href=c.url; a.download=c.name; document.body.appendChild(a); a.click(); a.remove(); }
+  async function download(c){
+    try{ const cl=window.claude; if(cl&&typeof cl.use==='function'){ const d=await cl.use('downloads'); if(d){ /* inside the Claude preview the page saves through its downloads permission */
+          try{ await d.save({filename:c.name,data:c.blob}); }catch(e){ if(e&&e.name==='TypeError') await d.save({filename:c.name,data:await c.blob.arrayBuffer()}); } return; } } }catch(e){ return; }
+    const a=document.createElement('a'); a.href=c.url; a.download=c.name; document.body.appendChild(a); a.click(); a.remove(); }
   async function share(c){ try{ const f=new File([c.blob],c.name,{type:'video/mp4'}); if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'Dome Rounds clip',text:'dome-rounds.pages.dev'}); return; } }catch(e){ if(e&&e.name==='AbortError') return; } download(c); }
   function shutter(){ if(!flashEl) return; flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go'); }
 
