@@ -28,7 +28,8 @@ let mode='match'; // match | sandbox
 const sandbox={cards:[],bot:'dummy',open:false};
 let paused=false, roundOverT=0, slowMoT=0, countdownT=0, countdownStep=0, roundNum=1, lastWinner=null, matchOverPending=false;
 const score={player:0,bot:0};
-let camHold=false, botHold=false, killMarkT=0, shakeT=0, hitMarkerT=0, hurtT=0, crossKick=0, gameT=0, dmgDirT=0, tipsT=0; const aimPoint=V3(), dmgFrom=V3();
+let clipHook=null, clipLists=null, clipSave=null, clipSet=null; /* set by the clip recorder (p6d_clip) */
+let camHold=false, botHold=false, botPuppet=false, killMarkT=0, shakeT=0, hitMarkerT=0, hurtT=0, crossKick=0, gameT=0, dmgDirT=0, tipsT=0; const aimPoint=V3(), dmgFrom=V3();
 const botLevel=()=> mode==='sandbox' ? (DIFF[sandbox.bot]||DIFF.easy) : (DIFF[settings.diff]||DIFF.easy);
 
 // ================= DOM =================
@@ -46,7 +47,7 @@ function show(el,on,disp){ el.style.display=on?(disp||'flex'):'none'; }
 function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!settings[k]; else el.value=String(settings[k]); });
   document.querySelectorAll('.k-shoot').forEach(e=>e.textContent=settings.swap?'RMB':'LMB'); document.querySelectorAll('.k-block').forEach(e=>e.textContent=settings.swap?'LMB':'RMB');
   document.querySelectorAll('[data-seg]').forEach(seg=>{ const k=seg.dataset.seg; const v=k==='sbot'?sandbox.bot:settings[k]; seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }); }
-document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
+document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='clips'&&clipSet) clipSet(settings.clips); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
   if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
@@ -98,7 +99,7 @@ function pollPad(dt){
   else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); startMatch(); } if(just(3)) openSandbox(); }
   else if(state==='matchover'){ if(just(0)||just(9)) startMatch(); }
   else if(state==='draft'){ const n=UI.cards.children.length; pad.navT-=dt; const dir=(b[15]||lx>0.5?1:0)-(b[14]||lx<-0.5?1:0); if(dir&&pad.navT<=0){ pad.focus=(pad.focus+dir+n)%n; pad.navT=0.25; SFX.hover(); } if(!dir) pad.navT=0; for(let i=0;i<n;i++){ const c=UI.cards.children[i]; c.classList.toggle('focus',i===pad.focus); } if(n&&UI.cards.children[pad.focus]._hover) UI.cards.children[pad.focus]._hover(); if(just(0)&&n) UI.cards.children[pad.focus].click(); }
-  else if(state==='fight'||state==='countdown'){ pad.lx=lx; pad.ly=ly; look(rx*3.1*dt*settings.sens, ry*2.1*dt*settings.sens); pad.fire=b[7]; if(just(7)){ firePressed=true; steerLatch=false; } if(just(6)||just(4)) pressBlock(); if(just(0)) jumpBuffer=0.15; if(just(1)||just(2)||just(5)) wantDash=true; if(just(9)) pause(); if(just(8)&&mode==='sandbox') openSandbox(); }
+  else if(state==='fight'||state==='countdown'){ pad.lx=lx; pad.ly=ly; look(rx*3.1*dt*settings.sens, ry*2.1*dt*settings.sens); pad.fire=b[7]; if(just(7)){ firePressed=true; steerLatch=false; } if(just(6)||just(4)) pressBlock(); if(just(0)) jumpBuffer=0.15; if(just(1)||just(2)||just(5)) wantDash=true; if(just(9)) pause(); if(just(8)){ if(mode==='sandbox') openSandbox(); else if(clipSave) clipSave(); } }
   pad.prev=b;
 }
 
@@ -150,7 +151,7 @@ UI.quitBtn.addEventListener('click',()=>toMenu());
 UI.menuBtn.addEventListener('click',()=>toMenu());
 UI.startBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); requestLock(); startMatch(); });
 UI.againBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on){ if(NET.role==='host'){ requestLock(); netHostStart(); } else toast('Waiting for the room host to start the rematch…','status'); return; } requestLock(); startMatch(); });
-function fillStats(statsEl,cardsEl){
+function fillStats(statsEl,cardsEl){ if(clipLists) clipLists();
   const acc=matchStats.shots? Math.round(matchStats.hits/matchStats.shots*100):0;
   statsEl.innerHTML=[['Score',mode==='sandbox'?'–':matchKind==='2v2'?player.score+' – '+(fighters.find(f=>f.side!==player.side)||{score:0}).score:matchKind==='ffa'?fighters.map(f=>f.score).join(' · '):score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
   cardsEl.innerHTML=stripHTML(player)||'<span class="none">No cards yet.</span>';
@@ -483,7 +484,7 @@ function update(dt){
   if(!player.dead){ updateFighterTimers(player,dt); moveFighter(player,dt,wish,jumpBuffer>0&&!steering); }
   for(const f of fighters){ if(f===player||f.active===false) continue;
     if(f.ctl==='net'){ if(!f.dead) updateFighterTimers(f,dt); netApplyRemote(f,dt); continue; }
-    if(f.dead) continue; updateFighterTimers(f,dt); if(botHold) continue;
+    if(f.dead) continue; updateFighterTimers(f,dt); if(botHold) continue; if(botPuppet){ moveFighter(f,dt,V3(),false); continue; } // scripted (trailer) bots: physics only
     const ai=!sbx||(sandbox.bot!=='dummy'&&sandbox.bot!=='none');
     if(ai&&enemies(f).length){ const bt=botThink(f,dt); moveFighter(f,dt,bt.wish,bt.jump); } else { if(!player.dead&&f===bot){ const fd=V3().subVectors(player.pos,bot.pos); bot.yaw=Math.atan2(-fd.x,-fd.z); } moveFighter(f,dt,V3(),false); } }
   separateFighters();
@@ -507,7 +508,7 @@ function dynFrame(raw){ // keep frames smooth: render a few % fewer pixels when 
   else if(avg<0.0175){ DYN.good++; if(DYN.good>=4&&dynRes<ceil){ nr=Math.min(ceil,dynRes+0.08); DYN.good=0; DYN.upAt=DYN.t; } } else DYN.good=0;
   if(Math.abs(nr-dynRes)>0.001){ DYN.pend=nr; DYN.cool=3.0; DYN.hist=(DYN.hist||[]).filter(x=>DYN.t-x<30); DYN.hist.push(DYN.t); if(DYN.hist.length>=4){ DYN.freeze=60; DYN.hist=[]; } } } // never more than a few changes in a row
 function dynApply(){ if(DYN.pendQ){ const q=DYN.pendQ; DYN.pendQ=null; applyQuality(q); } if(DYN.pend===undefined) return; dynRes=DYN.pend; DYN.pend=undefined; resize(); } // resize right before drawing, so the frame you see is never a blank (black) canvas
-function frame(now){ requestAnimationFrame(frame); const raw=Math.max(0,(now-last)/1000); const dt=Math.min(0.05,raw); last=now; frames++; if(autoRun){ pollPad(dt); update(dt); } dynApply(); if(doRender) drawFrame(); dynFrame(raw);
+function frame(now){ requestAnimationFrame(frame); if(clipHook) clipHook(0); const raw=Math.max(0,(now-last)/1000); const dt=Math.min(0.05,raw); last=now; frames++; if(autoRun){ pollPad(dt); update(dt); } dynApply(); if(doRender){ drawFrame(); if(clipHook) clipHook(1); } dynFrame(raw);
   // auto quality: drop detail when the frame rate stays low
   if(settings.quality==='auto'&&autoRun&&!paused&&!document.hidden&&raw<0.5){ perfAcc+=raw; perfN++; if(perfN>=90){ const avg=perfAcc/perfN; perfAcc=0; perfN=0; if(avg>0.028&&perfLevel<2){ perfLevel++; DYN.pendQ=perfLevel===1?'medium':'low'; toast('Graphics lowered to keep the game smooth. Change it in settings.','you'); } } } }
 menuRoster(); placeAtBases(); buildPips(); updateCardStrips(); updateHUD(); update(0.016);
@@ -515,7 +516,7 @@ show(UI.start,true,'block'); { const el=UI.loading; let gone=false; const go=()=
 requestAnimationFrame(frame);
 
 // debug / test hooks
-/*DEBUG-START*/window.__game={ dynFrame:(r)=>dynFrame(r), dynApply:()=>dynApply(), dynRes:()=>dynRes, sparks:()=>sparkPool, NET, tethers:()=>tethers, cardHTML:(id)=>cardHTML(id,0,0,false), magnetLand:(b,p)=>magnetLand(b,p), look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
+/*DEBUG-START*/window.__game={ dynFrame:(r)=>dynFrame(r), dynApply:()=>dynApply(), dynRes:()=>dynRes, sparks:()=>sparkPool, NET, tethers:()=>tethers, cardHTML:(id)=>cardHTML(id,0,0,false), magnetLand:(b,p)=>magnetLand(b,p), look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, puppet:v=>{ botPuppet=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
   step(dt){ update(dt); }, setAuto(v){ autoRun=v; testMode=!v; }, setRender(v){ doRender=v; }, startMatch, beginRound, startDraft, startSandbox, openSandbox, tryFire, tryBlock, firePellets, doBlock, give(f,id){ (f==='bot'?bot:player).addCard(id); updateCardStrips(); }, clearCards(){ player.setCards([]); bot.setCards([]); },
   forceFight(){ state='fight'; show(UI.countdown,false); }, keys, setMouse(v){ fireHeld=v; if(v){ firePressed=true; steerLatch=false; } }, block(){ pressBlock(); }, dash(){ wantDash=true; }, jump(){ jumpBuffer=0.15; }, get frames(){return frames;}, art:ART.svg, killFighter, hasLOS, render(){ drawFrame(); }, get paused(){return paused;}, pause, camera, explode, endMatch, coachPick, applyDamage, applyMap, applyQuality, toMenu, get map(){return curMapId;} };
 /*DEBUG-END*/

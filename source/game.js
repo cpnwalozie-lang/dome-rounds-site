@@ -34,7 +34,7 @@ const INK = 0x0b1026;
 const STUDIO={ open:false };
 const GPU_WEAK=(()=>{ try{ const c=document.createElement('canvas'), g=c.getContext('webgl'); const e=g&&g.getExtension('WEBGL_debug_renderer_info'); const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=g&&g.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(_){} return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic/i.test(r); }catch(e){ return false; } })(); // built-in laptop graphics // Dome Studio (cosmetic dome styles)
 const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
-const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false };
+const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false, clips:true };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
 function saveSettings(){ try{ localStorage.setItem('domeRoundsSettings4',JSON.stringify(settings)); }catch(e){} }
@@ -205,7 +205,7 @@ const SFX=(()=>{
       if(menu&&s%4===2) noise(0.03,0.02,7000,t,musicGain,'highpass');
       step++; nextT+=STEP; }
   }
-  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, songState:()=>SONG.el?{paused:SONG.el.paused,t:+SONG.el.currentTime.toFixed(1),ready:SONG.el.readyState,failed:SONG.failed,g:+SONG.g.gain.value.toFixed(2)}:{failed:SONG.failed,none:1}, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
+  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, tap:()=>{ const c=ctx; return c&&master?{ctx:c,node:master}:null; }, songState:()=>SONG.el?{paused:SONG.el.paused,t:+SONG.el.currentTime.toFixed(1),ready:SONG.el.readyState,failed:SONG.failed,g:+SONG.g.gain.value.toFixed(2)}:{failed:SONG.failed,none:1}, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
     music(m){ if(m==='fight'||m==='draft') m='off'; /* no music in matches at all: menu only */ ensure(); if(songOn(m)){ mode=m; if(timer){ clearInterval(timer); timer=null; } return; } if(mode===m&&(timer||m==='off')) return; mode=m; if(m!=='off'&&!timer&&ctx){ nextT=ctx.currentTime+0.08; timer=setInterval(sched,50); } if(m==='off'&&timer){ clearInterval(timer); timer=null; } },
     // ---- layered sound effects (see osc / nz below): a body, a transient and some air on each ----
     shoot:()=>{ osc('sine',190,55,0.11,0.375,{a:0.002}); osc('sawtooth',1500,240,0.15,0.138,{lp:[5200,700],q:3,rand:0.05,rv:0.25}); osc('square',2600,900,0.05,0.062,{rand:0.05}); nz(0.03,0.15,6000,3000,{ft:'highpass'}); },
@@ -2543,7 +2543,8 @@ let mode='match'; // match | sandbox
 const sandbox={cards:[],bot:'dummy',open:false};
 let paused=false, roundOverT=0, slowMoT=0, countdownT=0, countdownStep=0, roundNum=1, lastWinner=null, matchOverPending=false;
 const score={player:0,bot:0};
-let camHold=false, botHold=false, killMarkT=0, shakeT=0, hitMarkerT=0, hurtT=0, crossKick=0, gameT=0, dmgDirT=0, tipsT=0; const aimPoint=V3(), dmgFrom=V3();
+let clipHook=null, clipLists=null, clipSave=null, clipSet=null; /* set by the clip recorder (p6d_clip) */
+let camHold=false, botHold=false, botPuppet=false, killMarkT=0, shakeT=0, hitMarkerT=0, hurtT=0, crossKick=0, gameT=0, dmgDirT=0, tipsT=0; const aimPoint=V3(), dmgFrom=V3();
 const botLevel=()=> mode==='sandbox' ? (DIFF[sandbox.bot]||DIFF.easy) : (DIFF[settings.diff]||DIFF.easy);
 
 // ================= DOM =================
@@ -2561,7 +2562,7 @@ function show(el,on,disp){ el.style.display=on?(disp||'flex'):'none'; }
 function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!settings[k]; else el.value=String(settings[k]); });
   document.querySelectorAll('.k-shoot').forEach(e=>e.textContent=settings.swap?'RMB':'LMB'); document.querySelectorAll('.k-block').forEach(e=>e.textContent=settings.swap?'LMB':'RMB');
   document.querySelectorAll('[data-seg]').forEach(seg=>{ const k=seg.dataset.seg; const v=k==='sbot'?sandbox.bot:settings[k]; seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }); }
-document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
+document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='clips'&&clipSet) clipSet(settings.clips); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
   if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
@@ -2613,7 +2614,7 @@ function pollPad(dt){
   else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); startMatch(); } if(just(3)) openSandbox(); }
   else if(state==='matchover'){ if(just(0)||just(9)) startMatch(); }
   else if(state==='draft'){ const n=UI.cards.children.length; pad.navT-=dt; const dir=(b[15]||lx>0.5?1:0)-(b[14]||lx<-0.5?1:0); if(dir&&pad.navT<=0){ pad.focus=(pad.focus+dir+n)%n; pad.navT=0.25; SFX.hover(); } if(!dir) pad.navT=0; for(let i=0;i<n;i++){ const c=UI.cards.children[i]; c.classList.toggle('focus',i===pad.focus); } if(n&&UI.cards.children[pad.focus]._hover) UI.cards.children[pad.focus]._hover(); if(just(0)&&n) UI.cards.children[pad.focus].click(); }
-  else if(state==='fight'||state==='countdown'){ pad.lx=lx; pad.ly=ly; look(rx*3.1*dt*settings.sens, ry*2.1*dt*settings.sens); pad.fire=b[7]; if(just(7)){ firePressed=true; steerLatch=false; } if(just(6)||just(4)) pressBlock(); if(just(0)) jumpBuffer=0.15; if(just(1)||just(2)||just(5)) wantDash=true; if(just(9)) pause(); if(just(8)&&mode==='sandbox') openSandbox(); }
+  else if(state==='fight'||state==='countdown'){ pad.lx=lx; pad.ly=ly; look(rx*3.1*dt*settings.sens, ry*2.1*dt*settings.sens); pad.fire=b[7]; if(just(7)){ firePressed=true; steerLatch=false; } if(just(6)||just(4)) pressBlock(); if(just(0)) jumpBuffer=0.15; if(just(1)||just(2)||just(5)) wantDash=true; if(just(9)) pause(); if(just(8)){ if(mode==='sandbox') openSandbox(); else if(clipSave) clipSave(); } }
   pad.prev=b;
 }
 
@@ -2665,7 +2666,7 @@ UI.quitBtn.addEventListener('click',()=>toMenu());
 UI.menuBtn.addEventListener('click',()=>toMenu());
 UI.startBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); requestLock(); startMatch(); });
 UI.againBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on){ if(NET.role==='host'){ requestLock(); netHostStart(); } else toast('Waiting for the room host to start the rematch…','status'); return; } requestLock(); startMatch(); });
-function fillStats(statsEl,cardsEl){
+function fillStats(statsEl,cardsEl){ if(clipLists) clipLists();
   const acc=matchStats.shots? Math.round(matchStats.hits/matchStats.shots*100):0;
   statsEl.innerHTML=[['Score',mode==='sandbox'?'–':matchKind==='2v2'?player.score+' – '+(fighters.find(f=>f.side!==player.side)||{score:0}).score:matchKind==='ffa'?fighters.map(f=>f.score).join(' · '):score.player+' – '+score.bot],['Damage dealt',Math.round(matchStats.dmg)],['Damage taken',Math.round(matchStats.taken)],['Accuracy',acc+'%'],['Shots blocked',matchStats.blocked],['Cards',player.cards.length]].map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
   cardsEl.innerHTML=stripHTML(player)||'<span class="none">No cards yet.</span>';
@@ -2998,7 +2999,7 @@ function update(dt){
   if(!player.dead){ updateFighterTimers(player,dt); moveFighter(player,dt,wish,jumpBuffer>0&&!steering); }
   for(const f of fighters){ if(f===player||f.active===false) continue;
     if(f.ctl==='net'){ if(!f.dead) updateFighterTimers(f,dt); netApplyRemote(f,dt); continue; }
-    if(f.dead) continue; updateFighterTimers(f,dt); if(botHold) continue;
+    if(f.dead) continue; updateFighterTimers(f,dt); if(botHold) continue; if(botPuppet){ moveFighter(f,dt,V3(),false); continue; } // scripted (trailer) bots: physics only
     const ai=!sbx||(sandbox.bot!=='dummy'&&sandbox.bot!=='none');
     if(ai&&enemies(f).length){ const bt=botThink(f,dt); moveFighter(f,dt,bt.wish,bt.jump); } else { if(!player.dead&&f===bot){ const fd=V3().subVectors(player.pos,bot.pos); bot.yaw=Math.atan2(-fd.x,-fd.z); } moveFighter(f,dt,V3(),false); } }
   separateFighters();
@@ -3022,7 +3023,7 @@ function dynFrame(raw){ // keep frames smooth: render a few % fewer pixels when 
   else if(avg<0.0175){ DYN.good++; if(DYN.good>=4&&dynRes<ceil){ nr=Math.min(ceil,dynRes+0.08); DYN.good=0; DYN.upAt=DYN.t; } } else DYN.good=0;
   if(Math.abs(nr-dynRes)>0.001){ DYN.pend=nr; DYN.cool=3.0; DYN.hist=(DYN.hist||[]).filter(x=>DYN.t-x<30); DYN.hist.push(DYN.t); if(DYN.hist.length>=4){ DYN.freeze=60; DYN.hist=[]; } } } // never more than a few changes in a row
 function dynApply(){ if(DYN.pendQ){ const q=DYN.pendQ; DYN.pendQ=null; applyQuality(q); } if(DYN.pend===undefined) return; dynRes=DYN.pend; DYN.pend=undefined; resize(); } // resize right before drawing, so the frame you see is never a blank (black) canvas
-function frame(now){ requestAnimationFrame(frame); const raw=Math.max(0,(now-last)/1000); const dt=Math.min(0.05,raw); last=now; frames++; if(autoRun){ pollPad(dt); update(dt); } dynApply(); if(doRender) drawFrame(); dynFrame(raw);
+function frame(now){ requestAnimationFrame(frame); if(clipHook) clipHook(0); const raw=Math.max(0,(now-last)/1000); const dt=Math.min(0.05,raw); last=now; frames++; if(autoRun){ pollPad(dt); update(dt); } dynApply(); if(doRender){ drawFrame(); if(clipHook) clipHook(1); } dynFrame(raw);
   // auto quality: drop detail when the frame rate stays low
   if(settings.quality==='auto'&&autoRun&&!paused&&!document.hidden&&raw<0.5){ perfAcc+=raw; perfN++; if(perfN>=90){ const avg=perfAcc/perfN; perfAcc=0; perfN=0; if(avg>0.028&&perfLevel<2){ perfLevel++; DYN.pendQ=perfLevel===1?'medium':'low'; toast('Graphics lowered to keep the game smooth. Change it in settings.','you'); } } } }
 menuRoster(); placeAtBases(); buildPips(); updateCardStrips(); updateHUD(); update(0.016);
@@ -3030,7 +3031,7 @@ show(UI.start,true,'block'); { const el=UI.loading; let gone=false; const go=()=
 requestAnimationFrame(frame);
 
 // debug / test hooks
-/*DEBUG-START*/window.__game={ dynFrame:(r)=>dynFrame(r), dynApply:()=>dynApply(), dynRes:()=>dynRes, sparks:()=>sparkPool, NET, tethers:()=>tethers, cardHTML:(id)=>cardHTML(id,0,0,false), magnetLand:(b,p)=>magnetLand(b,p), look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
+/*DEBUG-START*/window.__game={ dynFrame:(r)=>dynFrame(r), dynApply:()=>dynApply(), dynRes:()=>dynRes, sparks:()=>sparkPool, NET, tethers:()=>tethers, cardHTML:(id)=>cardHTML(id,0,0,false), magnetLand:(b,p)=>magnetLand(b,p), look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, puppet:v=>{ botPuppet=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
   step(dt){ update(dt); }, setAuto(v){ autoRun=v; testMode=!v; }, setRender(v){ doRender=v; }, startMatch, beginRound, startDraft, startSandbox, openSandbox, tryFire, tryBlock, firePellets, doBlock, give(f,id){ (f==='bot'?bot:player).addCard(id); updateCardStrips(); }, clearCards(){ player.setCards([]); bot.setCards([]); },
   forceFight(){ state='fight'; show(UI.countdown,false); }, keys, setMouse(v){ fireHeld=v; if(v){ firePressed=true; steerLatch=false; } }, block(){ pressBlock(); }, dash(){ wantDash=true; }, jump(){ jumpBuffer=0.15; }, get frames(){return frames;}, art:ART.svg, killFighter, hasLOS, render(){ drawFrame(); }, get paused(){return paused;}, pause, camera, explode, endMatch, coachPick, applyDamage, applyMap, applyQuality, toMenu, get map(){return curMapId;} };
 /*DEBUG-END*/
@@ -3048,7 +3049,7 @@ requestAnimationFrame(frame);
   const LKEY='dr_touch_layout'; let lay={s:1,p:{}}; try{ const j=JSON.parse(localStorage.getItem(LKEY)||'null'); if(j&&typeof j==='object') lay={s:clamp(+j.s||1,0.8,1.5),p:j.p&&typeof j.p==='object'?j.p:{}}; }catch(e){}
   const saveLay=()=>{ try{ localStorage.setItem(LKEY,JSON.stringify(lay)); }catch(e){} };
   function applyLay(){ ui.style.setProperty('--ts',lay.s); const custom=Object.keys(lay.p).length>0; ui.classList.toggle('custom',custom); const W=window.innerWidth, H=window.innerHeight;
-    for(const k in B){ const el=B[k], q=lay.p[k]; if(custom&&q&&k!=='pause'&&k!=='powers'){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; } else if(custom&&q){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; el.style.transform='translate(-50%,-50%)'; } else { el.style.left=''; el.style.top=''; el.style.transform=''; } }
+    for(const k in B){ const el=B[k], q=lay.p[k]; if(custom&&q&&k!=='pause'&&k!=='powers'&&k!=='clip'){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; } else if(custom&&q){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; el.style.transform='translate(-50%,-50%)'; } else { el.style.left=''; el.style.top=''; el.style.transform=''; } }
     const q=lay.p.stick; if(custom&&q){ ui.style.setProperty('--skx',(q[0]*W)+'px'); ui.style.setProperty('--sky',(q[1]*H)+'px'); } else { ui.style.removeProperty('--skx'); ui.style.removeProperty('--sky'); } }
   applyLay(); window.addEventListener('resize',applyLay);
   let editing=false, grab=null;
@@ -3087,7 +3088,8 @@ requestAnimationFrame(frame);
     else if(k==='block'){ if(remoteCtl.b){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } pressBlock(); }
     else if(k==='dash') wantDash=true;
     else if(k==='pause'){ if(state==='fight'||state==='countdown') pause(); }
-    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight') openSandbox(); } }
+    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight') openSandbox(); }
+    else if(k==='clip'){ if(clipSave) clipSave(); } }
   function release(id){ for(const k in B){ if(B[k]._id===id){ B[k].classList.remove('down'); B[k]._id=null; } } if(st.fire&&st.fire.id===id){ st.fire=null; TOUCH.fire=false; } if(st.stick&&st.stick.id===id) resetStick(); if(st.look&&st.look.id===id) st.look=null; }
   ui.addEventListener('touchstart',e=>{ if(editStart(e)) return; if(!st.active) return; e.preventDefault(); SFX.unlock();
     for(const t of e.changedTouches){ const el=t.target&&t.target.closest?t.target.closest('[data-t]'):null;
@@ -3153,6 +3155,156 @@ requestAnimationFrame(frame);
   (function tick(){ requestAnimationFrame(tick); if(!STUDIO.open||!player) return; if(state!=='menu'){ close(); return; } player.domePreview=true; player.previewFlash=Math.max(0,(player.previewFlash||0)-0.03); if(performance.now()-lastHit>2600) pop(); })();
   STUDIO.close=close;
 })();
+
+// ================= CLIPS: an always-on replay buffer =================
+// While you play, the last ~22s of the game view are kept as compressed video (WebCodecs, hardware encoder when there is one)
+// and the game sound as raw samples. Press C (or the clip button) and the last 20 seconds are packed into an .mp4 straight away.
+// Pauses, card picks and the menu are cut out, so a clip is always 20s of actual fighting.
+const CLIP=(()=>{
+  const LEN=20, KEEP=21.5, FPS=30;
+  const OK=typeof VideoEncoder==='function'&&typeof VideoFrame==='function'&&typeof EncodedVideoChunk==='function'&&typeof Mp4Muxer!=='undefined';
+  let enc=null, kind='', decCfg=null, W=0, H=0, bitrate=0, starting=false, dead=!OK;
+  const cv=document.createElement('canvas'); let cx=null;
+  let chunks=[], achunks=[], segs=[], live=false, rec=0, lastCapR=-1, lastKeyR=-99, minTs=0, nCap=0, needReset=false;
+  let clock=()=>performance.now()/1000, actx=null, tapNode=null, tapTried=false, sr=48000;
+  let busy=false, aKind=null, aCodec=null, aenc=null, aDecCfg=null, aNext=null; const clips=[];
+  const btn=document.getElementById('clipBtn'), tBtn=document.getElementById('tClip'), flashEl=document.getElementById('clipFlash');
+
+  const wanted=()=>settings.clips&&!paused&&(state==='fight'||state==='countdown'||state==='roundover')&&document.visibilityState==='visible';
+  function sizeFor(){ const dpr=Math.min(2,window.devicePixelRatio||1), iw=window.innerWidth*dpr, ih=window.innerHeight*dpr;
+    const L=(GPU_WEAK||settings.quality==='low')?960:1280, S=L*0.5625; const k=Math.min(1,L/Math.max(iw,ih),S/Math.min(iw,ih));
+    return [Math.max(2,Math.round(iw*k/2)*2), Math.max(2,Math.round(ih*k/2)*2)]; }
+  function setUI(){ const on=OK&&settings.clips; if(btn){ btn.style.display=on&&!TOUCH.on?'':'none'; btn.classList.toggle('live',live); btn.classList.toggle('busy',busy); } if(tBtn) tBtn.classList.toggle('off',!on); }
+
+  // ---- encoder ----
+  async function start(){ if(starting||enc||dead) return; starting=true;
+    try{ [W,H]=sizeFor(); cv.width=W; cv.height=H; cx=cv.getContext('2d',{alpha:false}); bitrate=W*H>700000?6e6:3.5e6;
+      const tries=[['avc1.42E01F','avc'],['avc1.4D401F','avc'],['avc1.640028','avc'],['vp09.00.31.08','vp9'],['av01.0.05M.08','av1']];
+      let cfg=null;
+      for(const [codec,k] of tries){ const c={codec,width:W,height:H,bitrate,framerate:FPS,latencyMode:'realtime'}; if(k==='avc') c.avc={format:'avc'};
+        try{ const s=await VideoEncoder.isConfigSupported(c); if(s&&s.supported){ cfg=c; kind=k; break; } }catch(e){} }
+      if(!cfg){ dead=true; setUI(); return; }
+      enc=new VideoEncoder({ output:(ch,meta)=>{ if(meta&&meta.decoderConfig) decCfg=meta.decoderConfig; if(ch.timestamp<minTs) return; if(!chunks.length&&ch.type!=='key') return; chunks.push(ch); prune(); },
+        error:e=>{ console.warn('clip encoder',e); stop(); dead=true; setUI(); } });
+      enc.configure(cfg); lastKeyR=-99; await tap();
+    }catch(e){ console.warn('clip start',e); dead=true; enc=null; }
+    finally{ starting=false; setUI(); } }
+  function stop(){ try{ if(enc&&enc.state!=='closed') enc.close(); }catch(e){} enc=null; decCfg=null; chunks=[]; segs=[]; live=false; stopAudio(); setUI(); }
+  function reset(){ minTs=Math.round((rec+0.5)*1e6); rec+=0.5; chunks=[]; segs=[]; lastKeyR=-99; stopAudio(); startAudio(); }
+  function prune(){ if(!chunks.length) return; const cut=chunks[chunks.length-1].timestamp-KEEP*1e6; let k=0;
+    for(let i=1;i<chunks.length&&chunks[i].timestamp<=cut;i++) if(chunks[i].type==='key') k=i;
+    if(k>0) chunks.splice(0,k); const a0=chunks[0].timestamp-3e5; let j=0; while(j<achunks.length&&achunks[j].timestamp<a0) j++; if(j) achunks.splice(0,j); }
+
+  // ---- game sound: a tiny AudioWorklet copies the mixed sound effects into a buffer, stamped with the audio clock ----
+  async function tap(){ if(tapTried) return; tapTried=true; const t=SFX.tap&&SFX.tap(); if(!t||!t.ctx.audioWorklet||t.ctx.state!=='running'){ tapTried=false; return; }
+    try{ const code="registerProcessor('clip-tap',class extends AudioWorkletProcessor{constructor(){super();this.n=0;this.f0=0;this.a=new Float32Array(4096);this.b=new Float32Array(4096);}process(i){const x=i[0];if(x&&x.length){const L=x[0],R=x[1]||x[0];if(!this.n)this.f0=currentFrame;this.a.set(L,this.n);this.b.set(R,this.n);this.n+=L.length;if(this.n>=4096){this.port.postMessage({f:this.f0,l:this.a,r:this.b},[this.a.buffer,this.b.buffer]);this.a=new Float32Array(4096);this.b=new Float32Array(4096);this.n=0;}}return true;}})";
+      const url=URL.createObjectURL(new Blob([code],{type:'application/javascript'})); await t.ctx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
+      tapNode=new AudioWorkletNode(t.ctx,'clip-tap',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]}); const z=t.ctx.createGain(); z.gain.value=0;
+      t.node.connect(tapNode); tapNode.connect(z); z.connect(t.ctx.destination); tapNode.port.onmessage=e=>onPCM(e.data);
+      actx=t.ctx; sr=actx.sampleRate; clock=()=>actx.currentTime; segs=[]; live=false; /* switched clocks: start a fresh stretch */ await startAudio();
+    }catch(e){ tapNode=null; actx=null; /* no audio worklet here (e.g. opened as a local file): clips stay silent */ } }
+  function untap(){ try{ if(tapNode){ tapNode.port.onmessage=null; tapNode.disconnect(); const t=SFX.tap&&SFX.tap(); if(t) t.node.disconnect(tapNode); } }catch(e){} tapNode=null; actx=null; tapTried=false; stopAudio(); clock=()=>performance.now()/1000; }
+  function onPCM(d){ if(!enc) return; const n=d.l.length, t0=d.f/sr, t1=t0+n/sr;
+    for(const s of segs){ const c1=s.c1===null?Infinity:s.c1; if(t1<=s.c0||t0>=c1) continue;
+      const a=Math.max(0,Math.round((s.c0-t0)*sr)), b=Math.min(n,Math.round((c1-t0)*sr)); if(b<=a) continue;
+      feed(s.r0+(t0+a/sr-s.c0), d.l.subarray(a,b), d.r.subarray(a,b)); } }
+  // the sound is compressed as it comes in (a few small packets a frame), so saving a clip never has a big job to do
+  async function startAudio(){ if(!actx||aenc||typeof AudioEncoder!=='function'||typeof AudioData!=='function') return;
+    if(aKind===null){ aKind=''; for(const [codec,k] of [['mp4a.40.2','aac'],['opus','opus']]){ try{ const s=await AudioEncoder.isConfigSupported({codec,sampleRate:sr,numberOfChannels:2,bitrate:128000}); if(s&&s.supported){ aKind=k; aCodec=codec; break; } }catch(e){} } }
+    if(!aKind||aenc||!actx) return;
+    try{ const a=new AudioEncoder({ output:(c,m)=>{ if(a!==aenc) return; if(m&&m.decoderConfig) aDecCfg=m.decoderConfig; if(c.timestamp<minTs) return; achunks.push(c); },
+        error:e=>{ console.warn('clip audio',e); if(a===aenc) stopAudio(); } });
+      a.configure({codec:aCodec,sampleRate:sr,numberOfChannels:2,bitrate:128000}); aenc=a; aNext=null; }catch(e){ aenc=null; } }
+  function stopAudio(){ const a=aenc; aenc=null; aDecCfg=null; achunks=[]; aNext=null; try{ if(a&&a.state!=='closed') a.close(); }catch(e){} }
+  function feed(t,L,R){ if(!aenc||aenc.state!=='configured') return; if(aNext===null) aNext=t;
+    let off=Math.round((t-aNext)*sr);
+    if(off>sr*2){ aNext=t; off=0; }
+    while(off>0){ const n=Math.min(off,4096); enc1(new Float32Array(n),new Float32Array(n)); off-=n; }   /* small gap: fill with silence so the sound never drifts */
+    if(off<0){ L=L.subarray(-off); R=R.subarray(-off); }                                               /* small overlap: drop it */
+    if(L.length) enc1(L,R); }
+  function enc1(L,R){ const n=L.length, buf=new Float32Array(n*2); buf.set(L,0); buf.set(R,n);
+    try{ const ad=new AudioData({format:'f32-planar',sampleRate:sr,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(aNext*1e6),data:buf}); aenc.encode(ad); ad.close(); }catch(e){}
+    aNext+=n/sr; }
+
+  // ---- overlay drawn into every clip frame: both health bars, the round, and the site name ----
+  function rr(x,y,w,h,r){ cx.beginPath(); cx.moveTo(x+r,y); cx.arcTo(x+w,y,x+w,y+h,r); cx.arcTo(x+w,y+h,x,y+h,r); cx.arcTo(x,y+h,x,y,r); cx.arcTo(x,y,x+w,y,r); cx.closePath(); }
+  function bar(x,y,w,h,f,col,name,right){ const k=clamp(f.hp/Math.max(1,f.maxHp()),0,1);
+    cx.fillStyle='rgba(20,8,31,.72)'; rr(x,y,w,h,h/2); cx.fill(); cx.fillStyle=col; if(k>0){ const ww=Math.max(h,w*k); rr(right?x+w-ww:x,y,ww,h,h/2); cx.fill(); }
+    cx.font=`${Math.round(h*1.15)}px "Bungee","Lilita One",Impact,sans-serif`; cx.textAlign=right?'right':'left'; cx.textBaseline='bottom'; cx.lineWidth=Math.max(2,h*0.28); cx.strokeStyle='#14081f'; cx.fillStyle='#fff';
+    const tx=right?x+w-h*0.2:x+h*0.2; cx.strokeText(name,tx,y-h*0.25); cx.fillText(name,tx,y-h*0.25); }
+  function overlay(){ const u=H/720, m=18*u, bh=Math.round(14*u), bw=Math.round(Math.min(W*0.3,300*u)); cx.save();
+    if(state==='fight'||state==='countdown'||state==='roundover'){
+      bar(m,m+22*u,bw,bh,player,'#19c8ff',(player.name||'YOU').toUpperCase(),false);
+      if(matchKind==='1v1'||mode==='sandbox'){ if(bot&&bot.mesh&&fighters.includes(bot)) bar(W-m-bw,m+22*u,bw,bh,bot,'#ff7a1a',(bot.name||'BOT').toUpperCase(),true);
+        if(mode!=='sandbox'){ const s=`${score.player} – ${score.bot}`; cx.font=`${Math.round(26*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.textAlign='center'; cx.textBaseline='top'; cx.lineWidth=5*u; cx.strokeStyle='#14081f'; cx.fillStyle='#fff'; cx.strokeText(s,W/2,m); cx.fillText(s,W/2,m);
+          cx.font=`${Math.round(13*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=4*u; const r='ROUND '+roundNum; cx.strokeText(r,W/2,m+30*u); cx.fillStyle='#ffd23d'; cx.fillText(r,W/2,m+30*u); } } }
+    cx.textAlign='left'; cx.textBaseline='alphabetic'; cx.globalAlpha=0.92; cx.font=`${Math.round(26*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=5*u; cx.strokeStyle='#14081f';
+    const y=H-m-20*u; cx.strokeText('DOME ROUNDS',m,y); cx.fillStyle='#fff'; cx.fillText('DOME ROUNDS',m,y);
+    cx.font=`700 ${Math.round(16*u)}px system-ui,"Segoe UI",sans-serif`; cx.lineWidth=4*u; cx.strokeText('dome-rounds.pages.dev',m+1*u,y+20*u); cx.fillStyle='#35e9ff'; cx.fillText('dome-rounds.pages.dev',m+1*u,y+20*u);
+    cx.restore(); }
+
+  // ---- called right after each frame is drawn ----
+  let tFrame=0;
+  function frame(ph){ if(ph===0){ tFrame=clock(); return; } /* time the frame's game step began: the sounds it starts are stamped with the same clock */
+    if(dead) return; if(state==='menu') needReset=true;
+    if(!wanted()){ if(live){ live=false; const s=segs[segs.length-1]; if(s&&s.c1===null) s.c1=clock(); setUI(); } return; }
+    if(!enc){ start(); return; }
+    if(needReset){ needReset=false; reset(); if(!actx) tap(); }
+    const t=tFrame||clock();
+    if(!live){ live=true; segs.push({c0:t,r0:rec+1/FPS,c1:null}); if(segs.length>6) segs.shift(); setUI(); }
+    const s=segs[segs.length-1], r=s.r0+(t-s.c0);
+    if(r-lastCapR<1/FPS-0.004||r<=rec) return;
+    if(enc.encodeQueueSize>3) return;                                  // the encoder is behind: skip a frame rather than slow the game down
+    if((++nCap)%60===0){ const [w,h]=sizeFor(); if(Math.abs(w/h-W/H)>0.02){ stop(); return; } }
+    try{ cx.drawImage(renderer.domElement,0,0,W,H); overlay();
+      const vf=new VideoFrame(cv,{timestamp:Math.round(r*1e6),duration:Math.round(1e6/FPS)}); const key=r-lastKeyR>=1; enc.encode(vf,{keyFrame:key}); vf.close();
+      if(key) lastKeyR=r; lastCapR=r; rec=r;
+    }catch(e){ console.warn('clip frame',e); stop(); dead=true; setUI(); } }
+
+  // ---- pack the last 20 seconds into an .mp4 ----
+  async function save(){ if(!OK||!settings.clips) return; if(busy) return;
+    if(!enc||!decCfg||chunks.length<2||chunks[chunks.length-1].timestamp-chunks[0].timestamp<1e6){ toast('Play a few seconds first, then clip it'); return; }
+    busy=true; setUI(); shutter();
+    try{ const last=chunks[chunks.length-1].timestamp, from=last-LEN*1e6; let k=0; for(let i=0;i<chunks.length;i++) if(chunks[i].type==='key'&&chunks[i].timestamp<=from+5e4) k=i;
+      let t0=chunks[k].timestamp, as=aDecCfg?achunks.filter(c=>c.timestamp>=t0&&c.timestamp<=last+5e4):[];
+      if(as.length&&as[0].timestamp-t0>3e4){ /* the sound starts late (it was still warming up): start the clip at the next key frame after it, so picture and sound stay in sync */
+        let k2=-1; for(let i=k;i<chunks.length;i++) if(chunks[i].type==='key'&&chunks[i].timestamp>=as[0].timestamp){ k2=i; break; }
+        if(k2>=0&&last-chunks[k2].timestamp>=2e6){ k=k2; t0=chunks[k].timestamp; as=as.filter(c=>c.timestamp>=t0); } else as=[]; }
+      const vs=chunks.slice(k), dur=(last-t0)/1e6+1/FPS, au=as.length>2;
+      const target=new Mp4Muxer.ArrayBufferTarget();
+      const mux=new Mp4Muxer.Muxer({target, video:{codec:kind,width:W,height:H}, audio:au?{codec:aKind,numberOfChannels:2,sampleRate:sr}:undefined, fastStart:'in-memory', firstTimestampBehavior:'cross-track-offset'});
+      vs.forEach((c,i)=>{ const d=new Uint8Array(c.byteLength); c.copyTo(d); const nx=vs[i+1]; mux.addVideoChunkRaw(d,c.type,c.timestamp-t0,nx?nx.timestamp-c.timestamp:Math.round(1e6/FPS),i===0?{decoderConfig:decCfg}:undefined); });
+      if(au) as.forEach((c,i)=>{ const d=new Uint8Array(c.byteLength); c.copyTo(d); const nx=as[i+1]; mux.addAudioChunkRaw(d,c.type,c.timestamp-t0,nx?nx.timestamp-c.timestamp:(c.duration||2e4),i===0?{decoderConfig:aDecCfg}:undefined); });
+      mux.finalize(); const blob=new Blob([target.buffer],{type:'video/mp4'});
+      const d=new Date(), p=v=>String(v).padStart(2,'0'); const name=`dome-rounds-clip-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.mp4`;
+      clips.unshift({url:URL.createObjectURL(blob),blob,name,dur}); while(clips.length>6) URL.revokeObjectURL(clips.pop().url);
+      renderLists();
+      if(!TOUCH.on){ download(clips[0]); toast('<b>CLIP SAVED</b> · last '+Math.min(LEN,Math.round(dur))+'s, check your downloads','you'); }
+      else toast('<b>CLIP SAVED</b> · pause to share it','you');
+      try{ SFX.confirm(); }catch(e){}
+    }catch(e){ console.warn('clip save',e); toast('Could not save that clip'); }
+    finally{ busy=false; setUI(); } }
+  function download(c){ const a=document.createElement('a'); a.href=c.url; a.download=c.name; document.body.appendChild(a); a.click(); a.remove(); }
+  async function share(c){ try{ const f=new File([c.blob],c.name,{type:'video/mp4'}); if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'Dome Rounds clip',text:'dome-rounds.pages.dev'}); return; } }catch(e){ if(e&&e.name==='AbortError') return; } download(c); }
+  function shutter(){ if(!flashEl) return; flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go'); }
+
+  // ---- clip lists (pause menu + match over screen) ----
+  function renderLists(){ for(const el of document.querySelectorAll('.clipList')){
+      if(!OK){ el.innerHTML='<p class="clipNote">Clips need a newer browser (Chrome, Edge, Safari 17 or Firefox 130 and up).</p>'; continue; }
+      if(!settings.clips){ el.innerHTML='<p class="clipNote">The clip recorder is off. Turn it on in settings.</p>'; continue; }
+      const how=TOUCH.on?'Tap the clip button':'Press <kbd>C</kbd>';
+      el.innerHTML=(clips.length?'':`<p class="clipNote">${how} during a fight to save the last 20 seconds.</p>`)+clips.map((c,i)=>`<div class="clipItem"><video src="${c.url}" muted playsinline preload="metadata" controls></video><div class="cb"><b>${Math.round(c.dur)}s clip</b><button class="btn sec" type="button" data-cs="${i}">SHARE</button><button class="btn sec" type="button" data-cd="${i}">SAVE</button></div></div>`).join('')
+        +(state==='fight'||state==='countdown'||state==='roundover'?`<button class="btn sec clipNow" type="button">SAVE LAST 20s</button>`:''); } }
+  document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-cs],[data-cd],.clipNow,#clipBtn'); if(!t) return;
+    if(t.dataset.cs!==undefined){ const c=clips[+t.dataset.cs]; if(c) share(c); }
+    else if(t.dataset.cd!==undefined){ const c=clips[+t.dataset.cd]; if(c) download(c); }
+    else save().then(renderLists); });
+  window.addEventListener('keydown',e=>{ if(e.code!=='KeyC'||e.repeat||e.ctrlKey||e.metaKey||e.altKey) return; const tg=e.target&&e.target.tagName; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT') return; if(state==='menu') return; save(); });
+  setUI(); renderLists();
+  return { frame, save, setUI, renderLists, setOn:v=>{ if(!v){ stop(); untap(); } setUI(); renderLists(); }, get ok(){ return OK&&!dead; }, info:()=>({a0:achunks[0]&&achunks[0].timestamp,aN:achunks.length&&achunks[achunks.length-1].timestamp,busy,OK,dead,kind,aKind,W,H,live,rec,chunks:chunks.length,ach:achunks.length,clips:clips.length,audio:!!actx,first:chunks[0]&&chunks[0].timestamp,last:chunks.length&&chunks[chunks.length-1].timestamp}), last:()=>clips[0] };
+})();
+clipHook=CLIP.frame; clipLists=CLIP.renderLists; clipSave=CLIP.save; clipSet=CLIP.setOn;
+/*DEBUG-START*/window.__clip=CLIP;/*DEBUG-END*/
 
 // ================= ONLINE 1v1: create a room, share the code, fight =================
 // Each player owns their own fighter's movement (instant feel); the room creator (host) is the referee for HP, knockouts,

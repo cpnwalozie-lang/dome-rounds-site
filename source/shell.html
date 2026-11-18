@@ -436,7 +436,7 @@
   /* small top buttons, clear of the thumbs */
   #touchUI .tsm{width:44px;height:44px;border-radius:12px;left:calc(var(--sl) + 10px);top:calc(var(--st) + 10px)}
   #touchUI .tsm svg{width:56%;height:56%}
-  #tPowers{display:none!important;top:calc(var(--st) + 62px)!important}
+  #tPowers{display:none!important}
   #touchUI.sbx #tPowers{display:grid!important}
   #touchUI.dead #tRight,#touchUI.dead #tStick{display:none}
   /* left thumb: floating stick (ghost shows where it rests) */
@@ -571,6 +571,31 @@
   @media (max-height:520px){ .st-panel{gap:1.2vh;width:min(500px,56vw)} .st-panel{width:min(560px,64vw)} .st-grid{gap:4px;grid-template-columns:repeat(8,minmax(0,1fr))} .st-tile{padding:4px 2px 3px;font-size:9px;gap:3px;min-width:0} .st-tile b{font-size:8.5px;overflow:hidden;text-overflow:clip;max-width:100%} .dthumb{width:90%;max-width:58px} .st-head .title{font-size:min(8vh,4.4vw,40px)} .st-head p{display:none} .st-info b{font-size:20px} .sw{width:26px;height:26px} }
   @media (prefers-reduced-motion:reduce){ .dthumb,.dthumb i,.mdome{animation:none!important} .st-panel{transition:none} }
 </style>
+<style>
+  /* ================= Clips ================= */
+  #clipBtn{position:absolute;left:18px;top:14px;display:flex;align-items:center;gap:7px;pointer-events:auto;cursor:pointer;background:rgba(20,8,31,.78);color:var(--cream,#fff);border:2px solid var(--edge,#4a2a80);font:400 13px/1 var(--disp);letter-spacing:.04em;padding:6px 8px 6px 10px}
+  #clipBtn i{width:9px;height:9px;border-radius:50%;background:#8a83a8}
+  #clipBtn.live i{background:#ff2e88;box-shadow:0 0 0 0 rgba(255,46,136,.6);animation:clipDot 1.6s ease-out infinite}
+  #clipBtn kbd{font-size:11px;min-width:20px;padding:1px 6px 2px;box-shadow:0 2px 0 #8d98b8;margin:0}
+  #clipBtn.busy span::after{content:'…'}
+  #clipBtn:hover{border-color:var(--cy)}
+  @keyframes clipDot{0%{box-shadow:0 0 0 0 rgba(255,46,136,.6)}70%{box-shadow:0 0 0 7px rgba(255,46,136,0)}100%{box-shadow:0 0 0 0 rgba(255,46,136,0)}}
+  #clipFlash{position:fixed;inset:0;z-index:8999;pointer-events:none;border:0 solid #fff;opacity:0}
+  #clipFlash.go{animation:clipShut .45s ease-out}
+  @keyframes clipShut{0%{opacity:1;border-width:14px;background:rgba(255,255,255,.22)}100%{opacity:0;border-width:0;background:rgba(255,255,255,0)}}
+  .clipList{display:flex;flex-direction:column;gap:8px;max-height:min(42vh,330px);overflow-y:auto}
+  .clipItem{display:flex;gap:10px;align-items:center}
+  .clipItem video{width:min(190px,30vw);aspect-ratio:16/9;background:#000;border:2px solid var(--edge,#4a2a80);flex:none}
+  .clipItem .cb{display:flex;flex-direction:column;gap:7px;align-items:flex-start}
+  .clipItem .cb b{font-family:var(--disp);font-weight:400;font-size:13px;color:var(--cy)}
+  .clipList .btn.sec{font-size:13px;padding:5px 12px 4px}
+  .clipNote{font-size:14px;opacity:.85}
+  .clipNow{align-self:flex-start}
+  #touchUI #tClip{top:calc(var(--st) + 62px)}
+  #touchUI #tClip.off{display:none!important}
+  #touchUI #tPowers{top:calc(var(--st) + 114px)}
+  body.touch #clipBtn{display:none!important}
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -603,6 +628,7 @@
     <div class="strip" id="cardsBot"></div>
   </div>
   <div id="toasts"></div>
+  <button id="clipBtn" type="button" title="Save the last 20 seconds (C)"><i></i><span>CLIP</span><kbd>C</kbd></button>
   <div id="youPanel">
     <div class="strip" id="cardsYou"></div>
     <div class="row"><div class="av you" id="youFace"></div><div class="col"><div class="nm you"><span>YOU</span><span id="statusYou"></span></div><div class="bar"><div class="ghost" id="hpYouGhost"></div><div class="fill ok" id="hpYou"></div><div class="txt" id="hpYouT"></div></div><div id="ammo"></div></div></div>
@@ -623,10 +649,12 @@
 </div>
 <div id="floats" class="layer"></div>
 <div id="fpsMeter" aria-hidden="true"></div>
+<div id="clipFlash" aria-hidden="true"></div>
 <div id="touchUI" aria-hidden="true">
   <div id="tStick"><i></i></div>
   <div class="tb tsm" id="tPause" data-t="pause" role="button" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></div>
   <div class="tb tsm" id="tPowers" data-t="powers" role="button" aria-label="Change powers"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="9" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2.4" transform="rotate(-10 8 11)"/><rect x="11" y="6" width="9" height="13" rx="2" fill="currentColor" transform="rotate(8 15 12)"/></svg></div>
+  <div class="tb tsm" id="tClip" data-t="clip" role="button" aria-label="Save the last 20 seconds"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 10.5l5-3v9l-5-3z" fill="currentColor"/><circle cx="9.5" cy="12" r="2.6" fill="#ff2e88"/></svg></div>
   <div id="tRight">
     <div class="tb" id="tFire" data-t="fire" role="button" aria-label="Fire"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><b></b></div>
     <div class="tb" id="tJump" data-t="jump" role="button" aria-label="Jump"><svg viewBox="0 0 24 24"><path d="M12 4l7 8h-4.5v7h-5v-7H5z" fill="currentColor"/></svg><em>JUMP</em></div>
@@ -642,7 +670,7 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.8.5<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.9.0<br>© 2026 Nitor Digital</div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
@@ -660,7 +688,7 @@
     <div class="rowb"><div class="seg" data-seg="map"><span>MAP</span><button data-v="dock">Dockside</button><button data-v="neon">Neon City</button><button data-v="crane">The Crane</button><button data-v="foundry">Foundry</button></div><div class="seg" data-seg="diff"><span>BOT</span><button data-v="easy">Easy</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button></div></div>
     <div class="rowb"><button class="btn sec studioB" id="studioBtn"><span class="mdome" aria-hidden="true"></span>DOME STUDIO</button><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
     <div class="panel" id="how">
-      <div class="tcontrols"><span>Left thumb</span><span>Put it down anywhere on the left to move</span><span>Right thumb</span><span>Drag on the right side to aim</span><span>FIRE</span><span>Hold to shoot. Keep dragging on it to aim while you fire</span><span>DOME · DASH · JUMP</span><span>Round the fire button, in thumb reach</span><span>Turn sideways</span><span>Landscape works best. Aim assist helps on touch</span></div>
+      <div class="tcontrols"><span>Left thumb</span><span>Put it down anywhere on the left to move</span><span>Right thumb</span><span>Drag on the right side to aim</span><span>FIRE</span><span>Hold to shoot. Keep dragging on it to aim while you fire</span><span>DOME · DASH · JUMP</span><span>Round the fire button, in thumb reach</span><span>CLIP button</span><span>Top left. Saves the last 20 seconds so you can share it</span><span>Turn sideways</span><span>Landscape works best. Aim assist helps on touch</span></div>
       <div class="controls">
         <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Move</span>
         <span><kbd>Mouse</kbd></span><span>Look and aim (arrow keys work too)</span>
@@ -669,6 +697,7 @@
         <span><kbd>Shift</kbd></span><span>Dash the way you're moving (on the ground)</span>
         <span><kbd>Space</kbd></span><span>Jump</span>
         <span><kbd>Esc</kbd> <kbd>P</kbd></span><span>Pause</span>
+        <span><kbd>C</kbd></span><span>Save a clip of the last 20 seconds</span>
         <span><kbd>Pad</kbd></span><span>Controller: sticks move and aim, RT shoot, LT block, A jump, B dash</span>
       </div>
       <div class="sets">
@@ -679,6 +708,7 @@
         <span>Swap shoot / block buttons</span><input type="checkbox" data-k="swap">
         <span>Aim assist</span><input type="checkbox" data-k="assist">
         <span>Show frame rate</span><input type="checkbox" data-k="fps">
+        <span>Clip recorder (keeps the last 20s)</span><input type="checkbox" data-k="clips">
         <span class="tonlyI">Touch buttons</span><span class="tonlyI"><button class="btn sec tEditBtn" type="button">MOVE &amp; RESIZE BUTTONS</button></span>
         <span>Graphics quality</span><select data-k="quality"><option value="auto">Auto</option><option value="low">Low (fastest)</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra (sharpest)</option></select>
       </div>
@@ -702,6 +732,7 @@
     <div class="title stroke">PAUSED</div>
     <div class="rowb"><button class="btn" id="resumeBtn"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>RESUME</button><button class="btn sec" id="quitBtn">QUIT TO MENU</button><button class="btn sec tEditBtn tonlyI" type="button">MOVE BUTTONS</button></div>
     <div class="panel"><h3>THIS MATCH</h3><div class="stats" id="pauseStats"></div><h3 style="margin-top:12px">YOUR CARDS</h3><div class="strip" id="pauseCards"></div>
+      <h3 style="margin-top:12px">CLIPS</h3><div class="clipList"></div>
       <div class="sets">
         <span>Look speed</span><input type="range" min="0.3" max="2.5" step="0.05" data-k="sens">
         <span>Sound volume</span><input type="range" min="0" max="1" step="0.05" data-k="vol">
@@ -710,6 +741,7 @@
         <span>Swap shoot / block buttons</span><input type="checkbox" data-k="swap">
         <span>Aim assist</span><input type="checkbox" data-k="assist">
         <span>Show frame rate</span><input type="checkbox" data-k="fps">
+        <span>Clip recorder (keeps the last 20s)</span><input type="checkbox" data-k="clips">
         <span class="tonlyI">Touch buttons</span><span class="tonlyI"><button class="btn sec tEditBtn" type="button">MOVE &amp; RESIZE BUTTONS</button></span>
         <span>Graphics quality</span><select data-k="quality"><option value="auto">Auto</option><option value="low">Low (fastest)</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra (sharpest)</option></select>
       </div>
@@ -732,7 +764,7 @@
   <div class="side">
     <div class="title stroke" id="moTitle">YOU WIN!</div>
     <div class="tagline" id="moSub"></div>
-    <div class="panel"><h3>MATCH STATS</h3><div class="stats" id="moStats"></div><h3 style="margin-top:12px">YOUR BUILD</h3><div class="strip" id="moCards"></div></div>
+    <div class="panel"><h3>MATCH STATS</h3><div class="stats" id="moStats"></div><h3 style="margin-top:12px">YOUR BUILD</h3><div class="strip" id="moCards"></div><h3 style="margin-top:12px">CLIPS</h3><div class="clipList"></div></div>
     <div class="rowb"><button class="btn" id="againBtn"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>PLAY AGAIN</button><button class="btn sec" id="menuBtn">MENU</button></div>
   </div>
 </div>

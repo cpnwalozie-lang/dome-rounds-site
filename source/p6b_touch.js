@@ -11,7 +11,7 @@
   const LKEY='dr_touch_layout'; let lay={s:1,p:{}}; try{ const j=JSON.parse(localStorage.getItem(LKEY)||'null'); if(j&&typeof j==='object') lay={s:clamp(+j.s||1,0.8,1.5),p:j.p&&typeof j.p==='object'?j.p:{}}; }catch(e){}
   const saveLay=()=>{ try{ localStorage.setItem(LKEY,JSON.stringify(lay)); }catch(e){} };
   function applyLay(){ ui.style.setProperty('--ts',lay.s); const custom=Object.keys(lay.p).length>0; ui.classList.toggle('custom',custom); const W=window.innerWidth, H=window.innerHeight;
-    for(const k in B){ const el=B[k], q=lay.p[k]; if(custom&&q&&k!=='pause'&&k!=='powers'){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; } else if(custom&&q){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; el.style.transform='translate(-50%,-50%)'; } else { el.style.left=''; el.style.top=''; el.style.transform=''; } }
+    for(const k in B){ const el=B[k], q=lay.p[k]; if(custom&&q&&k!=='pause'&&k!=='powers'&&k!=='clip'){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; } else if(custom&&q){ el.style.left=(q[0]*W)+'px'; el.style.top=(q[1]*H)+'px'; el.style.transform='translate(-50%,-50%)'; } else { el.style.left=''; el.style.top=''; el.style.transform=''; } }
     const q=lay.p.stick; if(custom&&q){ ui.style.setProperty('--skx',(q[0]*W)+'px'); ui.style.setProperty('--sky',(q[1]*H)+'px'); } else { ui.style.removeProperty('--skx'); ui.style.removeProperty('--sky'); } }
   applyLay(); window.addEventListener('resize',applyLay);
   let editing=false, grab=null;
@@ -50,7 +50,8 @@
     else if(k==='block'){ if(remoteCtl.b){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } pressBlock(); }
     else if(k==='dash') wantDash=true;
     else if(k==='pause'){ if(state==='fight'||state==='countdown') pause(); }
-    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight') openSandbox(); } }
+    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight') openSandbox(); }
+    else if(k==='clip'){ if(clipSave) clipSave(); } }
   function release(id){ for(const k in B){ if(B[k]._id===id){ B[k].classList.remove('down'); B[k]._id=null; } } if(st.fire&&st.fire.id===id){ st.fire=null; TOUCH.fire=false; } if(st.stick&&st.stick.id===id) resetStick(); if(st.look&&st.look.id===id) st.look=null; }
   ui.addEventListener('touchstart',e=>{ if(editStart(e)) return; if(!st.active) return; e.preventDefault(); SFX.unlock();
     for(const t of e.changedTouches){ const el=t.target&&t.target.closest?t.target.closest('[data-t]'):null;

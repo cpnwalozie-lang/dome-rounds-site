@@ -17,8 +17,9 @@ Everything needed to rebuild the game. The live site serves `../play/index.html`
 | `p4_fighter.js` | The character, animation, domes |
 | `p5_fx.js`, `p5b_cardfx.js` | Shooting, damage, card effects |
 | `p6_game.js` | Game loop, rounds, card pick, HUD, bot AI |
+| `p6d_clip.js` | Clip recorder: keeps the last 20 seconds and saves them as an .mp4 (C key or the clip button) |
 | `p7_online.js` | Online play: room codes, the game server, direct and relay fallbacks |
-| `vendor/` | three.js r128, post-processing, GLTF loader, PeerJS |
+| `vendor/` | three.js r128, post-processing, GLTF loader, PeerJS, mp4-muxer (MIT) |
 | `tests/` | Playwright checks (`test.py` full flow, `soak.py` bot-vs-bot, `reltest.py`, `nettest.py`) |
 
 ## Online play

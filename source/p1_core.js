@@ -31,7 +31,7 @@ const INK = 0x0b1026;
 const STUDIO={ open:false };
 const GPU_WEAK=(()=>{ try{ const c=document.createElement('canvas'), g=c.getContext('webgl'); const e=g&&g.getExtension('WEBGL_debug_renderer_info'); const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=g&&g.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(_){} return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic/i.test(r); }catch(e){ return false; } })(); // built-in laptop graphics // Dome Studio (cosmetic dome styles)
 const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
-const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false };
+const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false, clips:true };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
 function saveSettings(){ try{ localStorage.setItem('domeRoundsSettings4',JSON.stringify(settings)); }catch(e){} }
@@ -202,7 +202,7 @@ const SFX=(()=>{
       if(menu&&s%4===2) noise(0.03,0.02,7000,t,musicGain,'highpass');
       step++; nextT+=STEP; }
   }
-  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, songState:()=>SONG.el?{paused:SONG.el.paused,t:+SONG.el.currentTime.toFixed(1),ready:SONG.el.readyState,failed:SONG.failed,g:+SONG.g.gain.value.toFixed(2)}:{failed:SONG.failed,none:1}, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
+  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, tap:()=>{ const c=ctx; return c&&master?{ctx:c,node:master}:null; }, songState:()=>SONG.el?{paused:SONG.el.paused,t:+SONG.el.currentTime.toFixed(1),ready:SONG.el.readyState,failed:SONG.failed,g:+SONG.g.gain.value.toFixed(2)}:{failed:SONG.failed,none:1}, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
     music(m){ if(m==='fight'||m==='draft') m='off'; /* no music in matches at all: menu only */ ensure(); if(songOn(m)){ mode=m; if(timer){ clearInterval(timer); timer=null; } return; } if(mode===m&&(timer||m==='off')) return; mode=m; if(m!=='off'&&!timer&&ctx){ nextT=ctx.currentTime+0.08; timer=setInterval(sched,50); } if(m==='off'&&timer){ clearInterval(timer); timer=null; } },
     // ---- layered sound effects (see osc / nz below): a body, a transient and some air on each ----
     shoot:()=>{ osc('sine',190,55,0.11,0.375,{a:0.002}); osc('sawtooth',1500,240,0.15,0.138,{lp:[5200,700],q:3,rand:0.05,rv:0.25}); osc('square',2600,900,0.05,0.062,{rand:0.05}); nz(0.03,0.15,6000,3000,{ft:'highpass'}); },
