@@ -487,6 +487,7 @@
     .sbx{padding:2vh 3vw 3vh;gap:1.2vh}
   }
   body.touch .btn,body.touch .seg button,body.touch .chip{min-height:38px}
+  #fpsMeter{display:none;position:fixed;left:50%;bottom:6px;transform:translateX(-50%);z-index:9000;font:700 12px/1 var(--body);color:#fff;background:rgba(20,8,31,.7);padding:4px 9px;border-radius:6px;pointer-events:none;letter-spacing:.02em}
   body.touch .hintk,body.touch .kbonly{display:none} .tonly{display:none} body.touch p.tonly{display:block}
   #touchUI{--u0:clamp(58px,19vh,100px);--u:calc(var(--u0)*var(--ts,1))}
   .tonlyI{display:none!important} body.touch .tonlyI{display:inline-flex!important} body.touch .sets span.tonlyI{display:block!important}
@@ -621,6 +622,7 @@
   <div id="vignette"></div>
 </div>
 <div id="floats" class="layer"></div>
+<div id="fpsMeter" aria-hidden="true"></div>
 <div id="touchUI" aria-hidden="true">
   <div id="tStick"><i></i></div>
   <div class="tb tsm" id="tPause" data-t="pause" role="button" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></div>
@@ -640,7 +642,7 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.8.1<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.8.2<br>© 2026 Nitor Digital</div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
@@ -676,6 +678,7 @@
         <span>Invert look up/down</span><input type="checkbox" data-k="invertY">
         <span>Swap shoot / block buttons</span><input type="checkbox" data-k="swap">
         <span>Aim assist</span><input type="checkbox" data-k="assist">
+        <span>Show frame rate</span><input type="checkbox" data-k="fps">
         <span class="tonlyI">Touch buttons</span><span class="tonlyI"><button class="btn sec tEditBtn" type="button">MOVE &amp; RESIZE BUTTONS</button></span>
         <span>Graphics quality</span><select data-k="quality"><option value="auto">Auto</option><option value="low">Low (fastest)</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra (sharpest)</option></select>
       </div>
@@ -706,6 +709,7 @@
         <span>Invert look up/down</span><input type="checkbox" data-k="invertY">
         <span>Swap shoot / block buttons</span><input type="checkbox" data-k="swap">
         <span>Aim assist</span><input type="checkbox" data-k="assist">
+        <span>Show frame rate</span><input type="checkbox" data-k="fps">
         <span class="tonlyI">Touch buttons</span><span class="tonlyI"><button class="btn sec tEditBtn" type="button">MOVE &amp; RESIZE BUTTONS</button></span>
         <span>Graphics quality</span><select data-k="quality"><option value="auto">Auto</option><option value="low">Low (fastest)</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra (sharpest)</option></select>
       </div>

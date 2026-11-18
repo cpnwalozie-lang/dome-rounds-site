@@ -189,6 +189,7 @@ function applyBloom(){ if(bloomPass&&curMap&&curMap.env.bloom){ const b=curMap.e
 function drawFrame(){ lookFrame(); if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
 let shadowSize=2048;
 function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.25,Math.min(dpr,2)) : Math.min(dpr,d.pr));
-  { const px=window.innerWidth*window.innerHeight, cap=q==='ultra'?6.0e6:4.2e6; if(px*pixelRatio*pixelRatio>cap) pixelRatio=Math.max(0.6,Math.sqrt(cap/px)); } // big screens: don't ask the graphics card for more pixels than it can hold renderer.setPixelRatio(pixelRatio); resize();
+  { const px=window.innerWidth*window.innerHeight, cap=q==='ultra'?6.0e6:4.2e6; if(px*pixelRatio*pixelRatio>cap) pixelRatio=Math.max(0.6,Math.sqrt(cap/px)); } // big screens: don't ask the graphics card for more pixels than it can hold
+  renderer.setPixelRatio(pixelRatio*dynRes); resize();
   sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } try{ lookQuality(q); }catch(e){ console.warn(e); } }
 buildTextures(); buildMaterials();

@@ -31,9 +31,10 @@ const SLOT_TEAMS=['player','bot','green','purple']; // FFA seat colours, same on
 const INK = 0x0b1026;
 
 // ================= SETTINGS =================
-const STUDIO={ open:false }; // Dome Studio (cosmetic dome styles)
+const STUDIO={ open:false };
+const GPU_WEAK=(()=>{ try{ const c=document.createElement('canvas'), g=c.getContext('webgl'); const e=g&&g.getExtension('WEBGL_debug_renderer_info'); const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):''; return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic/i.test(r); }catch(e){ return false; } })(); // built-in laptop graphics // Dome Studio (cosmetic dome styles)
 const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
-const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'' };
+const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
 function saveSettings(){ try{ localStorage.setItem('domeRoundsSettings4',JSON.stringify(settings)); }catch(e){} }
@@ -399,7 +400,8 @@ sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-33; sun.shadow.camera
 scene.add(sun); scene.add(sun.target);
 let W=scene; // current map group: world builders add into this
 let composer=null, bloomPass=null, postOn=false;
-function resize(){ const w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); if(composer){ composer.setPixelRatio(pixelRatio); composer.setSize(w,h); } camera.aspect=w/h; camera.updateProjectionMatrix(); }
+let dynRes=1; // live resolution scale (drops a little when the frame rate dips)
+function resize(){ const w=window.innerWidth,h=window.innerHeight; renderer.setPixelRatio(pixelRatio*dynRes); renderer.setSize(w,h,false); if(composer){ composer.setPixelRatio(pixelRatio*dynRes); composer.setSize(w,h); } camera.aspect=w/h; camera.updateProjectionMatrix(); }
 window.addEventListener('resize',resize); resize();
 let animated=[]; // fn(t,dt) for the active map
 
@@ -1042,7 +1044,8 @@ function applyBloom(){ if(bloomPass&&curMap&&curMap.env.bloom){ const b=curMap.e
 function drawFrame(){ lookFrame(); if(postOn&&composer) composer.render(); else renderer.render(scene,camera); }
 let shadowSize=2048;
 function applyQuality(q){ const d=QUAL[q]||QUAL.high; try{ bakeSetOn(q!=='low'); }catch(e){} try{ detailSetOn(q!=='low'); }catch(e){} postOn=!!d.post; if(postOn) buildComposer(); const dpr=window.devicePixelRatio||1; pixelRatio = d.pr<1 ? d.pr*Math.min(dpr,1.25) : (q==='ultra'? Math.max(1.25,Math.min(dpr,2)) : Math.min(dpr,d.pr));
-  { const px=window.innerWidth*window.innerHeight, cap=q==='ultra'?6.0e6:4.2e6; if(px*pixelRatio*pixelRatio>cap) pixelRatio=Math.max(0.6,Math.sqrt(cap/px)); } // big screens: don't ask the graphics card for more pixels than it can hold renderer.setPixelRatio(pixelRatio); resize();
+  { const px=window.innerWidth*window.innerHeight, cap=q==='ultra'?6.0e6:4.2e6; if(px*pixelRatio*pixelRatio>cap) pixelRatio=Math.max(0.6,Math.sqrt(cap/px)); } // big screens: don't ask the graphics card for more pixels than it can hold
+  renderer.setPixelRatio(pixelRatio*dynRes); resize();
   sun.castShadow=d.sh>0; if(d.sh>0&&d.sh!==shadowSize){ shadowSize=d.sh; sun.shadow.mapSize.set(d.sh,d.sh); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } try{ lookQuality(q); }catch(e){ console.warn(e); } }
 buildTextures(); buildMaterials();
 
@@ -2513,7 +2516,7 @@ function poisonSplash(pos,A){ const a=A||1; burst(pos,0x49d86b,Math.round(14*a),
 // ================= WORLD + FIGHTERS =================
 const BASE_POS={player:V3(), bot:V3()};
 function applyMap(id){ setMap(id); bakeLoad(id); bakeUse(id); detailApply(curMap.group); bakeHook(scene); lookMap(id); const sx=curMap.spawnX*curMap.scale; BASE_POS.player.set(-sx,1,0); BASE_POS.bot.set(sx,1,0); }
-applyQuality(settings.quality==='auto'?(TOUCH.on?'medium':'high'):settings.quality);
+applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality);
 applyMap(settings.gm==='ffa'?'ffa':settings.map);
 const player=new Fighter('YOU',true,TEAM.player), bot=new Fighter('BOT',false,TEAM.bot);
 const other=f=>f===player?bot:player; // 1v1 only
@@ -2558,7 +2561,7 @@ function show(el,on,disp){ el.style.display=on?(disp||'flex'):'none'; }
 function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!settings[k]; else el.value=String(settings[k]); });
   document.querySelectorAll('.k-shoot').forEach(e=>e.textContent=settings.swap?'RMB':'LMB'); document.querySelectorAll('.k-block').forEach(e=>e.textContent=settings.swap?'LMB':'RMB');
   document.querySelectorAll('[data-seg]').forEach(seg=>{ const k=seg.dataset.seg; const v=k==='sbot'?sandbox.bot:settings[k]; seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }); }
-document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?(TOUCH.on?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
+document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
   if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
@@ -3007,7 +3010,17 @@ function update(dt){
 // ================= LOOP =================
 let last=performance.now(); let autoRun=true, doRender=true, frames=0, testMode=false;
 let perfAcc=0, perfN=0, perfLevel=0;
-function frame(now){ requestAnimationFrame(frame); const raw=Math.max(0,(now-last)/1000); const dt=Math.min(0.05,raw); last=now; frames++; if(autoRun){ pollPad(dt); update(dt); } if(doRender) drawFrame();
+const DYN={acc:0,n:0,good:0,cool:0}; const fpsEl=document.getElementById('fpsMeter'); let fpsT=0, fpsF=0;
+function dynFrame(raw){ // keep frames smooth: render a few % fewer pixels when the frame rate drops, creep back up when it's comfortable
+  if(raw>0.25||document.hidden) return; fpsT+=raw; fpsF++;
+  if(fpsEl){ const on=!!settings.fps; if(fpsEl._on!==on){ fpsEl._on=on; fpsEl.style.display=on?'block':'none'; } if(on&&fpsT>=0.5){ fpsEl.textContent=Math.round(fpsF/fpsT)+' FPS · '+Math.round(dynRes*100)+'% res'; fpsT=0; fpsF=0; } } else if(fpsT>=0.5){ fpsT=0; fpsF=0; }
+  if(!(state==='fight'||state==='countdown')||paused) { DYN.acc=0; DYN.n=0; return; }
+  DYN.acc+=raw; DYN.n++; DYN.cool-=raw; if(DYN.acc<0.75) return; const avg=DYN.acc/DYN.n; DYN.acc=0; DYN.n=0; if(DYN.cool>0) return;
+  DYN.t=(DYN.t||0)+0.75; if(DYN.ceilT>0){ DYN.ceilT-=0.75; if(DYN.ceilT<=0) DYN.ceil=1; } const ceil=DYN.ceil||1;
+  let nr=dynRes; if(avg>0.021){ nr=Math.max(0.6,dynRes-(avg>0.03?0.15:0.08)); DYN.good=0; if(DYN.t-(DYN.upAt||-99)<6){ DYN.ceil=nr; DYN.ceilT=40; } } // stepping up made it worse: stay here a while
+  else if(avg<0.0175){ DYN.good++; if(DYN.good>=3&&dynRes<ceil){ nr=Math.min(ceil,dynRes+0.08); DYN.good=0; DYN.upAt=DYN.t; } } else DYN.good=0;
+  if(Math.abs(nr-dynRes)>0.001){ dynRes=nr; resize(); DYN.cool=1.0; } }
+function frame(now){ requestAnimationFrame(frame); const raw=Math.max(0,(now-last)/1000); const dt=Math.min(0.05,raw); last=now; frames++; if(autoRun){ pollPad(dt); update(dt); } if(doRender) drawFrame(); dynFrame(raw);
   // auto quality: drop detail when the frame rate stays low
   if(settings.quality==='auto'&&autoRun&&!paused&&!document.hidden&&raw<0.5){ perfAcc+=raw; perfN++; if(perfN>=90){ const avg=perfAcc/perfN; perfAcc=0; perfN=0; if(avg>0.028&&perfLevel<2){ perfLevel++; applyQuality(perfLevel===1?'medium':'low'); toast('Graphics lowered to keep the game smooth. Change it in settings.','you'); } } } }
 menuRoster(); placeAtBases(); buildPips(); updateCardStrips(); updateHUD(); update(0.016);
@@ -3015,7 +3028,7 @@ show(UI.start,true,'block'); { const el=UI.loading; let gone=false; const go=()=
 requestAnimationFrame(frame);
 
 // debug / test hooks
-/*DEBUG-START*/window.__game={ sparks:()=>sparkPool, NET, tethers:()=>tethers, cardHTML:(id)=>cardHTML(id,0,0,false), magnetLand:(b,p)=>magnetLand(b,p), look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
+/*DEBUG-START*/window.__game={ dynFrame:(r)=>dynFrame(r), dynRes:()=>dynRes, sparks:()=>sparkPool, NET, tethers:()=>tethers, cardHTML:(id)=>cardHTML(id,0,0,false), magnetLand:(b,p)=>magnetLand(b,p), look:()=>({LOOK,scene,renderer,hemi,sun,curMap,lookEnv,lookMap,mergeInfo:curMap&&curMap.mergeInfo}), setDraftT:v=>{ draftT=v; }, setTestMode:v=>{ testMode=v; }, kenReady:()=>KEN.ready, kenProto:()=>KEN.proto, mapInfo:()=>({sealed:curMap.sealed}), resolveWalls:f=>resolveWalls(f), holdCam:v=>{ camHold=v; }, get bulletsArr(){ return bullets; }, doBlock:f=>doBlock(f), tryBlock:(f)=>tryBlock(f), holdBot:v=>{ botHold=v; }, camera, bakeMap:id=>{ applyMap(id); return bakeCompute(id); }, bakeOn:v=>bakeSetOn(v), mapGroup:()=>curMap.group, boxCount:()=>boxes.length, SFX, art:id=>ART.svg(id), groundAt, get ramps(){return ramps;}, get hx(){return HX;}, get hz(){return HZ;}, get state(){return state;}, set state(v){state=v;}, get mode(){return mode;}, player, bot, fighters, get roundNum(){return roundNum;}, bullets, bombs, fields, get boxes(){return boxes;}, CARDS, WAVE1:ALL_CARDS, ALL_CARDS, computeStats, score, settings, sandbox, roundInfo, remoteCtl,
   step(dt){ update(dt); }, setAuto(v){ autoRun=v; testMode=!v; }, setRender(v){ doRender=v; }, startMatch, beginRound, startDraft, startSandbox, openSandbox, tryFire, tryBlock, firePellets, doBlock, give(f,id){ (f==='bot'?bot:player).addCard(id); updateCardStrips(); }, clearCards(){ player.setCards([]); bot.setCards([]); },
   forceFight(){ state='fight'; show(UI.countdown,false); }, keys, setMouse(v){ fireHeld=v; if(v){ firePressed=true; steerLatch=false; } }, block(){ pressBlock(); }, dash(){ wantDash=true; }, jump(){ jumpBuffer=0.15; }, get frames(){return frames;}, art:ART.svg, killFighter, hasLOS, render(){ drawFrame(); }, get paused(){return paused;}, pause, camera, explode, endMatch, coachPick, applyDamage, applyMap, applyQuality, toMenu, get map(){return curMapId;} };
 /*DEBUG-END*/

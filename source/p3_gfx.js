@@ -14,7 +14,8 @@ sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-33; sun.shadow.camera
 scene.add(sun); scene.add(sun.target);
 let W=scene; // current map group: world builders add into this
 let composer=null, bloomPass=null, postOn=false;
-function resize(){ const w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); if(composer){ composer.setPixelRatio(pixelRatio); composer.setSize(w,h); } camera.aspect=w/h; camera.updateProjectionMatrix(); }
+let dynRes=1; // live resolution scale (drops a little when the frame rate dips)
+function resize(){ const w=window.innerWidth,h=window.innerHeight; renderer.setPixelRatio(pixelRatio*dynRes); renderer.setSize(w,h,false); if(composer){ composer.setPixelRatio(pixelRatio*dynRes); composer.setSize(w,h); } camera.aspect=w/h; camera.updateProjectionMatrix(); }
 window.addEventListener('resize',resize); resize();
 let animated=[]; // fn(t,dt) for the active map
 
