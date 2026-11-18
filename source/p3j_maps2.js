@@ -149,7 +149,7 @@ function buildFoundry(){
     fragmentShader:`uniform float time; uniform vec3 fogC; varying vec3 vW;
       float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
       float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }
-      float fbm(vec2 p){ float a=0.5, s=0.0; for(int k=0;k<5;k++){ s+=a*n(p); p=p*2.03+vec2(1.7,9.2); a*=0.5; } return s; }
+      float fbm(vec2 p){ float a=0.5, s=0.0; for(int k=0;k<4;k++){ s+=a*n(p); p=p*2.03+vec2(1.7,9.2); a*=0.5; } return s; }
       void main(){ vec2 p=vW.xz*0.09; vec2 q=vec2(fbm(p+vec2(time*0.03,0.0)),fbm(p+vec2(5.2,1.3)-vec2(0.0,time*0.025)));
         float f=fbm(p*1.6+q*2.2+vec2(time*0.02,-time*0.015));
         float vein=1.0-smoothstep(0.0,0.09,abs(f-0.5)); float crust=smoothstep(0.52,0.7,f);
