@@ -31,8 +31,9 @@ const SLOT_TEAMS=['player','bot','green','purple']; // FFA seat colours, same on
 const INK = 0x0b1026;
 
 // ================= SETTINGS =================
+const STUDIO={ open:false }; // Dome Studio (cosmetic dome styles)
 const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
-const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'' };
+const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'' };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
 function saveSettings(){ try{ localStorage.setItem('domeRoundsSettings4',JSON.stringify(settings)); }catch(e){} }
@@ -1632,9 +1633,11 @@ LOOK_MAP.foundry={ exp:1.05, envI:1.2, hemi:0.6, sun:1.0, grade:{sat:1.18,con:0.
 
 // ================= DOME SHADER (glassy guardian shield) =================
 const DOME_VS='varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP=position; vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }';
-const DOME_FS=`uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uniform float split; uniform float opacity; uniform float time; uniform float fill; uniform float flash; uniform float hitAge; uniform vec3 hitDir; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+const DOME_FS=`uniform float skin; uniform vec3 tint; uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uniform float split; uniform float opacity; uniform float time; uniform float fill; uniform float flash; uniform float hitAge; uniform vec3 hitDir; varying vec3 vN; varying vec3 vV; varying vec3 vP;
   float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
   float hexD(vec2 p){ p=abs(p); return max(dot(p,vec2(0.5,0.8660254)),p.x); }
+  float dot2(vec2 v){ return dot(v,v); }
+  float heartD(vec2 p){ p.x=abs(p.x); if(p.y+p.x>1.0) return sqrt(dot2(p-vec2(0.25,0.75)))-0.35355; return sqrt(min(dot2(p-vec2(0.0,1.0)),dot2(p-0.5*max(p.x+p.y,0.0))))*sign(p.x-p.y); }
   void main(){ vec3 n=normalize(vP); float fr=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.2);
     vec2 uv=vec2(atan(n.z,n.x)*2.864789, asin(clamp(n.y,-1.0,1.0))*5.0);
     vec2 r=vec2(1.0,1.7320508); vec2 h=r*0.5; vec2 a=mod(uv,r)-h; vec2 b=mod(uv-h,r)-h; vec2 gv=dot(a,a)<dot(b,b)?a:b; vec2 id=uv-gv;
@@ -1647,11 +1650,43 @@ const DOME_FS=`uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uni
     float ang=acos(clamp(dot(n,hitDir),-1.0,1.0)); float rip=(1.0-smoothstep(0.0,0.16,abs(ang-hitAge*3.4)))*max(0.0,1.0-hitAge*2.0);
     float al=opacity*(fill+mixF+fr*0.85+line*0.42+cell*0.35+sweep*0.3+glint*0.7+base*0.6+rip*0.95)+flash*0.38*opacity;
     vec3 c=mix(cc,vec3(1.0),clamp(fr*0.5+line*0.3+cell*0.5+sweep*0.5+glint+base*0.4+rip+flash*0.7,0.0,1.0)*(ncol>1.5?0.6:1.0));
+    // ---- dome styles (cosmetic) ----
+    if(skin>0.5){ vec3 Rv=reflect(-normalize(vV),normalize(vN)); float cellH=hash(id*3.17+1.3);
+      if(skin<1.5){ // CRYSTAL: prismatic facets, rainbow edges, sparkles
+        vec3 irid=0.55+0.45*cos(6.2831*(fr*1.2+cellH*0.45+n.y*0.3+time*0.06+vec3(0.0,0.33,0.67)));
+        float spark=pow(hash(id+floor(time*4.0+cellH*7.0)),24.0)*(1.0-line);
+        float facet=0.25+0.75*pow(abs(dot(normalize(vN),normalize(vec3(cellH-0.5,0.6,0.4)))),6.0);
+        c=mix(mix(irid,tint,0.25)*(0.55+facet*0.6),vec3(1.0),clamp(line*0.75+glint+spark*2.0+sweep*0.5+rip,0.0,1.0));
+        al=opacity*(0.06+facet*0.16+fr*0.95+line*0.55+spark*1.6+glint+sweep*0.35+base*0.5+rip)+flash*0.4*opacity; }
+      else if(skin<2.5){ // NEO: synthwave grid that scrolls up the dome
+        vec2 q=vec2(atan(n.z,n.x)*3.8197,n.y*7.0-time*0.8); vec2 gq=abs(fract(q)-0.5); float gl=1.0-smoothstep(0.0,0.07,0.5-max(gq.x,gq.y));
+        vec3 hot=vec3(1.0,0.16,0.62); vec3 cc2=mix(tint,hot,smoothstep(0.0,1.0,n.y)); float scan=0.5+0.5*sin(n.y*60.0-time*6.0);
+        c=mix(cc2*0.35,cc2,gl)+vec3(1.0)*(gl*0.35+rip+sweep*0.3);
+        al=opacity*(0.05+scan*0.04+gl*0.9+fr*0.75+base*0.9+rip+sweep*0.3)+flash*0.4*opacity; }
+      else if(skin<3.5){ // CHROME: liquid mirror metal
+        float y=Rv.y; vec3 sky=mix(vec3(0.93,0.96,1.0),vec3(0.38,0.55,0.86),clamp(y*1.4,0.0,1.0)); vec3 grd=mix(vec3(0.32,0.28,0.25),vec3(0.06,0.06,0.07),clamp(-y*2.5,0.0,1.0));
+        vec3 env=y>0.0?sky:grd; env=mix(env,vec3(1.0,0.97,0.9),(1.0-smoothstep(0.0,0.07,abs(y)))*0.9);
+        float wob=sin(n.x*9.0+time*1.3)*sin(n.z*7.0-time*1.1)*0.5+0.5;
+        c=env*mix(vec3(1.0),tint,0.35)*(0.85+wob*0.25)+vec3(1.0)*(glint*1.6+sweep*0.7+rip); c=mix(c,vec3(1.0),line*0.12);
+        al=opacity*(0.34+fr*0.55+line*0.08+glint+rip)+flash*0.3*opacity; }
+      else if(skin<4.5){ // HEART: little beating hearts in every cell
+        float beat=1.0+0.14*pow(max(0.0,sin(time*5.0+cellH*6.28)),6.0); vec2 hp=vec2(gv.x,gv.y)*1.75/beat+vec2(0.0,0.52);
+        float hd=heartD(hp); float fillH=1.0-smoothstep(-0.02,0.02,hd); float rim=1.0-smoothstep(0.0,0.06,abs(hd));
+        vec3 pink=tint, deep=tint*vec3(0.55,0.35,0.6);
+        c=mix(mix(deep,pink,0.4),mix(pink,vec3(1.0),0.35),fillH); c=mix(c,vec3(1.0),rim*0.8+glint+rip+sweep*0.3);
+        al=opacity*(0.05+fillH*0.42+rim*0.6+fr*0.7+base*0.6+glint+rip+sweep*0.25)+flash*0.4*opacity; }
+      else { // NOIR: black smoked glass with a fine accent edge
+        c=mix(vec3(0.015,0.015,0.025),tint,clamp(line*0.85+fr*0.25+base*0.5,0.0,1.0)); c+=vec3(1.0)*(glint*0.9+sweep*0.18+rip);
+        float smoke=hash(floor(uv*3.0)+floor(time*0.5))*0.05;
+        al=opacity*(0.4+smoke+fr*0.5+line*0.45+base*0.6+glint+rip)+flash*0.3*opacity; } }
     if(split>0.001){ float lim=0.46-0.2*split; float keep=1.0-smoothstep(lim-0.03,lim,d); float edge=smoothstep(lim-0.13,lim-0.03,d)*keep; al=opacity*keep*(0.42+edge*0.55+fr*0.2); c=mix(cc,vec3(1.0),edge*0.55); }
     gl_FragColor=vec4(c,clamp(al,0.0,1.0)); }`;
 const domeGeo=new T.SphereGeometry(1,48,20,0,Math.PI*2,0,Math.PI/2);
-function domeMat(color,fill){ return new T.ShaderMaterial({uniforms:{color:{value:new T.Color(color)},cols:{value:[new T.Color(color),new T.Color(color),new T.Color(color),new T.Color(color)]},ncol:{value:1},split:{value:0},opacity:{value:1},time:{value:0},fill:{value:fill},flash:{value:0},hitAge:{value:9},hitDir:{value:V3(0,1,0)}},vertexShader:DOME_VS,fragmentShader:DOME_FS,transparent:true,side:T.DoubleSide,depthWrite:false}); }
+function domeMat(color,fill){ return new T.ShaderMaterial({uniforms:{skin:{value:0},tint:{value:new T.Color(0xffffff)},color:{value:new T.Color(color)},cols:{value:[new T.Color(color),new T.Color(color),new T.Color(color),new T.Color(color)]},ncol:{value:1},split:{value:0},opacity:{value:1},time:{value:0},fill:{value:fill},flash:{value:0},hitAge:{value:9},hitDir:{value:V3(0,1,0)}},vertexShader:DOME_VS,fragmentShader:DOME_FS,transparent:true,side:T.DoubleSide,depthWrite:false}); }
 function setPal(mat,list){ const u=mat.uniforms, n=Math.min(4,list.length); for(let i=0;i<4;i++) u.cols.value[i].copy(list[i%n]); u.ncol.value=n; }
+// dome styles you can pick in the Dome Studio (purely cosmetic: hit boxes and ability colours on the floor ring stay the same)
+const DOME_SKINS=[{id:'default',name:'Default',tint:null,blurb:'Your team colour, plus your dome cards'},{id:'crystal',name:'Crystal',tint:'#bfe9ff',blurb:'Prism facets that throw rainbows'},{id:'neo',name:'Neo',tint:'#35e9ff',blurb:'Synthwave grid, always moving'},{id:'chrome',name:'Chrome',tint:'#ffffff',blurb:'Liquid mirror metal'},{id:'heart',name:'Heart',tint:'#ff4f9a',blurb:'A dome full of beating hearts'},{id:'noir',name:'Noir',tint:'#ffd27a',blurb:'Black smoked glass, gold edge'}];
+const skinTint=(k,c)=>{ const d=DOME_SKINS[k]; return new T.Color(c&&/^#[0-9a-f]{6}$/i.test(c)?c:(d&&d.tint)||'#ffffff'); };
 const SAW_PAL=[new T.Color(0xff6b6b)], AURA_PAL={chill:new T.Color(0x9fd8ff),staticf:new T.Color(0xffe066),drain:new T.Color(0xff6b9d)};
 const ringGeo=new T.RingGeometry(0.9,1,56);
 const discGeo=new T.CircleGeometry(1,48);
@@ -1665,7 +1700,7 @@ class Fighter{
     this.radius=0.5; this.height=2.05; this.bodyY=1.3; this.hitR=0.58;
     this.cards=[]; this.stats=computeStats([]);
     this.dashDir=V3(); this.auraSlow=0; this.walkT=0; this.squash=0; this.blinkT=rand(1,4); this.recoil=0; this.idleT=rand(0,5);
-    this.domeHitDir=V3(0,1,0); this.domeHitAge=9; this.domePal=[new T.Color(this.team.light)];
+    this.domeHitDir=V3(0,1,0); this.domeHitAge=9; this.domePal=[new T.Color(this.team.light)]; this.cardPal=[]; this.skin=0; this.skinCol=''; this.skinTint=new T.Color(0xffffff); this.domePreview=false;
     this.buildMesh(); this.resetRound();
   }
   buildMesh(){
@@ -1768,7 +1803,7 @@ class Fighter{
   domeR(){ return this.stats.dome*(matchKind==='ffa'?1.2:1); }
   auraR(){ return this.silenceT>0?0:this.stats.auraR*(matchKind==='ffa'?1.25:1); }
   addCard(id){ this.cards.push(id); this.stats=computeStats(this.cards); this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.applySize();
-    const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.domePal= pc.length===0?[team]: pc.slice(0,4); }
+    const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.cardPal=pc; this.domePal= pc.length===0?[team]: pc.slice(0,4); }
   auraPal(){ const s=this.stats,l=[]; if(s.chill) l.push(AURA_PAL.chill); if(s.staticf) l.push(AURA_PAL.staticf); if(s.drain) l.push(AURA_PAL.drain); return l; }
   applySize(){ const sz=clamp(Math.pow(this.stats.hp/BASE.hp,0.3),0.75,1.6); this.sz=sz; this.radius=0.5*sz; this.height=2.05*sz; this.bodyY=1.3*sz; this.hitR=0.58*sz; } // more max HP = bigger and a bit slower; less = smaller and quicker
   setCards(ids){ this.cards=[]; this.stats=computeStats([]); this.applySize(); if(ids.length){ for(const id of ids.slice(0,-1)) this.cards.push(id); this.addCard(ids[ids.length-1]); } else { this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.domePal=[new T.Color(this.team.light)]; } }
@@ -1844,12 +1879,14 @@ class Fighter{
     { const ic=this.coldT>0?0.55:(this.chillIn?0.3:0); this.headMat.emissive.setHex(ic>0?0x7fd0ff:0x000000); this.headMat.emissiveIntensity=ic; }
     // block dome
     const dc=this.domeC(), R=this.domeR(); this.domeHitAge+=dt;
+    if(typeof player!=='undefined'&&this===player){ this.skin=clamp(settings.domeSkin|0,0,DOME_SKINS.length-1); this.skinCol=settings.domeCol||''; }
     const sawing=this.sawT>0&&!this.dead;
-    if((this.blockActive&&!this.dead)||sawing){
-      let sc=R, fade=1, flash=0;
+    if((this.blockActive&&!this.dead)||sawing||this.domePreview){
+      let sc=R, fade=1, flash=this.previewFlash||0;
       if(this.blockActive){ const el=CFG.blockDuration-this.blockT; const k=Math.min(1,el/0.09); const e=1-Math.pow(1-k,3); const settle=clamp((el-0.09)/0.16,0,1); sc=Math.max(this.height+0.3,R*(0.35+0.65*e)*(1.12-0.12*settle)); if(sc>R*1.12) sc=Math.max(R*(0.35+0.65*e)*(1.12-0.12*settle),Math.min(sc,this.height+0.3)); fade=sawing?1:Math.min(1,this.blockT/0.12); flash=Math.max(0,1-el/0.2); }
-      const u=this.domeMat.uniforms; this.dome.visible=true; this.dome.position.copy(dc); this.dome.scale.setScalar(sc); this.dome.rotation.y=sawing? t*9 : t*0.25; u.opacity.value=fade; u.time.value=t; u.flash.value=flash; u.hitAge.value=this.domeHitAge; u.hitDir.value.copy(this.domeHitDir).applyAxisAngle(UP,-this.dome.rotation.y); setPal(this.domeMat,sawing?SAW_PAL:this.domePal);
-      const u2=this.domeMat2.uniforms; this.dome2.visible=true; this.dome2.position.copy(dc); this.dome2.scale.setScalar(sc*0.93); this.dome2.rotation.y=-t*0.6; u2.opacity.value=fade*0.55; u2.time.value=t*0.7+3; u2.flash.value=flash*0.5; u2.hitAge.value=9;
+      const u=this.domeMat.uniforms; this.dome.visible=true; this.dome.position.copy(dc); this.dome.scale.setScalar(sc); this.dome.rotation.y=sawing? t*9 : t*0.25; u.opacity.value=fade; u.time.value=t; u.flash.value=flash; u.hitAge.value=this.domeHitAge; u.hitDir.value.copy(this.domeHitDir).applyAxisAngle(UP,-this.dome.rotation.y); const myPal=(this.skin===0&&this.skinCol)?[new T.Color(this.skinCol),...this.cardPal].slice(0,4):this.domePal; setPal(this.domeMat,sawing?SAW_PAL:myPal);
+      this.skinTint.copy(skinTint(this.skin,this.skinCol)); u.skin.value=sawing?0:this.skin; u.tint.value.copy(this.skinTint);
+      const u2=this.domeMat2.uniforms; this.dome2.visible=true; this.dome2.position.copy(dc); this.dome2.scale.setScalar(sc*0.93); this.dome2.rotation.y=-t*0.6; u2.opacity.value=fade*(this.skin?0.4:0.55); u2.time.value=t*0.7+3; u2.flash.value=flash*0.5; u2.hitAge.value=9; u2.skin.value=sawing?0:this.skin; u2.tint.value.copy(this.skinTint);
       this.domeRing.visible=true; this.domeRing.position.set(dc.x,dc.y+0.03,dc.z); this.domeRing.scale.setScalar(sc*1.02); this.domeRing.material.opacity=0.9*fade;
       this.sawRing.visible=sawing; if(sawing){ this.sawRing.position.set(dc.x,dc.y+0.05,dc.z); this.sawRing.scale.set(R,1+R*0.4,R); this.sawRing.rotation.y=-t*10; }
     } else { this.dome.visible=false; this.dome2.visible=false; this.domeRing.visible=false; this.sawRing.visible=false; }
@@ -2758,6 +2795,9 @@ let camDist=1, specT=null;
 function camFighter(){ if(!(matchKind!=='1v1'&&player.dead&&(state==='fight'||state==='roundover'))) return player; if(specT&&!specT.dead&&specT.active!==false) return specT; specT=fighters.find(f=>f!==player&&f.side===player.side&&!f.dead&&f.active!==false)||((player.lastHitBy&&!player.lastHitBy.dead)?player.lastHitBy:null)||fighters.find(f=>!f.dead&&f.active!==false)||player; return specT; }
 function updateCamera(dt){ if(camHold) return;
   const t=gameT;
+  if(state==='menu'&&STUDIO.open){ const p=player.pos, s=p.x>0.5?-1:1, R=player.domeR(); const a=Math.sin(t*0.18)*0.22; camera.fov=50; camera.updateProjectionMatrix();
+    const off=V3(s*R*2.15,R*0.95,-s*R*1.25).applyAxisAngle(UP,a); const ctr=V3(p.x,p.y+R*0.42,p.z); const cp=ctr.clone().add(off); camera.position.copy(cp);
+    const fw=V3().subVectors(ctr,cp).normalize(), rt=V3().crossVectors(fw,UP).normalize(); const asp=camera.aspect||1.6; camera.lookAt(ctr.clone().addScaledVector(rt,R*(asp>1.3?0.62:0.15))); return; }
   if(state==='menu'){ const p=player.pos, s=p.x>0.5?-1:1; camera.fov=50; camera.updateProjectionMatrix(); // always film from the arena side (an online guest stands at the far base)
     const head=V3(p.x,p.y+1.6,p.z), want=V3(p.x+4.3*s+Math.sin(t*0.3)*0.15,p.y+1.6,p.z-1.9*s+Math.cos(t*0.25)*0.12); const hit=segmentHitsBoxes(head,want,0.25,true); if(hit!==null) want.lerpVectors(head,want,Math.max(0.35,hit-0.05)); camera.position.copy(want); camera.lookAt(p.x,p.y+1.2,p.z+1.3*s); return; }
   if(state==='draft'||state==='picked'||state==='matchover'){ const a=t*0.12+0.7; camera.fov=55; camera.updateProjectionMatrix(); camera.position.set(Math.cos(a)*(HX+10),17,Math.sin(a)*(HZ+12)); camera.lookAt(0,0.5,0); return; }
@@ -2927,6 +2967,33 @@ requestAnimationFrame(frame);
   requestAnimationFrame(frame);
 })();
 
+// ================= DOME STUDIO =================
+// Pick how your dome looks (style + colour). Live preview on your own fighter in the menu scene.
+(()=>{
+  const ov=document.getElementById('studio'), grid=document.getElementById('stSkins'), colsEl=document.getElementById('stCols');
+  const nameEl=document.getElementById('stName'), blurbEl=document.getElementById('stBlurb'), picker=document.getElementById('stPick');
+  const SW=['#35e9ff','#ff2e88','#ffd21f','#7dff6b','#a46bff','#ff7a1a','#ff3b3b','#2f6fe4','#ffffff','#111118'];
+  let lastHit=0;
+  function tiles(){ grid.innerHTML=DOME_SKINS.map((d,i)=>`<button type="button" class="st-tile${(settings.domeSkin|0)===i?' on':''}" data-i="${i}" aria-pressed="${(settings.domeSkin|0)===i}"><span class="dthumb dt-${d.id}"><i></i></span><b>${d.name}</b></button>`).join(''); }
+  function cols(){ const cur=settings.domeCol||''; const sk=DOME_SKINS[settings.domeSkin|0];
+    colsEl.innerHTML=`<button type="button" class="sw def${cur===''?' on':''}" data-c="" title="Style colour" aria-label="Style colour" style="--c:${sk.tint||'#35e9ff'}"></button>`+SW.map(c=>`<button type="button" class="sw${cur.toLowerCase()===c?' on':''}" data-c="${c}" aria-label="Colour ${c}" style="--c:${c}"></button>`).join('')+
+      `<label class="sw pick${cur&&!SW.includes(cur.toLowerCase())?' on':''}" title="Pick any colour" style="--c:${cur&&!SW.includes(cur.toLowerCase())?cur:'#ffffff'}"><input type="color" id="stPickIn" value="${cur||'#ff2e88'}" aria-label="Pick any colour"></label>`;
+    const pin=document.getElementById('stPickIn'); pin.addEventListener('input',()=>{ settings.domeCol=pin.value; saveSettings(); refresh(false); pop(); }); }
+  function refresh(rebuild=true){ const d=DOME_SKINS[settings.domeSkin|0]; nameEl.textContent=d.name; blurbEl.textContent=d.blurb; if(rebuild) tiles(); cols(); }
+  function pop(){ if(!player) return; player.domeHitAge=0; const a=Math.random()*6.28; player.domeHitDir.set(Math.cos(a)*0.7,0.6,Math.sin(a)*0.7).normalize(); player.previewFlash=0.4; lastHit=performance.now(); }
+  grid.addEventListener('click',e=>{ const b=e.target.closest('.st-tile'); if(!b) return; settings.domeSkin=+b.dataset.i; saveSettings(); SFX.pick(); refresh(); pop(); });
+  colsEl.addEventListener('click',e=>{ const b=e.target.closest('button.sw'); if(!b) return; settings.domeCol=b.dataset.c; saveSettings(); SFX.hover(); refresh(false); pop(); });
+  function open(){ if(state!=='menu') return; STUDIO.open=true; SFX.unlock(); refresh(); document.getElementById('start').style.display='none'; ov.style.display='flex'; requestAnimationFrame(()=>ov.classList.add('in')); if(player){ player.domePreview=true; pop(); } }
+  function close(){ STUDIO.open=false; ov.classList.remove('in'); ov.style.display='none'; if(player){ player.domePreview=false; player.previewFlash=0; } if(state==='menu') document.getElementById('start').style.display=''; SFX.confirm(); }
+  document.getElementById('studioBtn').addEventListener('click',open);
+  document.getElementById('stDone').addEventListener('click',close);
+  document.getElementById('stTest').addEventListener('click',()=>{ pop(); SFX.block(); });
+  window.addEventListener('keydown',e=>{ if(STUDIO.open&&e.code==='Escape'){ e.preventDefault(); close(); } });
+  // keep the preview alive: a ripple every few seconds, flash fades out
+  (function tick(){ requestAnimationFrame(tick); if(!STUDIO.open||!player) return; if(state!=='menu'){ close(); return; } player.domePreview=true; player.previewFlash=Math.max(0,(player.previewFlash||0)-0.03); if(performance.now()-lastHit>2600) pop(); })();
+  STUDIO.close=close;
+})();
+
 // ================= ONLINE 1v1: create a room, share the code, fight =================
 // Each player owns their own fighter's movement (instant feel); the room creator (host) is the referee for HP, knockouts,
 // score and round flow. Shots and blocks travel as events so both screens see the same fight. Transport: the page's live room.
@@ -3069,7 +3136,7 @@ function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
 function netSend(){ const r=NET.room; if(!r||!NET.on) return; const p=player;
-  const o={ v:2, r:NET.role, nm:myName(), f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
+  const o={ v:2, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
@@ -3085,6 +3152,7 @@ function netRx(peer,pr){
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
     if(pr.h&&typeof pr.h==='object') netGuestFollow(pr.h); } }
 function netRxFighter(f,d){
+  if(Array.isArray(d.ds)){ f.skin=clamp((d.ds[0]|0),0,DOME_SKINS.length-1); f.skinCol=(typeof d.ds[1]==='string'&&/^#[0-9a-f]{6}$/i.test(d.ds[1]))?d.ds[1]:''; }
   if(Array.isArray(d.f)&&d.f.length>=9&&d.f.every(isNum)){ const a=d.f, now=performance.now(); const ts=isNum(d.ts)?d.ts:now; const key=f.peer||('b'+f.slot); const off=now-ts; NET.clk[key]=NET.clk[key]===undefined?off:Math.min(NET.clk[key]+0.3,off); // smallest delay seen = best clock match (drifts up slowly)
     f.rs={pos:V3(a[0],a[1],a[2]),vel:V3(a[3],a[4],a[5]),yaw:a[6],pitch:a[7],fl:a[8],at:now};
     f.snaps=f.snaps||[]; const L=f.snaps[f.snaps.length-1]; if(!L||ts>L.ts){ f.snaps.push({ts,pos:f.rs.pos,vel:f.rs.vel,yaw:a[6],pitch:a[7],fl:a[8]}); if(f.snaps.length>12) f.snaps.shift(); } f.clkKey=key; }

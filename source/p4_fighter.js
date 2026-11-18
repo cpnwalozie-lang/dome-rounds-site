@@ -1,8 +1,10 @@
 // ================= DOME SHADER (glassy guardian shield) =================
 const DOME_VS='varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP=position; vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }';
-const DOME_FS=`uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uniform float split; uniform float opacity; uniform float time; uniform float fill; uniform float flash; uniform float hitAge; uniform vec3 hitDir; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+const DOME_FS=`uniform float skin; uniform vec3 tint; uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uniform float split; uniform float opacity; uniform float time; uniform float fill; uniform float flash; uniform float hitAge; uniform vec3 hitDir; varying vec3 vN; varying vec3 vV; varying vec3 vP;
   float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
   float hexD(vec2 p){ p=abs(p); return max(dot(p,vec2(0.5,0.8660254)),p.x); }
+  float dot2(vec2 v){ return dot(v,v); }
+  float heartD(vec2 p){ p.x=abs(p.x); if(p.y+p.x>1.0) return sqrt(dot2(p-vec2(0.25,0.75)))-0.35355; return sqrt(min(dot2(p-vec2(0.0,1.0)),dot2(p-0.5*max(p.x+p.y,0.0))))*sign(p.x-p.y); }
   void main(){ vec3 n=normalize(vP); float fr=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.2);
     vec2 uv=vec2(atan(n.z,n.x)*2.864789, asin(clamp(n.y,-1.0,1.0))*5.0);
     vec2 r=vec2(1.0,1.7320508); vec2 h=r*0.5; vec2 a=mod(uv,r)-h; vec2 b=mod(uv-h,r)-h; vec2 gv=dot(a,a)<dot(b,b)?a:b; vec2 id=uv-gv;
@@ -15,11 +17,43 @@ const DOME_FS=`uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uni
     float ang=acos(clamp(dot(n,hitDir),-1.0,1.0)); float rip=(1.0-smoothstep(0.0,0.16,abs(ang-hitAge*3.4)))*max(0.0,1.0-hitAge*2.0);
     float al=opacity*(fill+mixF+fr*0.85+line*0.42+cell*0.35+sweep*0.3+glint*0.7+base*0.6+rip*0.95)+flash*0.38*opacity;
     vec3 c=mix(cc,vec3(1.0),clamp(fr*0.5+line*0.3+cell*0.5+sweep*0.5+glint+base*0.4+rip+flash*0.7,0.0,1.0)*(ncol>1.5?0.6:1.0));
+    // ---- dome styles (cosmetic) ----
+    if(skin>0.5){ vec3 Rv=reflect(-normalize(vV),normalize(vN)); float cellH=hash(id*3.17+1.3);
+      if(skin<1.5){ // CRYSTAL: prismatic facets, rainbow edges, sparkles
+        vec3 irid=0.55+0.45*cos(6.2831*(fr*1.2+cellH*0.45+n.y*0.3+time*0.06+vec3(0.0,0.33,0.67)));
+        float spark=pow(hash(id+floor(time*4.0+cellH*7.0)),24.0)*(1.0-line);
+        float facet=0.25+0.75*pow(abs(dot(normalize(vN),normalize(vec3(cellH-0.5,0.6,0.4)))),6.0);
+        c=mix(mix(irid,tint,0.25)*(0.55+facet*0.6),vec3(1.0),clamp(line*0.75+glint+spark*2.0+sweep*0.5+rip,0.0,1.0));
+        al=opacity*(0.06+facet*0.16+fr*0.95+line*0.55+spark*1.6+glint+sweep*0.35+base*0.5+rip)+flash*0.4*opacity; }
+      else if(skin<2.5){ // NEO: synthwave grid that scrolls up the dome
+        vec2 q=vec2(atan(n.z,n.x)*3.8197,n.y*7.0-time*0.8); vec2 gq=abs(fract(q)-0.5); float gl=1.0-smoothstep(0.0,0.07,0.5-max(gq.x,gq.y));
+        vec3 hot=vec3(1.0,0.16,0.62); vec3 cc2=mix(tint,hot,smoothstep(0.0,1.0,n.y)); float scan=0.5+0.5*sin(n.y*60.0-time*6.0);
+        c=mix(cc2*0.35,cc2,gl)+vec3(1.0)*(gl*0.35+rip+sweep*0.3);
+        al=opacity*(0.05+scan*0.04+gl*0.9+fr*0.75+base*0.9+rip+sweep*0.3)+flash*0.4*opacity; }
+      else if(skin<3.5){ // CHROME: liquid mirror metal
+        float y=Rv.y; vec3 sky=mix(vec3(0.93,0.96,1.0),vec3(0.38,0.55,0.86),clamp(y*1.4,0.0,1.0)); vec3 grd=mix(vec3(0.32,0.28,0.25),vec3(0.06,0.06,0.07),clamp(-y*2.5,0.0,1.0));
+        vec3 env=y>0.0?sky:grd; env=mix(env,vec3(1.0,0.97,0.9),(1.0-smoothstep(0.0,0.07,abs(y)))*0.9);
+        float wob=sin(n.x*9.0+time*1.3)*sin(n.z*7.0-time*1.1)*0.5+0.5;
+        c=env*mix(vec3(1.0),tint,0.35)*(0.85+wob*0.25)+vec3(1.0)*(glint*1.6+sweep*0.7+rip); c=mix(c,vec3(1.0),line*0.12);
+        al=opacity*(0.34+fr*0.55+line*0.08+glint+rip)+flash*0.3*opacity; }
+      else if(skin<4.5){ // HEART: little beating hearts in every cell
+        float beat=1.0+0.14*pow(max(0.0,sin(time*5.0+cellH*6.28)),6.0); vec2 hp=vec2(gv.x,gv.y)*1.75/beat+vec2(0.0,0.52);
+        float hd=heartD(hp); float fillH=1.0-smoothstep(-0.02,0.02,hd); float rim=1.0-smoothstep(0.0,0.06,abs(hd));
+        vec3 pink=tint, deep=tint*vec3(0.55,0.35,0.6);
+        c=mix(mix(deep,pink,0.4),mix(pink,vec3(1.0),0.35),fillH); c=mix(c,vec3(1.0),rim*0.8+glint+rip+sweep*0.3);
+        al=opacity*(0.05+fillH*0.42+rim*0.6+fr*0.7+base*0.6+glint+rip+sweep*0.25)+flash*0.4*opacity; }
+      else { // NOIR: black smoked glass with a fine accent edge
+        c=mix(vec3(0.015,0.015,0.025),tint,clamp(line*0.85+fr*0.25+base*0.5,0.0,1.0)); c+=vec3(1.0)*(glint*0.9+sweep*0.18+rip);
+        float smoke=hash(floor(uv*3.0)+floor(time*0.5))*0.05;
+        al=opacity*(0.4+smoke+fr*0.5+line*0.45+base*0.6+glint+rip)+flash*0.3*opacity; } }
     if(split>0.001){ float lim=0.46-0.2*split; float keep=1.0-smoothstep(lim-0.03,lim,d); float edge=smoothstep(lim-0.13,lim-0.03,d)*keep; al=opacity*keep*(0.42+edge*0.55+fr*0.2); c=mix(cc,vec3(1.0),edge*0.55); }
     gl_FragColor=vec4(c,clamp(al,0.0,1.0)); }`;
 const domeGeo=new T.SphereGeometry(1,48,20,0,Math.PI*2,0,Math.PI/2);
-function domeMat(color,fill){ return new T.ShaderMaterial({uniforms:{color:{value:new T.Color(color)},cols:{value:[new T.Color(color),new T.Color(color),new T.Color(color),new T.Color(color)]},ncol:{value:1},split:{value:0},opacity:{value:1},time:{value:0},fill:{value:fill},flash:{value:0},hitAge:{value:9},hitDir:{value:V3(0,1,0)}},vertexShader:DOME_VS,fragmentShader:DOME_FS,transparent:true,side:T.DoubleSide,depthWrite:false}); }
+function domeMat(color,fill){ return new T.ShaderMaterial({uniforms:{skin:{value:0},tint:{value:new T.Color(0xffffff)},color:{value:new T.Color(color)},cols:{value:[new T.Color(color),new T.Color(color),new T.Color(color),new T.Color(color)]},ncol:{value:1},split:{value:0},opacity:{value:1},time:{value:0},fill:{value:fill},flash:{value:0},hitAge:{value:9},hitDir:{value:V3(0,1,0)}},vertexShader:DOME_VS,fragmentShader:DOME_FS,transparent:true,side:T.DoubleSide,depthWrite:false}); }
 function setPal(mat,list){ const u=mat.uniforms, n=Math.min(4,list.length); for(let i=0;i<4;i++) u.cols.value[i].copy(list[i%n]); u.ncol.value=n; }
+// dome styles you can pick in the Dome Studio (purely cosmetic: hit boxes and ability colours on the floor ring stay the same)
+const DOME_SKINS=[{id:'default',name:'Default',tint:null,blurb:'Your team colour, plus your dome cards'},{id:'crystal',name:'Crystal',tint:'#bfe9ff',blurb:'Prism facets that throw rainbows'},{id:'neo',name:'Neo',tint:'#35e9ff',blurb:'Synthwave grid, always moving'},{id:'chrome',name:'Chrome',tint:'#ffffff',blurb:'Liquid mirror metal'},{id:'heart',name:'Heart',tint:'#ff4f9a',blurb:'A dome full of beating hearts'},{id:'noir',name:'Noir',tint:'#ffd27a',blurb:'Black smoked glass, gold edge'}];
+const skinTint=(k,c)=>{ const d=DOME_SKINS[k]; return new T.Color(c&&/^#[0-9a-f]{6}$/i.test(c)?c:(d&&d.tint)||'#ffffff'); };
 const SAW_PAL=[new T.Color(0xff6b6b)], AURA_PAL={chill:new T.Color(0x9fd8ff),staticf:new T.Color(0xffe066),drain:new T.Color(0xff6b9d)};
 const ringGeo=new T.RingGeometry(0.9,1,56);
 const discGeo=new T.CircleGeometry(1,48);
@@ -33,7 +67,7 @@ class Fighter{
     this.radius=0.5; this.height=2.05; this.bodyY=1.3; this.hitR=0.58;
     this.cards=[]; this.stats=computeStats([]);
     this.dashDir=V3(); this.auraSlow=0; this.walkT=0; this.squash=0; this.blinkT=rand(1,4); this.recoil=0; this.idleT=rand(0,5);
-    this.domeHitDir=V3(0,1,0); this.domeHitAge=9; this.domePal=[new T.Color(this.team.light)];
+    this.domeHitDir=V3(0,1,0); this.domeHitAge=9; this.domePal=[new T.Color(this.team.light)]; this.cardPal=[]; this.skin=0; this.skinCol=''; this.skinTint=new T.Color(0xffffff); this.domePreview=false;
     this.buildMesh(); this.resetRound();
   }
   buildMesh(){
@@ -136,7 +170,7 @@ class Fighter{
   domeR(){ return this.stats.dome*(matchKind==='ffa'?1.2:1); }
   auraR(){ return this.silenceT>0?0:this.stats.auraR*(matchKind==='ffa'?1.25:1); }
   addCard(id){ this.cards.push(id); this.stats=computeStats(this.cards); this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.applySize();
-    const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.domePal= pc.length===0?[team]: pc.slice(0,4); }
+    const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.cardPal=pc; this.domePal= pc.length===0?[team]: pc.slice(0,4); }
   auraPal(){ const s=this.stats,l=[]; if(s.chill) l.push(AURA_PAL.chill); if(s.staticf) l.push(AURA_PAL.staticf); if(s.drain) l.push(AURA_PAL.drain); return l; }
   applySize(){ const sz=clamp(Math.pow(this.stats.hp/BASE.hp,0.3),0.75,1.6); this.sz=sz; this.radius=0.5*sz; this.height=2.05*sz; this.bodyY=1.3*sz; this.hitR=0.58*sz; } // more max HP = bigger and a bit slower; less = smaller and quicker
   setCards(ids){ this.cards=[]; this.stats=computeStats([]); this.applySize(); if(ids.length){ for(const id of ids.slice(0,-1)) this.cards.push(id); this.addCard(ids[ids.length-1]); } else { this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.domePal=[new T.Color(this.team.light)]; } }
@@ -212,12 +246,14 @@ class Fighter{
     { const ic=this.coldT>0?0.55:(this.chillIn?0.3:0); this.headMat.emissive.setHex(ic>0?0x7fd0ff:0x000000); this.headMat.emissiveIntensity=ic; }
     // block dome
     const dc=this.domeC(), R=this.domeR(); this.domeHitAge+=dt;
+    if(typeof player!=='undefined'&&this===player){ this.skin=clamp(settings.domeSkin|0,0,DOME_SKINS.length-1); this.skinCol=settings.domeCol||''; }
     const sawing=this.sawT>0&&!this.dead;
-    if((this.blockActive&&!this.dead)||sawing){
-      let sc=R, fade=1, flash=0;
+    if((this.blockActive&&!this.dead)||sawing||this.domePreview){
+      let sc=R, fade=1, flash=this.previewFlash||0;
       if(this.blockActive){ const el=CFG.blockDuration-this.blockT; const k=Math.min(1,el/0.09); const e=1-Math.pow(1-k,3); const settle=clamp((el-0.09)/0.16,0,1); sc=Math.max(this.height+0.3,R*(0.35+0.65*e)*(1.12-0.12*settle)); if(sc>R*1.12) sc=Math.max(R*(0.35+0.65*e)*(1.12-0.12*settle),Math.min(sc,this.height+0.3)); fade=sawing?1:Math.min(1,this.blockT/0.12); flash=Math.max(0,1-el/0.2); }
-      const u=this.domeMat.uniforms; this.dome.visible=true; this.dome.position.copy(dc); this.dome.scale.setScalar(sc); this.dome.rotation.y=sawing? t*9 : t*0.25; u.opacity.value=fade; u.time.value=t; u.flash.value=flash; u.hitAge.value=this.domeHitAge; u.hitDir.value.copy(this.domeHitDir).applyAxisAngle(UP,-this.dome.rotation.y); setPal(this.domeMat,sawing?SAW_PAL:this.domePal);
-      const u2=this.domeMat2.uniforms; this.dome2.visible=true; this.dome2.position.copy(dc); this.dome2.scale.setScalar(sc*0.93); this.dome2.rotation.y=-t*0.6; u2.opacity.value=fade*0.55; u2.time.value=t*0.7+3; u2.flash.value=flash*0.5; u2.hitAge.value=9;
+      const u=this.domeMat.uniforms; this.dome.visible=true; this.dome.position.copy(dc); this.dome.scale.setScalar(sc); this.dome.rotation.y=sawing? t*9 : t*0.25; u.opacity.value=fade; u.time.value=t; u.flash.value=flash; u.hitAge.value=this.domeHitAge; u.hitDir.value.copy(this.domeHitDir).applyAxisAngle(UP,-this.dome.rotation.y); const myPal=(this.skin===0&&this.skinCol)?[new T.Color(this.skinCol),...this.cardPal].slice(0,4):this.domePal; setPal(this.domeMat,sawing?SAW_PAL:myPal);
+      this.skinTint.copy(skinTint(this.skin,this.skinCol)); u.skin.value=sawing?0:this.skin; u.tint.value.copy(this.skinTint);
+      const u2=this.domeMat2.uniforms; this.dome2.visible=true; this.dome2.position.copy(dc); this.dome2.scale.setScalar(sc*0.93); this.dome2.rotation.y=-t*0.6; u2.opacity.value=fade*(this.skin?0.4:0.55); u2.time.value=t*0.7+3; u2.flash.value=flash*0.5; u2.hitAge.value=9; u2.skin.value=sawing?0:this.skin; u2.tint.value.copy(this.skinTint);
       this.domeRing.visible=true; this.domeRing.position.set(dc.x,dc.y+0.03,dc.z); this.domeRing.scale.setScalar(sc*1.02); this.domeRing.material.opacity=0.9*fade;
       this.sawRing.visible=sawing; if(sawing){ this.sawRing.position.set(dc.x,dc.y+0.05,dc.z); this.sawRing.scale.set(R,1+R*0.4,R); this.sawRing.rotation.y=-t*10; }
     } else { this.dome.visible=false; this.dome2.visible=false; this.domeRing.visible=false; this.sawRing.visible=false; }

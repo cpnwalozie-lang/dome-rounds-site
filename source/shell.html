@@ -505,6 +505,53 @@
   #tEdit label{display:flex;align-items:center;gap:6px} #tEdit input{width:110px;accent-color:var(--ye)}
   #tEdit .btn{font-size:15px!important;padding:6px 16px 5px!important;min-height:0}
 </style>
+<style>
+  /* ================= Dome Studio ================= */
+  #studio{display:none;justify-content:flex-end;align-items:stretch;background:linear-gradient(90deg,rgba(20,8,31,0) 30%,rgba(20,8,31,.55) 55%,rgba(20,8,31,.92) 70%)}
+  .st-panel{width:min(520px,46vw);padding:max(18px,3.5vh) max(22px,env(safe-area-inset-right,0px)) 3vh 22px;display:flex;flex-direction:column;gap:1.8vh;justify-content:center;transform:translateX(30px);opacity:0;transition:transform .35s cubic-bezier(.2,.9,.25,1.2),opacity .25s}
+  #studio.in .st-panel{transform:none;opacity:1}
+  .st-head .title{font-size:min(9vh,5vw,54px);line-height:.95}
+  .st-head p{margin-top:4px;font-size:14px;opacity:.8}
+  .st-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .st-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px 8px;background:var(--plum);border:2px solid var(--edge);color:var(--cream);font-family:var(--disp);font-size:14px;cursor:pointer;transform:skewX(-6deg);transition:transform .12s,border-color .12s,box-shadow .12s}
+  .st-tile>*{transform:skewX(6deg)}
+  .st-tile b{font-weight:400}
+  .st-tile:hover{border-color:var(--cy);transform:skewX(-6deg) translateY(-2px)}
+  .st-tile.on{border-color:var(--ye);box-shadow:4px 4px 0 var(--pink);background:var(--plum2)}
+  .st-tile.on::after{content:'';position:absolute;top:-8px;right:-8px;width:20px;height:20px;background:var(--ye) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3.2 3.2L15 7' fill='none' stroke='%2314081f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat;transform:skewX(6deg)}
+  /* little live domes, one per style */
+  .dthumb{position:relative;width:min(92px,9vw,15vh);aspect-ratio:2/1;border-radius:999px 999px 0 0;overflow:hidden;border:2px solid rgba(255,255,255,.75);border-bottom:0;box-shadow:0 6px 14px rgba(0,0,0,.35)}
+  .dthumb::after{content:'';position:absolute;left:-10%;right:-10%;bottom:-2px;height:4px;background:currentColor;filter:blur(3px)}
+  .dthumb i{position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.65) 48%,transparent 60%);transform:translateX(-120%);animation:dtShine 3.2s ease-in-out infinite}
+  @keyframes dtShine{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
+  .dt-default{color:#35e9ff;background:radial-gradient(circle at 50% 100%,rgba(53,233,255,.12),rgba(53,233,255,.55)),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='24'%3E%3Cpath d='M7 0l7 4v8l-7 4-7-4V4zM7 16v8' fill='none' stroke='%23ffffff' stroke-opacity='.5'/%3E%3C/svg%3E");border-color:#35e9ff}
+  .dt-crystal{color:#bfe9ff;background:conic-gradient(from 200deg at 50% 100%,#ff8ad8,#ffe48a,#8affc4,#8ad8ff,#c08aff,#ff8ad8);opacity:.95;animation:dtHue 5s linear infinite}
+  .dt-crystal::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(60deg,rgba(255,255,255,.35) 0 2px,transparent 2px 14px),repeating-linear-gradient(-60deg,rgba(255,255,255,.25) 0 2px,transparent 2px 14px)}
+  @keyframes dtHue{to{filter:hue-rotate(360deg)}}
+  .dt-neo{color:#35e9ff;border-color:#ff2e88;background:linear-gradient(transparent 85%,rgba(53,233,255,.9) 85%) 0 0/100% 9px,linear-gradient(90deg,transparent 85%,rgba(255,46,136,.9) 85%) 0 0/11px 100%,linear-gradient(180deg,#ff2e88 0%,#2a0a4a 60%,#14081f);animation:dtScroll 1.2s linear infinite}
+  @keyframes dtScroll{to{background-position:0 -9px,0 0,0 0}}
+  .dt-chrome{color:#fff;background:linear-gradient(180deg,#ffffff 0%,#dfe8f6 30%,#7d8da6 49%,#2b2f38 51%,#a7b3c4 70%,#ffffff 100%)}
+  .dt-heart{color:#ff4f9a;border-color:#ff9ac8;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M8 13.5S2 9.8 2 6.2A3 3 0 0 1 8 4.8a3 3 0 0 1 6 1.4c0 3.6-6 7.3-6 7.3z' fill='%23ffffff' fill-opacity='.85'/%3E%3C/svg%3E") 0 0/16px 16px,radial-gradient(circle at 50% 100%,#ff9ac8,#ff4f9a 60%,#b0206a);animation:dtBeat 1.1s ease-in-out infinite}
+  @keyframes dtBeat{0%,70%,100%{background-size:16px 16px,auto}80%{background-size:18px 18px,auto}}
+  .dt-noir{color:#ffd27a;border-color:#ffd27a;background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.18),transparent 30%),radial-gradient(circle at 50% 110%,#2a2a33,#050507 70%)}
+  .st-info{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .st-info b{font-family:var(--disp);font-weight:400;font-size:26px;color:var(--ye)}
+  .st-info span{font-size:14px;opacity:.85}
+  .st-colrow{display:flex;align-items:center;gap:12px}
+  .st-lab{font-family:var(--disp);font-size:14px;color:var(--cy)}
+  .st-cols{display:flex;flex-wrap:wrap;gap:7px}
+  .sw{position:relative;width:30px;height:30px;border-radius:50%;background:var(--c);border:2px solid rgba(255,255,255,.35);cursor:pointer;padding:0;transition:transform .1s}
+  .sw:hover{transform:scale(1.12)}
+  .sw.on{border-color:#fff;box-shadow:0 0 0 3px var(--pink)}
+  .sw.def{background:linear-gradient(135deg,var(--c) 0 50%,transparent 50%),repeating-linear-gradient(45deg,#fff 0 3px,#ccc 3px 6px)}
+  .sw.pick{background:conic-gradient(red,#ff0,lime,cyan,blue,#f0f,red);display:grid;place-items:center}
+  .sw.pick.on{background:var(--c)}
+  .sw.pick input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .studioB{display:inline-flex;align-items:center;gap:8px;border-color:var(--pink)!important;box-shadow:4px 4px 0 var(--pink)!important}
+  .mdome{width:22px;height:11px;border-radius:22px 22px 0 0;background:conic-gradient(from 200deg at 50% 100%,#ff8ad8,#ffe48a,#8affc4,#8ad8ff,#c08aff,#ff8ad8);border:1.5px solid #fff;border-bottom:0;animation:dtHue 4s linear infinite}
+  @media (max-height:520px){ .st-panel{gap:1.2vh;width:min(470px,52vw)} .st-grid{gap:7px} .st-tile{padding:6px 4px 5px;font-size:12px} .dthumb{width:min(70px,8vw,13vh)} .st-head p{display:none} .st-info b{font-size:20px} .sw{width:26px;height:26px} }
+  @media (prefers-reduced-motion:reduce){ .dthumb,.dthumb i,.mdome{animation:none!important} .st-panel{transition:none} }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -575,7 +622,7 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.7.0<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.8.0<br>© 2026 Nitor Digital</div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
@@ -591,7 +638,7 @@
     </div>
     <div class="rowb"><div class="seg" data-seg="gm"><span>MODE</span><button data-v="1v1">1v1</button><button data-v="2v2">2v2</button><button data-v="ffa">Free for all</button></div><div class="seg ffaonly" data-seg="ffaBots"><span>BOTS</span><button data-v="2">2</button><button data-v="3">3</button></div></div>
     <div class="rowb"><div class="seg" data-seg="map"><span>MAP</span><button data-v="dock">Dockside</button><button data-v="neon">Neon City</button><button data-v="crane">The Crane</button><button data-v="foundry">Foundry</button></div><div class="seg" data-seg="diff"><span>BOT</span><button data-v="easy">Easy</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button></div></div>
-    <div class="rowb"><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
+    <div class="rowb"><button class="btn sec studioB" id="studioBtn"><span class="mdome" aria-hidden="true"></span>DOME STUDIO</button><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
     <div class="panel" id="how">
       <div class="tcontrols"><span>Left thumb</span><span>Put it down anywhere on the left to move</span><span>Right thumb</span><span>Drag on the right side to aim</span><span>FIRE</span><span>Hold to shoot. Keep dragging on it to aim while you fire</span><span>DOME · DASH · JUMP</span><span>Round the fire button, in thumb reach</span><span>Turn sideways</span><span>Landscape works best. Aim assist helps on touch</span></div>
       <div class="controls">
@@ -619,6 +666,15 @@
   </div>
 </div>
 
+<div id="studio" class="overlay" role="dialog" aria-label="Dome Studio">
+  <div class="st-panel">
+    <div class="st-head"><div class="title stroke">DOME STUDIO</div><p>Make your shield yours. Everyone online sees it.</p></div>
+    <div class="st-grid" id="stSkins"></div>
+    <div class="st-info"><b id="stName">Default</b><span id="stBlurb"></span></div>
+    <div class="st-colrow"><span class="st-lab">Colour</span><div class="st-cols" id="stCols"></div></div>
+    <div class="rowb"><button class="btn sec" id="stTest" type="button">TEST A HIT</button><button class="btn" id="stDone" type="button">DONE</button></div>
+  </div>
+</div>
 <div id="pause" class="overlay">
   <div class="shade full"></div>
   <div class="side">
