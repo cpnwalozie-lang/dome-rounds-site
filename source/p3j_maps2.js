@@ -209,11 +209,12 @@ function buildFoundry(){
     const tr=[]; for(let z=-40;z<=40;z+=10){ tr.push([new T.BoxGeometry(120,0.8,0.6),MX(0,30,z)]); tr.push([new T.BoxGeometry(120,0.6,0.5),MX(0,26,z)]); for(let x=-56;x<56;x+=8){ const a=V3(x,26,z), b=V3(x+8,30,z), d=V3().subVectors(b,a); tr.push([new T.BoxGeometry(0.35,d.length(),0.35),new T.Matrix4().compose(a.clone().addScaledVector(d,0.5),new T.Quaternion().setFromUnitVectors(V3(0,1,0),d.clone().normalize()),V3(1,1,1))]); } }
     for(const x of [-30,30]) tr.push([new T.BoxGeometry(0.9,0.9,90),MX(x,24,0)]); addMerged(tr,toon({color:0x2e2826}),{cast:false});
     // overhead ladle that tips molten metal into the lava every so often
-    const lg=new T.Group(); lg.position.set(30,17,-25); W.add(lg); const lp=[[0.001,-2.2],[1.6,-2.2],[2.2,-1.4],[2.4,1.4],[2.6,1.6],[2.2,1.6],[2.0,1.4],[1.8,-1.2],[0.001,-1.4]].map(q=>new T.Vector2(q[0],q[1]));
+    const lg=new T.Group(); lg.position.set(30,17,-25); W.add(lg); lg.userData.moving=true; const lp=[[0.001,-2.2],[1.6,-2.2],[2.2,-1.4],[2.4,1.4],[2.6,1.6],[2.2,1.6],[2.0,1.4],[1.8,-1.2],[0.001,-1.4]].map(q=>new T.Vector2(q[0],q[1]));
     const ladle=new T.Mesh(new T.LatheGeometry(lp,22),toon({color:0x4a3a34,metalness:0.3,side:T.DoubleSide})); lg.add(ladle); const melt=new T.Mesh(new T.CircleGeometry(2.0,22),band); melt.rotation.x=-Math.PI/2; melt.position.y=1.2; lg.add(melt);
     const hang=[]; for(const s of [-1,1]) hang.push([new T.BoxGeometry(0.2,6,0.2),MX(s*2.5,3.6,0)]); hang.push([new T.BoxGeometry(5.4,0.4,0.4),MX(0,6.6,0)]); const hm=new T.Mesh(mergeGeos(hang),toon({color:0x9a7414})); lg.add(hm);
     const rails=[]; for(const z of [-26.5,-23.5]) rails.push([new T.BoxGeometry(70,1,0.6),MX(0,24.2,z)]); addMerged(rails,toon({color:0x9a7414}),{cast:false});
     const stream=new T.Mesh(new T.CylinderGeometry(0.35,0.5,1,10,1,true),band); W.add(stream); stream.visible=false; const sg=sprite(0xffa040,7,0); W.add(sg);
+    lg.traverse(c=>{ c.userData.noMerge=true; }); stream.userData.noMerge=true;
     animated.push((t,dt)=>{ const c=t%14; const tip=c<8?0:(c<9.5?(c-8)/1.5:(c<12?1:Math.max(0,1-(c-12)/1.2))); ladle.rotation.z=-tip*1.15; melt.visible=tip<0.7; ladle.parent.rotation.z=0;
       const pour=tip>0.85; stream.visible=pour; sg.material.opacity=pour?0.6:0; if(pour){ const lip=V3(30+2.3,17+1.2,-25); const len=lip.y+1.6; stream.scale.set(1+Math.sin(t*30)*0.08,len,1); stream.position.set(lip.x+0.4,lip.y-len/2,lip.z); sg.position.set(lip.x+0.4,-1.2,lip.z); if(Math.random()<(dt||0.016)*30) burst(V3(lip.x+0.4,-1.4,lip.z),0xffb040,2,6,0.14,0.7,1.2); } }); }
   // rising embers
@@ -223,9 +224,11 @@ function buildFoundry(){
   const hit=(f,amt,push,up,stun,cd,cdMap,label,colr,pos)=>{ const now=gameT; if((cdMap.get(f)||-9)>now) return; cdMap.set(f,now+cd);
     if(f.invulnT>0) return; const owner=f.ctl!=='net'; if(owner){ f.vel.x=push.x; f.vel.z=push.z; f.vel.y=Math.max(f.vel.y,up); f.onGround=false; f.knockT=0.45; f.stunT=Math.max(f.stunT,stun); f.dashT=0; }
     if(!NET.on||NET.role==='host') applyDamage(f,amt,null,{cause:'hazard'}); f.hitFlash=0.12; burst(pos||f.center(),colr,14,7,0.1,0.5,0.4); flashAt(pos||f.center(),colr,3,0.18); floatText(f.center().add(V3(0,1.3,0)),label,'status'); SFX.hit(); shakeT=Math.max(shakeT,f===player?0.25:0.08); };
-  const T0=()=> (state==='fight'||state==='roundover')?roundInfo.t:gameT;
+  const T0=t=> (state==='fight'||state==='roundover')?roundInfo.t:t;
+  // moving hazards must never be baked into the static batches (that froze spikes/chains/press parts in place)
+  for(const o of [...balls.map(b=>b.g),pressG,...saws.map(s=>s.m)]) o.traverse(c=>{ c.userData.noMerge=true; });
   MAPHZ.spheres=balls.map(b=>({pos:b.pos,r:BR+0.15}));
-  animated.push((t,dt)=>{ const rt=T0();
+  animated.push((t,dt)=>{ const rt=T0(t);
     // balls: pendulum along z
     for(const b of balls){ const th=1.05*Math.sin(rt*1.85+b.ph); b.g.rotation.x=th; b.prev.copy(b.pos); b.pos.set(b.g.position.x,PIV-LEN*Math.cos(th),-LEN*Math.sin(th)); /* matches the drawn ball (rotation.x swings the bob towards -z) */ if(dt>0) b.vel.subVectors(b.pos,b.prev).multiplyScalar(1/Math.max(dt,1e-3));
       b.glow.material.opacity=Math.min(0.6,b.vel.length()*0.05);
