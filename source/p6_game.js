@@ -503,7 +503,7 @@ function dynFrame(raw){ // keep frames smooth: render a few % fewer pixels when 
   DYN.acc+=raw; DYN.n++; DYN.cool-=raw; if(DYN.acc<0.75) return; const avg=DYN.acc/DYN.n; DYN.acc=0; DYN.n=0; if(DYN.cool>0) return;
   DYN.t=(DYN.t||0)+0.75; if(DYN.ceilT>0){ DYN.ceilT-=0.75; if(DYN.ceilT<=0) DYN.ceil=1; } const ceil=DYN.ceil||1;
   if(DYN.freeze>0){ DYN.freeze-=0.75; return; }
-  let nr=dynRes; if(avg>0.024){ nr=Math.max(0.6,dynRes-(avg>0.03?0.15:0.08)); DYN.good=0; if(DYN.t-(DYN.upAt||-99)<6){ DYN.ceil=nr; DYN.ceilT=40; } } // stepping up made it worse: stay here a while
+  let nr=dynRes; if(avg>0.024){ nr=Math.max(0.82,dynRes-(avg>0.03?0.1:0.06)); DYN.good=0; if(DYN.t-(DYN.upAt||-99)<6){ DYN.ceil=nr; DYN.ceilT=40; } } // stepping up made it worse: stay here a while
   else if(avg<0.0175){ DYN.good++; if(DYN.good>=4&&dynRes<ceil){ nr=Math.min(ceil,dynRes+0.08); DYN.good=0; DYN.upAt=DYN.t; } } else DYN.good=0;
   if(Math.abs(nr-dynRes)>0.001){ DYN.pend=nr; DYN.cool=3.0; DYN.hist=(DYN.hist||[]).filter(x=>DYN.t-x<30); DYN.hist.push(DYN.t); if(DYN.hist.length>=4){ DYN.freeze=60; DYN.hist=[]; } } } // never more than a few changes in a row
 function dynApply(){ if(DYN.pendQ){ const q=DYN.pendQ; DYN.pendQ=null; applyQuality(q); } if(DYN.pend===undefined) return; dynRes=DYN.pend; DYN.pend=undefined; resize(); } // resize right before drawing, so the frame you see is never a blank (black) canvas

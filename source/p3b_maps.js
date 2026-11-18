@@ -180,7 +180,7 @@ function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Gr
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
   const e=m.env; scene.fog.color.copy(col(e.fog[0])); scene.fog.near=e.fog[1]; scene.fog.far=e.fog[2]; hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity=e.hemi[2]; sun.color.set(e.sun[0]); sun.intensity=e.sun[1]; sun.position.set(e.sun[2][0],e.sun[2][1],e.sun[2][2]); applyBloom(); }
-const QUAL={ low:{pr:0.6,sh:0,post:0}, medium:{pr:0.85,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
+const QUAL={ low:{pr:0.8,sh:0,post:0}, medium:{pr:1.25,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
 function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) return; try{
   const sz=renderer.getDrawingBufferSize(new T.Vector2()); const P={minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,encoding:T.sRGBEncoding};
   const ms=renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget; const rt= ms? new T.WebGLMultisampleRenderTarget(sz.x,sz.y,P) : new T.WebGLRenderTarget(sz.x,sz.y,P);

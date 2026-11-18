@@ -1035,7 +1035,7 @@ function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Gr
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
   const e=m.env; scene.fog.color.copy(col(e.fog[0])); scene.fog.near=e.fog[1]; scene.fog.far=e.fog[2]; hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity=e.hemi[2]; sun.color.set(e.sun[0]); sun.intensity=e.sun[1]; sun.position.set(e.sun[2][0],e.sun[2][1],e.sun[2][2]); applyBloom(); }
-const QUAL={ low:{pr:0.6,sh:0,post:0}, medium:{pr:0.85,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
+const QUAL={ low:{pr:0.8,sh:0,post:0}, medium:{pr:1.25,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
 function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) return; try{
   const sz=renderer.getDrawingBufferSize(new T.Vector2()); const P={minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,encoding:T.sRGBEncoding};
   const ms=renderer.capabilities.isWebGL2&&T.WebGLMultisampleRenderTarget; const rt= ms? new T.WebGLMultisampleRenderTarget(sz.x,sz.y,P) : new T.WebGLRenderTarget(sz.x,sz.y,P);
@@ -3018,7 +3018,7 @@ function dynFrame(raw){ // keep frames smooth: render a few % fewer pixels when 
   DYN.acc+=raw; DYN.n++; DYN.cool-=raw; if(DYN.acc<0.75) return; const avg=DYN.acc/DYN.n; DYN.acc=0; DYN.n=0; if(DYN.cool>0) return;
   DYN.t=(DYN.t||0)+0.75; if(DYN.ceilT>0){ DYN.ceilT-=0.75; if(DYN.ceilT<=0) DYN.ceil=1; } const ceil=DYN.ceil||1;
   if(DYN.freeze>0){ DYN.freeze-=0.75; return; }
-  let nr=dynRes; if(avg>0.024){ nr=Math.max(0.6,dynRes-(avg>0.03?0.15:0.08)); DYN.good=0; if(DYN.t-(DYN.upAt||-99)<6){ DYN.ceil=nr; DYN.ceilT=40; } } // stepping up made it worse: stay here a while
+  let nr=dynRes; if(avg>0.024){ nr=Math.max(0.82,dynRes-(avg>0.03?0.1:0.06)); DYN.good=0; if(DYN.t-(DYN.upAt||-99)<6){ DYN.ceil=nr; DYN.ceilT=40; } } // stepping up made it worse: stay here a while
   else if(avg<0.0175){ DYN.good++; if(DYN.good>=4&&dynRes<ceil){ nr=Math.min(ceil,dynRes+0.08); DYN.good=0; DYN.upAt=DYN.t; } } else DYN.good=0;
   if(Math.abs(nr-dynRes)>0.001){ DYN.pend=nr; DYN.cool=3.0; DYN.hist=(DYN.hist||[]).filter(x=>DYN.t-x<30); DYN.hist.push(DYN.t); if(DYN.hist.length>=4){ DYN.freeze=60; DYN.hist=[]; } } } // never more than a few changes in a row
 function dynApply(){ if(DYN.pendQ){ const q=DYN.pendQ; DYN.pendQ=null; applyQuality(q); } if(DYN.pend===undefined) return; dynRes=DYN.pend; DYN.pend=undefined; resize(); } // resize right before drawing, so the frame you see is never a blank (black) canvas
