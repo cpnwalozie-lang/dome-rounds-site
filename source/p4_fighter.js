@@ -9,6 +9,8 @@ const DOME_FS=`uniform float skin; uniform vec3 tint; uniform vec3 color; unifor
     return mix(mix(mix(h1(k),h1(k+1.0),f.x),mix(h1(k+57.0),h1(k+58.0),f.x),f.y),mix(mix(h1(k+113.0),h1(k+114.0),f.x),mix(h1(k+170.0),h1(k+171.0),f.x),f.y),f.z); }
   float fbm3(vec3 p){ return n3(p)*0.55+n3(p*2.03+7.1)*0.28+n3(p*4.1+3.3)*0.17; }
   mat2 rot2(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+  float hexLine(vec2 uv){ vec2 r=vec2(1.0,1.7320508); vec2 h=r*0.5; vec2 a=mod(uv,r)-h; vec2 b=mod(uv-h,r)-h; vec2 gv=dot(a,a)<dot(b,b)?a:b; return smoothstep(0.41,0.49,hexD(gv)); }
+  vec3 fireRamp(float x){ x=clamp(x,0.0,1.0); return mix(mix(vec3(0.25,0.02,0.0),vec3(1.0,0.32,0.02),smoothstep(0.0,0.45,x)),mix(vec3(1.0,0.75,0.15),vec3(1.0,1.0,0.85),smoothstep(0.8,1.0,x)),smoothstep(0.45,0.8,x)); }
   float heartD(vec2 p){ p.x=abs(p.x); if(p.y+p.x>1.0) return sqrt(dot2(p-vec2(0.25,0.75)))-0.35355; return sqrt(min(dot2(p-vec2(0.0,1.0)),dot2(p-0.5*max(p.x+p.y,0.0))))*sign(p.x-p.y); }
   void main(){ vec3 n=normalize(vP); float fr=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.2);
     vec2 uv=vec2(atan(n.z,n.x)*2.864789, asin(clamp(n.y,-1.0,1.0))*5.0);
@@ -74,19 +76,85 @@ const DOME_FS=`uniform float skin; uniform vec3 tint; uniform vec3 color; unifor
         vec3 cyan=mix(vec3(0.45,0.95,1.0),tint,0.5);
         c=deep+cyan*(bok*0.9+jel*1.2)+vec3(1.0)*(glint*0.7+rip+sweep*0.25); c=mix(c,cyan,line*0.12);
         al=opacity*(0.42+bok*0.5+jel*0.6+fr*0.55+line*0.06+base*0.6+glint+rip)+flash*0.35*opacity; }
-      else { // TOPO: flowing contour map
+      else if(skin<8.5){ // TOPO: flowing contour map
         float h=fbm3(n*2.3+vec3(0.0,time*0.06,time*0.03)); float f=fract(h*16.0); float ln=1.0-smoothstep(0.0,0.09,min(f,1.0-f));
         float f5=fract(h*16.0/5.0); float idx=1.0-smoothstep(0.0,0.035,min(f5,1.0-f5));
         vec3 warm=mix(tint*vec3(1.05,0.78,0.45),tint,smoothstep(0.3,0.75,h)); vec3 ink=tint*vec3(0.28,0.16,0.06);
         c=mix(warm,ink,max(ln*0.85,idx)); c+=vec3(1.0)*(glint*0.8+rip+sweep*0.3);
-        al=opacity*(0.3+ln*0.45+idx*0.5+fr*0.6+base*0.6+glint+rip)+flash*0.35*opacity; } }
+        al=opacity*(0.3+ln*0.45+idx*0.5+fr*0.6+base*0.6+glint+rip)+flash*0.35*opacity; }
+      else if(skin<9.5){ // CARBON: woven carbon fibre under a glossy clear coat, accent rim
+        vec2 q=uv*2.0; vec2 ci=floor(q), cf=fract(q); float ck=mod(ci.x+ci.y,2.0);
+        float fib=ck>0.5? 0.5+0.5*cos((cf.y-0.5)*3.1416)*(0.75+0.25*sin(cf.x*40.0)) : 0.5+0.5*cos((cf.x-0.5)*3.1416)*(0.75+0.25*sin(cf.y*40.0));
+        vec3 cb=vec3(0.035)+vec3(0.13)*fib*fib; float y=Rv.y; float coat=pow(max(0.0,1.0-abs(y-0.25)*2.2),6.0)*0.55+pow(max(0.0,y),3.0)*0.25;
+        c=cb+vec3(coat)+tint*(fr*0.6+base*0.9+line*0.04)+vec3(1.0)*(glint*1.3+sweep*0.35+rip);
+        al=opacity*(0.5+fr*0.4+base*0.6+coat*0.4+glint+rip)+flash*0.3*opacity; }
+      else if(skin<10.5){ // GLITCH: RGB-split grid that tears and corrupts
+        float tq=floor(time*9.0); float band=floor(uv.y*3.2+hash(vec2(tq,3.0))*2.0); float burst=step(0.82,hash(vec2(band,tq)));
+        float sh=0.06+burst*(0.25+0.35*hash(vec2(band+1.0,tq))); vec2 gu=uv+vec2(burst*(hash(vec2(band,tq+7.0))-0.5)*1.4,0.0);
+        vec3 rgb=vec3(hexLine(gu+vec2(sh,0.0)),hexLine(gu),hexLine(gu-vec2(sh,0.0)));
+        float blk=step(0.93,hash(floor(uv*vec2(1.5,3.0))+tq))*step(0.5,hash(vec2(tq,9.0)));
+        float scan=0.75+0.25*sin(uv.y*90.0+time*30.0);
+        c=(rgb*vec3(1.0,0.25,0.75)+rgb.g*tint*0.9)*scan+mix(tint,vec3(1.0,0.0,0.55),hash(floor(uv*2.0)+tq))*blk+vec3(1.0)*(glint*0.6+rip);
+        al=opacity*(0.12+max(max(rgb.r,rgb.g),rgb.b)*0.75+blk*0.55+fr*0.6+base*0.7+glint+rip)+flash*0.35*opacity; }
+      else if(skin<11.5){ // INFERNO: flames licking up the dome, embers rising
+        float fl=fbm3(vec3(n.x*2.6,n.y*1.6-time*1.15,n.z*2.6))*1.25+fbm3(vec3(n.x*5.0,n.y*3.0-time*2.1,n.z*5.0))*0.35; float heat=clamp(fl-n.y*1.05+0.15,0.0,1.0);
+        vec2 eu=vec2(uv.x,uv.y-time*0.9); vec2 eid=floor(eu/0.5); eid.x=mod(eid.x,36.0); float eh=hash(eid); vec2 ef=fract(eu/0.5)-0.5-(vec2(hash(eid+1.7),hash(eid+2.9))-0.5)*0.6;
+        float emb=step(0.82,eh)*(1.0-smoothstep(0.02,0.07,length(ef)))*(0.5+0.5*sin(time*9.0+eh*40.0));
+        vec3 fc=fireRamp(heat*1.15)*mix(vec3(1.0),tint*1.3,0.25);
+        c=mix(vec3(0.05,0.01,0.0),fc,smoothstep(0.08,0.35,heat))+vec3(1.0,0.75,0.3)*emb+vec3(1.0)*(glint*0.6+rip);
+        al=opacity*(0.08+smoothstep(0.1,0.6,heat)*0.68+emb+fr*0.45+base*0.8+glint+rip)+flash*0.35*opacity; }
+      else if(skin<12.5){ // GALAXY: deep space, swirling nebula and stars
+        float sw=time*0.05+n.y*1.6; vec3 sp=vec3(n.x*cos(sw)-n.z*sin(sw),n.y,n.x*sin(sw)+n.z*cos(sw));
+        float neb=fbm3(sp*2.4+vec3(0.0,0.0,time*0.02)); float neb2=fbm3(sp*4.5+3.0);
+        vec3 nc=mix(tint,vec3(0.15,0.6,1.0),smoothstep(0.35,0.7,neb2)); nc=mix(nc,vec3(1.0,0.25,0.65),smoothstep(0.6,0.85,neb)*0.6);
+        vec2 su=uv/0.3; vec2 sid=floor(su); sid.x=mod(sid.x,60.0); vec2 sf=fract(su)-0.5-(vec2(hash(sid+0.3),hash(sid+0.9))-0.5)*0.7; float sh2=hash(sid+5.5);
+        float star=step(0.86,sh2)*(1.0-smoothstep(0.0,0.06+0.05*sh2,length(sf)))*(0.6+0.4*sin(time*4.0+sh2*60.0));
+        float cloud=smoothstep(0.42,0.8,neb);
+        c=vec3(0.01,0.0,0.035)+nc*cloud*1.2+vec3(1.0)*(star*1.4+glint*0.8+rip); c+=tint*fr*0.5;
+        al=opacity*(0.4+cloud*0.45+star+fr*0.6+base*0.6+glint+rip)+flash*0.35*opacity; }
+      else if(skin<13.5){ // CIRCUIT: connected board traces, pads, data pulses racing along them
+        vec2 q=uv*1.5; vec2 ci=floor(q), f=fract(q);
+        float eB=step(0.45,hash(vec2(mod(ci.x,27.0),ci.y)+0.17)), eT=step(0.45,hash(vec2(mod(ci.x,27.0),ci.y+1.0)+0.17));
+        float eL=step(0.55,hash(vec2(mod(ci.x,27.0),ci.y)+0.71)), eR=step(0.55,hash(vec2(mod(ci.x+1.0,27.0),ci.y)+0.71));
+        float tw=0.045; float tH=max(eB*(1.0-smoothstep(tw,tw+0.03,f.y)),eT*(1.0-smoothstep(tw,tw+0.03,1.0-f.y))); float tV=max(eL*(1.0-smoothstep(tw,tw+0.03,f.x)),eR*(1.0-smoothstep(tw,tw+0.03,1.0-f.x)));
+        float tr=max(tH,tV); vec2 cn=floor(f+0.5); vec2 cid2=vec2(mod(ci.x+cn.x,27.0),ci.y+cn.y); float dc=length(f-cn);
+        float pad=step(0.68,hash(cid2+9.1))*(1.0-smoothstep(0.0,0.035,abs(dc-0.13))); float via=step(0.68,hash(cid2+9.1))*(1.0-smoothstep(0.05,0.08,dc));
+        float rowH=hash(vec2(ci.y+(f.y>0.5?1.0:0.0),4.4)), colH=hash(vec2(mod(ci.x+(f.x>0.5?1.0:0.0),27.0),8.8));
+        float fpH=fract(q.x*0.22-time*(0.5+rowH*0.6)+rowH); float pH=tH*smoothstep(0.0,0.015,fpH)*(1.0-smoothstep(0.03,0.11,fpH));
+        float fpV=fract(q.y*0.22-time*(0.4+colH*0.5)+colH); float pV=tV*smoothstep(0.0,0.015,fpV)*(1.0-smoothstep(0.03,0.11,fpV));
+        float pulse=max(pH,pV); float chip=step(0.93,hash(floor(uv*0.75)+2.2))*(1.0-smoothstep(0.32,0.36,max(abs(fract(uv.x*0.75)-0.5),abs(fract(uv.y*0.75)-0.5))));
+        c=vec3(0.0,0.035,0.03)+tint*(tr*0.55+pad*0.9+via*0.7)+vec3(0.06,0.07,0.08)*chip+mix(tint,vec3(1.0),0.55)*pulse*1.5+vec3(1.0)*(glint*0.7+rip);
+        al=opacity*(0.26+tr*0.42+pad*0.6+via*0.5+chip*0.3+pulse+fr*0.6+base*0.7+glint+rip)+flash*0.35*opacity; }
+      else if(skin>14.5){ // KINTSUGI: dark glazed ceramic, cracks mended with real gold
+        vec2 wu=uv/1.8+vec2(n3(n*2.2+1.3),n3(n*2.2+7.9))*0.55; vec2 vi=floor(wu), vf=fract(wu); float F1=8.0, F2=8.0;
+        for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++){ vec2 g=vec2(float(i),float(j)); vec2 hw=vec2(mod(vi.x+g.x,10.0),vi.y+g.y); vec2 o=vec2(hash(hw+0.4),hash(hw+2.8)); float d=length(g+o-vf); if(d<F1){ F2=F1; F1=d; } else if(d<F2) F2=d; }
+        float e=F2-F1; float wob=n3(n*9.0+4.4); float seam=1.0-smoothstep(0.0,0.03+0.035*wob,e);
+        vec2 hu=uv/0.9+vec2(n3(n*4.0+2.0),n3(n*4.0+6.0))*0.7; vec2 hi=floor(hu), hf=fract(hu); float G1=8.0, G2=8.0;
+        for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++){ vec2 g=vec2(float(i),float(j)); vec2 hw=vec2(mod(hi.x+g.x,20.0),hi.y+g.y); vec2 o=vec2(hash(hw+5.4),hash(hw+1.8)); float d=length(g+o-hf); if(d<G1){ G2=G1; G1=d; } else if(d<G2) G2=d; }
+        float hair=(1.0-smoothstep(0.0,0.025,G2-G1))*smoothstep(0.55,0.68,n3(n*3.0+5.5));
+        float gold=max(seam,hair*0.85);
+        float y=Rv.y; float glaze=pow(max(0.0,1.0-abs(y-0.35)*2.4),10.0)*0.6+pow(max(0.0,1.0-abs(y+0.05)*5.0),6.0)*0.12;
+        vec3 clay=mix(vec3(0.035,0.04,0.055),vec3(0.07,0.06,0.08),n3(n*5.0+3.0));
+        float shimmer=0.75+0.25*sin(time*2.0+uv.x*2.5+uv.y*1.7); vec3 au=tint*(0.75+0.5*pow(max(0.0,y),1.5))*shimmer+vec3(1.0,0.95,0.8)*pow(max(0.0,y),12.0)*0.8;
+        c=mix(clay+vec3(glaze),au,gold)+vec3(1.0)*(glint*1.1+rip+sweep*0.15*gold);
+        al=opacity*(0.5+glaze*0.35+gold*0.5+fr*0.4+base*0.6+glint+rip)+flash*0.3*opacity; }
+      else { // OBSIDIAN: black volcanic glass, molten cracks breathing underneath
+        vec2 vu=uv/1.2; vec2 vi=floor(vu), vf=fract(vu); float F1=8.0, F2=8.0;
+        for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++){ vec2 g=vec2(float(i),float(j)); vec2 hw=vec2(mod(vi.x+g.x,15.0),vi.y+g.y); vec2 o=vec2(hash(hw),hash(hw+6.3)); o=0.5+0.4*sin(time*0.25+6.28*o); float d=length(g+o-vf); if(d<F1){ F2=F1; F1=d; } else if(d<F2) F2=d; }
+        float crack=1.0-smoothstep(0.0,0.07,F2-F1); float glow=1.0-smoothstep(0.0,0.22,F2-F1); float breathe=0.65+0.35*sin(time*1.6+F1*4.0);
+        float y=Rv.y; float gloss=pow(max(0.0,1.0-abs(y-0.3)*2.5),8.0)*0.45;
+        c=vec3(0.02,0.015,0.02)+vec3(gloss)+tint*(glow*0.35*breathe)+mix(tint,vec3(1.0,0.85,0.4),0.45)*crack*breathe*1.3+vec3(1.0)*(glint*1.1+rip);
+        al=opacity*(0.42+gloss*0.4+glow*0.2+crack*0.6+fr*0.45+base*0.7+glint+rip)+flash*0.3*opacity; } }
     if(split>0.001){ float lim=0.46-0.2*split; float keep=1.0-smoothstep(lim-0.03,lim,d); float edge=smoothstep(lim-0.13,lim-0.03,d)*keep; al=opacity*keep*(0.42+edge*0.55+fr*0.2); c=mix(cc,vec3(1.0),edge*0.55); }
     gl_FragColor=vec4(c,clamp(al,0.0,1.0)); }`;
 const domeGeo=new T.SphereGeometry(1,48,20,0,Math.PI*2,0,Math.PI/2);
 function domeMat(color,fill){ return new T.ShaderMaterial({uniforms:{skin:{value:0},tint:{value:new T.Color(0xffffff)},color:{value:new T.Color(color)},cols:{value:[new T.Color(color),new T.Color(color),new T.Color(color),new T.Color(color)]},ncol:{value:1},split:{value:0},opacity:{value:1},time:{value:0},fill:{value:fill},flash:{value:0},hitAge:{value:9},hitDir:{value:V3(0,1,0)}},vertexShader:DOME_VS,fragmentShader:DOME_FS,transparent:true,side:T.DoubleSide,depthWrite:false}); }
 function setPal(mat,list){ const u=mat.uniforms, n=Math.min(4,list.length); for(let i=0;i<4;i++) u.cols.value[i].copy(list[i%n]); u.ncol.value=n; }
 // dome styles you can pick in the Dome Studio (purely cosmetic: hit boxes and ability colours on the floor ring stay the same)
-const DOME_SKINS=[{id:'default',name:'Default',tint:null,blurb:'Your team colour, plus your dome cards'},{id:'crystal',name:'Crystal',tint:'#bfe9ff',blurb:'Prism facets that throw rainbows'},{id:'neo',name:'Neo',tint:'#35e9ff',blurb:'Synthwave grid, always moving'},{id:'chrome',name:'Chrome',tint:'#ffffff',blurb:'Liquid mirror metal'},{id:'heart',name:'Heart',tint:'#ff4f9a',blurb:'A dome full of beating hearts'},{id:'noir',name:'Noir',tint:'#ffd27a',blurb:'Black smoked glass, gold edge'},{id:'bloodleaf',name:'Bloodleaf',tint:'#ff1f3d',blurb:'Dark leaves with veins that pulse red'},{id:'abyss',name:'Abyss',tint:'#4ff0ff',blurb:'Deep sea. Jellyfish drift past'},{id:'topo',name:'Topo',tint:'#ffb43a',blurb:'A living contour map that flows'}];
+const DOME_SKINS=[{id:'default',name:'Default',tint:null,blurb:'Your team colour, plus your dome cards'},{id:'crystal',name:'Crystal',tint:'#bfe9ff',blurb:'Prism facets that throw rainbows'},{id:'neo',name:'Neo',tint:'#35e9ff',blurb:'Synthwave grid, always moving'},{id:'chrome',name:'Chrome',tint:'#ffffff',blurb:'Liquid mirror metal'},{id:'heart',name:'Heart',tint:'#ff4f9a',blurb:'A dome full of beating hearts'},{id:'noir',name:'Noir',tint:'#ffd27a',blurb:'Black smoked glass, gold edge'},{id:'bloodleaf',name:'Bloodleaf',tint:'#ff1f3d',blurb:'Dark leaves with veins that pulse red'},{id:'abyss',name:'Abyss',tint:'#4ff0ff',blurb:'Deep sea. Jellyfish drift past'},{id:'topo',name:'Topo',tint:'#ffb43a',blurb:'A living contour map that flows'},
+  {id:'carbon',name:'Carbon',tint:'#ff2a2a',blurb:'Woven carbon fibre, glossy clear coat'},{id:'glitch',name:'Glitch',tint:'#00ffd0',blurb:'Corrupted signal. Tears and RGB split'},{id:'inferno',name:'Inferno',tint:'#ff6a1a',blurb:'Flames climb the dome, embers fly'},
+  {id:'galaxy',name:'Galaxy',tint:'#9a6bff',blurb:'A slowly turning nebula full of stars'},{id:'circuit',name:'Circuit',tint:'#35ff9a',blurb:'Live circuit board, data racing through'},{id:'obsidian',name:'Obsidian',tint:'#ff4a10',blurb:'Black volcanic glass, molten cracks'},{id:'kintsugi',name:'Kintsugi',tint:'#e8b85a',blurb:'Broken, mended with gold. Stronger for it'}];
+const DOME_ORDER=[0,3,5,9,14,15,1,2,10,13,11,12,7,6,8,4]; // how they're laid out in the studio (ids stay fixed for saves + online)
 const skinTint=(k,c)=>{ const d=DOME_SKINS[k]; return new T.Color(c&&/^#[0-9a-f]{6}$/i.test(c)?c:(d&&d.tint)||'#ffffff'); };
 const SAW_PAL=[new T.Color(0xff6b6b)], AURA_PAL={chill:new T.Color(0x9fd8ff),staticf:new T.Color(0xffe066),drain:new T.Color(0xff6b9d)};
 const ringGeo=new T.RingGeometry(0.9,1,56);
@@ -285,9 +353,9 @@ class Fighter{
     if((this.blockActive&&!this.dead)||sawing||this.domePreview){
       let sc=R, fade=1, flash=this.previewFlash||0;
       if(this.blockActive){ const el=CFG.blockDuration-this.blockT; const k=Math.min(1,el/0.09); const e=1-Math.pow(1-k,3); const settle=clamp((el-0.09)/0.16,0,1); sc=Math.max(this.height+0.3,R*(0.35+0.65*e)*(1.12-0.12*settle)); if(sc>R*1.12) sc=Math.max(R*(0.35+0.65*e)*(1.12-0.12*settle),Math.min(sc,this.height+0.3)); fade=sawing?1:Math.min(1,this.blockT/0.12); flash=Math.max(0,1-el/0.2); }
-      const u=this.domeMat.uniforms; this.dome.visible=true; this.dome.position.copy(dc); this.dome.scale.setScalar(sc); this.dome.rotation.y=sawing? t*9 : t*0.25; u.opacity.value=fade; u.time.value=t; u.flash.value=flash; u.hitAge.value=this.domeHitAge; u.hitDir.value.copy(this.domeHitDir).applyAxisAngle(UP,-this.dome.rotation.y); const myPal=(this.skin===0&&this.skinCol)?[new T.Color(this.skinCol),...this.cardPal].slice(0,4):this.domePal; setPal(this.domeMat,sawing?SAW_PAL:myPal);
-      this.skinTint.copy(skinTint(this.skin,this.skinCol)); u.skin.value=sawing?0:this.skin; u.tint.value.copy(this.skinTint);
-      const u2=this.domeMat2.uniforms; this.dome2.visible=true; this.dome2.position.copy(dc); this.dome2.scale.setScalar(sc*0.93); this.dome2.rotation.y=-t*0.6; u2.opacity.value=fade*(this.skin?0.4:0.55); u2.time.value=t*0.7+3; u2.flash.value=flash*0.5; u2.hitAge.value=9; u2.skin.value=sawing?0:this.skin; u2.tint.value.copy(this.skinTint);
+      const u=this.domeMat.uniforms; this.dome.visible=true; this.dome.position.copy(dc); this.dome.scale.setScalar(sc); this.dome.rotation.y=sawing? t*9 : t*0.25; u.opacity.value=fade; u.time.value=t; u.flash.value=flash; u.hitAge.value=this.domeHitAge; u.hitDir.value.copy(this.domeHitDir).applyAxisAngle(UP,-this.dome.rotation.y); const myPal=(this.skin===0&&this.skinCol)?[new T.Color(this.skinCol),...this.cardPal].slice(0,4):this.domePal; setPal(this.domeMat,(sawing&&this.skin===0&&!this.skinCol)?SAW_PAL:myPal);
+      this.skinTint.copy(skinTint(this.skin,this.skinCol)); u.skin.value=this.skin; u.tint.value.copy(this.skinTint);
+      const u2=this.domeMat2.uniforms; this.dome2.visible=true; this.dome2.position.copy(dc); this.dome2.scale.setScalar(sc*0.93); this.dome2.rotation.y=-t*0.6; u2.opacity.value=fade*(this.skin?0.4:0.55); u2.time.value=t*0.7+3; u2.flash.value=flash*0.5; u2.hitAge.value=9; u2.skin.value=this.skin; u2.tint.value.copy(this.skinTint);
       this.domeRing.visible=true; this.domeRing.position.set(dc.x,dc.y+0.03,dc.z); this.domeRing.scale.setScalar(sc*1.02); this.domeRing.material.opacity=0.9*fade;
       this.sawRing.visible=sawing; if(sawing){ this.sawRing.position.set(dc.x,dc.y+0.05,dc.z); this.sawRing.scale.set(R,1+R*0.4,R); this.sawRing.rotation.y=-t*10; }
     } else { this.dome.visible=false; this.dome2.visible=false; this.domeRing.visible=false; this.sawRing.visible=false; }

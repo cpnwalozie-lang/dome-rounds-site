@@ -5,7 +5,7 @@
   const nameEl=document.getElementById('stName'), blurbEl=document.getElementById('stBlurb'), picker=document.getElementById('stPick');
   const SW=['#35e9ff','#ff2e88','#ffd21f','#7dff6b','#a46bff','#ff7a1a','#ff3b3b','#2f6fe4','#ffffff','#111118'];
   let lastHit=0;
-  function tiles(){ grid.innerHTML=DOME_SKINS.map((d,i)=>`<button type="button" class="st-tile${(settings.domeSkin|0)===i?' on':''}" data-i="${i}" aria-pressed="${(settings.domeSkin|0)===i}"><span class="dthumb dt-${d.id}"><i></i></span><b>${d.name}</b></button>`).join(''); }
+  function tiles(){ grid.innerHTML=DOME_ORDER.map(i=>[DOME_SKINS[i],i]).map(([d,i])=>`<button type="button" class="st-tile${(settings.domeSkin|0)===i?' on':''}" data-i="${i}" aria-pressed="${(settings.domeSkin|0)===i}"><span class="dthumb dt-${d.id}"><i></i></span><b>${d.name}</b></button>`).join(''); }
   function cols(){ const cur=settings.domeCol||''; const sk=DOME_SKINS[settings.domeSkin|0];
     colsEl.innerHTML=`<button type="button" class="sw def${cur===''?' on':''}" data-c="" title="Style colour" aria-label="Style colour" style="--c:${sk.tint||'#35e9ff'}"></button>`+SW.map(c=>`<button type="button" class="sw${cur.toLowerCase()===c?' on':''}" data-c="${c}" aria-label="Colour ${c}" style="--c:${c}"></button>`).join('')+
       `<label class="sw pick${cur&&!SW.includes(cur.toLowerCase())?' on':''}" title="Pick any colour" style="--c:${cur&&!SW.includes(cur.toLowerCase())?cur:'#ffffff'}"><input type="color" id="stPickIn" value="${cur||'#ff2e88'}" aria-label="Pick any colour"></label>`;
