@@ -1,0 +1,2 @@
+# The game's source code lives in /source for rebuilding; it is not part of the public site.
+/source/* / 302
