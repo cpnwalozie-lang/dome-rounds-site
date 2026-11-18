@@ -1542,7 +1542,7 @@ function buildFoundry(){
     solid(sx*6.2-0.9,sx*6.2+0.9,0,1.5,-9.4,-7.6,steel); solid(sx*6.2-0.9,sx*6.2+0.9,0,1.5,7.6,9.4,steel); solid(sx*11-0.9,sx*11+0.9,0,1.2,-13.6,-11.8,steel); solid(sx*11-0.9,sx*11+0.9,0,1.2,11.8,13.6,steel);
     crateBox(sx*17.6-0.7,sx*17.6+0.7,0,1.4,12.2,13.6,M.crateO); crateBox(sx*17.6-0.7,sx*17.6+0.7,0,1.4,-13.6,-12.2,M.crate); barrel(sx*22.2,13,0xff7a1a); barrel(sx*22.2,-13,0xff7a1a); }
   // ---- gantries for the swinging balls: posts at x=±(7±2.2), beam along x at the pivot ----
-  const PIV=9.2, LEN=8.1, BR=0.85;
+  const PIV=9.2, LEN=7.6, BR=0.85; // lowest point keeps the spikes just clear of the floor
   const balls=[];
   const spikeG=new T.ConeGeometry(0.2,0.75,6); spikeG.translate(0,BR+0.28,0);
   for(const sx of [-1,1]){ const cx=sx*BX;
@@ -1603,9 +1603,9 @@ function buildFoundry(){
   MAPHZ.spheres=balls.map(b=>({pos:b.pos,r:BR+0.15}));
   animated.push((t,dt)=>{ const rt=T0();
     // balls: pendulum along z
-    for(const b of balls){ const th=1.05*Math.sin(rt*1.85+b.ph); b.g.rotation.x=th; b.prev.copy(b.pos); b.pos.set(b.g.position.x,PIV-LEN*Math.cos(th),LEN*Math.sin(th)); if(dt>0) b.vel.subVectors(b.pos,b.prev).multiplyScalar(1/Math.max(dt,1e-3));
+    for(const b of balls){ const th=1.05*Math.sin(rt*1.85+b.ph); b.g.rotation.x=th; b.prev.copy(b.pos); b.pos.set(b.g.position.x,PIV-LEN*Math.cos(th),-LEN*Math.sin(th)); /* matches the drawn ball (rotation.x swings the bob towards -z) */ if(dt>0) b.vel.subVectors(b.pos,b.prev).multiplyScalar(1/Math.max(dt,1e-3));
       b.glow.material.opacity=Math.min(0.6,b.vel.length()*0.05);
-      if(state==='fight') for(const f of fighters){ if(f.dead||f.active===false) continue; if(f.distTo(b.pos)>BR+0.35+f.hitR) continue; const d=b.vel.clone(); d.y=0; if(d.lengthSq()<1) d.set(0,0,Math.sign(f.pos.z-b.pos.z)||1); d.normalize(); hit(f,24,d.multiplyScalar(19),8,0.35,0.9,b.cd,'SMASHED!',0xffd0a0,b.pos.clone()); } }
+      if(state==='fight') for(const f of fighters){ if(f.dead||f.active===false) continue; if(f.distTo(b.pos)>BR+0.35+f.hitR) continue; const d=b.vel.clone(); d.y=0; if(d.lengthSq()<1) d.set(0,0,Math.sign(f.pos.z-b.pos.z)||1); d.normalize(); hit(f,24,d.multiplyScalar(15),6.5,0.35,0.9,b.cd,'SMASHED!',0xffd0a0,b.pos.clone()); } }
     // press: up (rest) -> warning -> slam -> hold -> rise.  6 s cycle
     const c=((rt+1.5)%6+6)%6; let y, warn=0; if(c<3.2){ y=7.6; warn=c>2.2?(c-2.2):0; } else if(c<3.4){ const k=(c-3.2)/0.2; y=7.6*(1-k*k); warn=1; } else if(c<4.1){ y=0; } else { const k=(c-4.1)/1.9; y=7.6*(1-Math.pow(1-k,2)); }
     const was=P.y; P.y=y; pressG.position.y=y; for(const bc of beacons){ const on=warn>0&&Math.sin(rt*18)>0; bc.gl.material.opacity=on?0.9:0; bc.b.material.color.setHex(on?0xffd060:0x8a4a10); } P.box.min.y=y; P.box.max.y=y+2.4; warnM.opacity=warn>0?(0.25+0.45*warn)*(Math.sin(rt*26)>0?1:0.4):(y<0.5?0.15:0);
