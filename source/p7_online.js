@@ -64,7 +64,7 @@ function serverRoomApi(base){ if(!base||typeof WebSocket!=='function') return nu
 function chainApi(list){ return { join:async(name,role)=>{ let last=null; for(const a of list){ try{ return await a.join(name,role); }catch(e){ last=e; if(e&&(e.code==='code_taken'||e.code==='full')) throw e; } } throw last||{code:'upstream_error'}; } }; }
 async function getRoomApi(){ if(roomApi||roomTried) return roomApi; roomTried=true;
   try{ if(window.claude&&typeof window.claude.use==='function') roomApi=await window.claude.use('room'); }catch(e){ roomApi=null; }
-  if(roomApi){ const n=$id('olNote'); if(n) n.textContent="Share this game with your rival from its page on Claude. They open it, press Play Online and type your code. The map is the room creator's pick."; }
+  if(roomApi){ const n=$id('olNote'); if(n) n.textContent="Share this game with your rival from its page on Claude. They open it, press Private Match, then Friends, and type your code. The map is the room creator's pick."; }
   if(!roomApi){ const list=[serverRoomApi(DR_SERVER),peerRoomApi()].filter(Boolean); roomApi=list.length?chainApi(list):null; } return roomApi; }
 getRoomApi();
 const R2=v=>Math.round(v*100)/100, R3=v=>Math.round(v*1000)/1000;
@@ -202,7 +202,7 @@ function netApplyRemote(f,dt){ const s=f.rs; if(!s) return; const S=f.snaps||[];
   if(NET.role==='host'&&state==='fight'&&!f.dead&&(f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)){ f.invulnT=0; fatal(f,f.lastHitBy,'fall'); } }
 // ---------- UI ----------
 function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.on?NET.kind:(['ffa','2v2'].includes(settings.gm)?settings.gm:'1v1'); const multi=kind!=='1v1', two=kind==='2v2';
-  $id('olHead').textContent=kind==='ffa'?'Play online · free for all (3-4)':two?'Play online · 2v2':'Play online · 1v1';
+  $id('olHead').textContent=kind==='ffa'?'Friends room · free for all (3-4)':two?'Friends room · 2v2':'Friends room · 1v1';
   const host=NET.on&&NET.role==='host', me=NET.on?myPeerId():null; const K=NET.kind; NET.kind=kind;
   const seat=(st,i)=>`<div class="ol-seat" style="--c:${seatTeam(i).css}"><i></i><span>${esc(st.n)}${st.p===me?' (you)':''}${st.b?' <em>bot</em>':''}${i===0?' <em>host</em>':''}${two?` <em>${i%2?'orange':'blue'}</em>`:''}</span></div>`;
   const empty=i=>`<div class="ol-seat empty"${two?` style="--c:${seatTeam(i).css}"`:''}><i></i><span>${two?(i%2?'Orange':'Blue')+' seat':'Empty seat'}</span></div>`;
@@ -231,6 +231,6 @@ function inviteLink(){ const u=new URL(location.href); u.hash=''; u.search=''; c
 $id('olLink').addEventListener('click',()=>{ if(!NET.on) return; const L=inviteLink(); try{ navigator.clipboard.writeText(L).then(()=>olMsg('Invite link copied. Send it to your mates and they land right in your room.'),()=>olMsg('Copy failed. Share this: '+L)); }catch(e){ olMsg('Copy failed. Share this: '+L); } });
 (()=>{ let c=null; try{ c=new URLSearchParams(location.search).get('room'); }catch(e){} if(!c||!/^[A-Za-z0-9]{5}$/.test(c)) return; c=c.toUpperCase();
   try{ const u=new URL(location.href); u.searchParams.delete('room'); history.replaceState(null,'',u.pathname+u.search+u.hash); }catch(e){}
-  setTimeout(()=>{ const p=$id('online'); if(!p.classList.contains('open')) p.classList.add('open'); olView('main'); codeIn.value=c; olMsg('Joining room '+c+'…'); doJoin(); },400); })();
+  setTimeout(()=>{ menuFriends(); olView('main'); codeIn.value=c; olMsg('Joining room '+c+'…'); doJoin(); },400); })();
 $id('olCancel').addEventListener('click',()=>{ netLeave(); olView('main'); olMsg(''); });
 netReset();

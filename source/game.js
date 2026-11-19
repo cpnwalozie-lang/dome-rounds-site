@@ -41,7 +41,7 @@ const INK = 0x0b1026;
 const STUDIO={ open:false };
 const GPU_WEAK=(()=>{ try{ const c=document.createElement('canvas'), g=c.getContext('webgl'); const e=g&&g.getExtension('WEBGL_debug_renderer_info'); const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=g&&g.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(_){} return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic/i.test(r); }catch(e){ return false; } })(); // built-in laptop graphics // Dome Studio (cosmetic dome styles)
 const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
-const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false, clips:true };
+const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false, clips:true, with:'bots' };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
 function saveSettings(){ try{ localStorage.setItem('domeRoundsSettings4',JSON.stringify(settings)); }catch(e){} }
@@ -2744,7 +2744,7 @@ function pollPad(dt){
   if(!pad.used){ pad.prev=b; return; }
   if(sandbox.open){ if(just(0)||just(9)) UI.sbxGo.click(); }
   else if(paused){ if(just(0)||just(9)) resume(); }
-  else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); if(settings.gm==='battle'&&btHook) btHook.play(); else startMatch(); } if(just(3)) openSandbox(); }
+  else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); const pv=document.getElementById('private').classList.contains('open'); if(pv){ if(settings.with!=='friends') startMatch(); } else if(btHook) btHook.play(); } if(just(3)) openSandbox(); }
   else if(state==='matchover'){ if(just(0)||just(9)) startMatch(); }
   else if(state==='draft'||(btHook&&btHook.picking)){ const n=UI.cards.children.length; pad.navT-=dt; const dir=(b[15]||lx>0.5?1:0)-(b[14]||lx<-0.5?1:0); if(dir&&pad.navT<=0){ pad.focus=(pad.focus+dir+n)%n; pad.navT=0.25; SFX.hover(); } if(!dir) pad.navT=0; for(let i=0;i<n;i++){ const c=UI.cards.children[i]; c.classList.toggle('focus',i===pad.focus); } if(n&&UI.cards.children[pad.focus]._hover) UI.cards.children[pad.focus]._hover(); if(just(0)&&n) UI.cards.children[pad.focus].click(); }
   else if(state==='fight'||state==='countdown'){ pad.lx=lx; pad.ly=ly; look(rx*3.1*dt*settings.sens, ry*2.1*dt*settings.sens); pad.fire=b[7]; if(just(7)){ firePressed=true; steerLatch=false; } if(just(6)||just(4)) pressBlock(); if(just(0)) jumpBuffer=0.15; if(just(1)||just(2)||just(5)) wantDash=true; if(just(9)) pause(); if(just(8)){ if(mode==='sandbox') openSandbox(); else if(clipSave) clipSave(); } }
@@ -3606,7 +3606,7 @@ function serverRoomApi(base){ if(!base||typeof WebSocket!=='function') return nu
 function chainApi(list){ return { join:async(name,role)=>{ let last=null; for(const a of list){ try{ return await a.join(name,role); }catch(e){ last=e; if(e&&(e.code==='code_taken'||e.code==='full')) throw e; } } throw last||{code:'upstream_error'}; } }; }
 async function getRoomApi(){ if(roomApi||roomTried) return roomApi; roomTried=true;
   try{ if(window.claude&&typeof window.claude.use==='function') roomApi=await window.claude.use('room'); }catch(e){ roomApi=null; }
-  if(roomApi){ const n=$id('olNote'); if(n) n.textContent="Share this game with your rival from its page on Claude. They open it, press Play Online and type your code. The map is the room creator's pick."; }
+  if(roomApi){ const n=$id('olNote'); if(n) n.textContent="Share this game with your rival from its page on Claude. They open it, press Private Match, then Friends, and type your code. The map is the room creator's pick."; }
   if(!roomApi){ const list=[serverRoomApi(DR_SERVER),peerRoomApi()].filter(Boolean); roomApi=list.length?chainApi(list):null; } return roomApi; }
 getRoomApi();
 const R2=v=>Math.round(v*100)/100, R3=v=>Math.round(v*1000)/1000;
@@ -3744,7 +3744,7 @@ function netApplyRemote(f,dt){ const s=f.rs; if(!s) return; const S=f.snaps||[];
   if(NET.role==='host'&&state==='fight'&&!f.dead&&(f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)){ f.invulnT=0; fatal(f,f.lastHitBy,'fall'); } }
 // ---------- UI ----------
 function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.on?NET.kind:(['ffa','2v2'].includes(settings.gm)?settings.gm:'1v1'); const multi=kind!=='1v1', two=kind==='2v2';
-  $id('olHead').textContent=kind==='ffa'?'Play online · free for all (3-4)':two?'Play online · 2v2':'Play online · 1v1';
+  $id('olHead').textContent=kind==='ffa'?'Friends room · free for all (3-4)':two?'Friends room · 2v2':'Friends room · 1v1';
   const host=NET.on&&NET.role==='host', me=NET.on?myPeerId():null; const K=NET.kind; NET.kind=kind;
   const seat=(st,i)=>`<div class="ol-seat" style="--c:${seatTeam(i).css}"><i></i><span>${esc(st.n)}${st.p===me?' (you)':''}${st.b?' <em>bot</em>':''}${i===0?' <em>host</em>':''}${two?` <em>${i%2?'orange':'blue'}</em>`:''}</span></div>`;
   const empty=i=>`<div class="ol-seat empty"${two?` style="--c:${seatTeam(i).css}"`:''}><i></i><span>${two?(i%2?'Orange':'Blue')+' seat':'Empty seat'}</span></div>`;
@@ -3773,7 +3773,7 @@ function inviteLink(){ const u=new URL(location.href); u.hash=''; u.search=''; c
 $id('olLink').addEventListener('click',()=>{ if(!NET.on) return; const L=inviteLink(); try{ navigator.clipboard.writeText(L).then(()=>olMsg('Invite link copied. Send it to your mates and they land right in your room.'),()=>olMsg('Copy failed. Share this: '+L)); }catch(e){ olMsg('Copy failed. Share this: '+L); } });
 (()=>{ let c=null; try{ c=new URLSearchParams(location.search).get('room'); }catch(e){} if(!c||!/^[A-Za-z0-9]{5}$/.test(c)) return; c=c.toUpperCase();
   try{ const u=new URL(location.href); u.searchParams.delete('room'); history.replaceState(null,'',u.pathname+u.search+u.hash); }catch(e){}
-  setTimeout(()=>{ const p=$id('online'); if(!p.classList.contains('open')) p.classList.add('open'); olView('main'); codeIn.value=c; olMsg('Joining room '+c+'…'); doJoin(); },400); })();
+  setTimeout(()=>{ menuFriends(); olView('main'); codeIn.value=c; olMsg('Joining room '+c+'…'); doJoin(); },400); })();
 $id('olCancel').addEventListener('click',()=>{ netLeave(); olView('main'); olMsg(''); });
 netReset();
 
@@ -4027,7 +4027,7 @@ function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) retur
   const inv=$('btInvite'); if(inv) inv.addEventListener('click',()=>{ const L=btInviteLink(), m=$('btInvMsg'); try{ navigator.clipboard.writeText(L).then(()=>{ m.textContent='Invite link copied. Send it to a friend and they land in this match.'; },()=>{ m.textContent='Copy failed. Send this: '+L; }); }catch(e){ m.textContent='Copy failed. Send this: '+L; } });
   // invite links: ?battle=N drops you straight into that match
   let q=null; try{ q=new URLSearchParams(location.search).get('battle'); }catch(e){}
-  const n=parseInt(q||'',10); if(n>=1&&n<=99){ settings.gm='battle'; try{ syncSettingsUI(); }catch(e){} menuRoster(); btMenuUI(); setTimeout(()=>{ if(state==='menu'){ btMsg(`Joining match #${n}…`); btPlay(n); } },500); }
+  const n=parseInt(q||'',10); if(n>=1&&n<=99){ setTimeout(()=>{ if(state==='menu'){ btMsg(`Joining match #${n}…`); btPlay(n); } },500); }
   // a match in a hidden tab can't keep up: leave after 20 s in the background (8 s if you're running the bots, so someone else takes over sooner)
   document.addEventListener('visibilitychange',()=>{ clearTimeout(BT.hidTimer); if(document.hidden&&BT.online&&BT.on) BT.hidTimer=setTimeout(()=>{ if(document.hidden&&BT.online&&BT.on){ netLeave(); BT.online=false; BT.hidden=true; } },NET.role==='host'?8000:20000);
     if(!document.hidden&&BT.hidden){ BT.hidden=false; toMenu(); btMsg('You left the match because the game was in the background. Press Play to jump back in.',true); } });
@@ -4036,6 +4036,29 @@ function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) retur
 btHook={ get picking(){ return BT.picking; }, lockFree:()=>BT.on&&player.dead, onKill:btOnKill, tick:btTick, over:btOver, hud:btHud, board:btBoard, placeAll:btPlaceAll, play:()=>btPlay(), stop:btStop,
   peers:btPeers, send:btSend, netTick:btNetTick, pauseUI:btPauseUI, menuUI:btMenuUI };
 /*DEBUG-START*/window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
+
+// ================= MENU: Public or Private =================
+// Public = jump straight into a Battle with whoever's online.
+// Private = pick who you play with (bots, or friends in a room you make), then the mode, map and bot level.
+if(settings.gm==='battle'){ settings.gm='1v1'; saveSettings(); } // Battle used to be one of the modes; it's the Public button now
+if(settings.with!=='friends') settings.with='bots';
+function pvNote(){ const el=document.getElementById('pvNote'); if(!el) return; const lv=(DIFF[settings.diff]||DIFF.easy).name;
+  const mb=document.querySelector('#private .seg[data-seg="map"] button.on'); const map=mb?mb.textContent:'';
+  if(settings.with==='friends') el.textContent=settings.gm==='1v1'?'Make a room and send your friend the code or link. You pick the mode and map, they just join.':settings.gm==='2v2'?'2v2 room for 4 people. Bots can fill any empty seats.':'Free-for-all room for 3 or 4 people. Bots can fill any empty seats.';
+  else { const a=/^[AEIOU]/.test(lv)?'an':'a'; el.textContent=settings.gm==='ffa'?`You against ${settings.ffaBots} ${lv} bots, everyone for themselves.`:settings.gm==='2v2'?`You and ${a} ${lv} bot teammate against two ${lv} bots on ${map}.`:`You against ${a} ${lv} bot on ${map}.`; } }
+function pvApply(){ const fr=settings.with==='friends'; document.body.classList.toggle('with-friends',fr); document.body.classList.toggle('no-bots',fr&&settings.gm==='1v1'); const p=document.getElementById('private'), ol=document.getElementById('online');
+  if(p.classList.contains('open')&&fr){ if(!ol.classList.contains('open')){ ol.classList.add('open'); olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } }
+  else if(!NET.on) ol.classList.remove('open');
+  pvNote(); }
+function menuPrivate(open){ const p=document.getElementById('private'); p.classList.toggle('open',open); document.getElementById('privateBtn').classList.toggle('on',open); pvApply();
+  if(open) setTimeout(()=>{ try{ p.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },30); }
+function menuFriends(){ settings.with='friends'; saveSettings(); syncSettingsUI(); menuPrivate(true); }
+(()=>{ const $=id=>document.getElementById(id);
+  $('publicBtn').addEventListener('click',()=>{ SFX.unlock(); if(btHook) btHook.play(); });
+  $('privateBtn').addEventListener('click',()=>{ SFX.unlock(); SFX.hover(); menuPrivate(!$('private').classList.contains('open')); });
+  document.querySelectorAll('#private [data-seg] button').forEach(b=>b.addEventListener('click',()=>pvApply())); // after the setting itself has changed
+  $('btName').addEventListener('input',()=>{ if(NET.on&&NET.role==='host'&&NET.seats[0]&&NET.kind!=='battle'){ NET.seats[0].n=myName(); lobbyRender(); } });
+  syncSettingsUI(); pvApply(); })();
 
 }
 let __started=false; function __go(){ if(__started) return; __started=true; try{ __boot(); }catch(e){ console.error(e); const l=document.getElementById('loading'); if(l) l.textContent='Something broke while loading: '+e.message; } }

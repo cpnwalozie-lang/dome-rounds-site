@@ -626,6 +626,33 @@
   #btNext{margin-top:10px;font-size:14px;color:#ffd23d}
   @media (max-height:520px){ .bo-h,.bo-r{padding:2px 8px} .bo-r{font-size:13px} .bo-r b{font-size:16px} .btRow{padding:6px 10px;gap:5px} .btInfo{font-size:12px;line-height:1.3} .btField input{padding:4px 6px;font-size:14px} .btField{font-size:12px} .btField .btn.sec{font-size:13px;padding:4px 10px 3px} }
 </style>
+<style>
+  /* ================= Menu: Public / Private ================= */
+  .pickRow{gap:14px;flex-wrap:nowrap} body.no-bots #private .seg[data-seg="diff"]{display:none}
+  .bigPick{display:inline-flex;align-items:center;gap:10px;text-align:left;padding:9px 20px 9px 16px}
+  .bigPick svg{width:24px;height:24px;flex:none}
+  .bigPick>span{display:flex;flex-direction:column;line-height:1}
+  .bigPick b{font-weight:400;font-size:23px;white-space:nowrap}
+  .bigPick small{font-family:var(--body);font-weight:700;font-size:12px;letter-spacing:.01em;margin-top:5px;opacity:.8}
+  .btn.sec.bigPick{padding:9px 20px 9px 16px}
+  .btn.sec.bigPick b{font-size:23px}
+  .bigPick small{white-space:nowrap}
+  #privateBtn.on{background:var(--plum2);box-shadow:4px 4px 0 var(--pink);border-color:var(--pink)}
+  .pubRow{gap:8px 18px}
+  .pubRow .btField{font-size:12px}
+  #btMsg{margin-top:-4px}
+  #private{display:none;max-width:640px;padding:12px 16px 14px}
+  #private.open{display:flex;flex-direction:column;gap:10px}
+  #private .pv-h{font-family:var(--disp);font-size:20px;color:var(--ye)}
+  .pv-note{font-size:13px;color:#d6c8f5;line-height:1.35}
+  .pv-note:empty{display:none}
+  body.with-friends #private .botsonly{display:none!important}
+  #private #online{margin-top:2px;padding-top:10px;border-top:2px dashed var(--edge)}
+  #online .ol-name{display:none}
+  #private #startBtn{font-size:24px;padding:8px 34px 7px}
+  #private #startBtn svg{width:20px;height:20px;vertical-align:-2px;margin-right:8px}
+  @media (max-height:520px){ .bigPick{padding:7px 18px 7px 14px} .bigPick b{font-size:20px} .btn.sec.bigPick b{font-size:18px} .bigPick svg{width:22px;height:22px} .bigPick small{font-size:11px;margin-top:3px} #private{padding:8px 12px 10px} #private.open{gap:7px} #private #startBtn{font-size:19px} }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -700,24 +727,33 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.11.0<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.12.0<br>© 2026 Nitor Digital</div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
     <div class="tagline">Lose a round, grab a card, <b>stack the chaos</b>. Blast with energy shots, block with your dome, and outlast the bot.</div>
-    <div class="rowb"><button class="btn" id="startBtn"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>PLAY</button><button class="btn sec" id="sandboxBtn" style="font-size:22px;padding:9px 22px 10px">TRAINING SANDBOX</button><button class="btn sec" id="onlineBtn" style="font-size:22px;padding:9px 22px 10px">PLAY ONLINE</button></div>
-    <div class="panel" id="online">
+    <div class="rowb pickRow"><button class="btn bigPick" id="publicBtn" type="button"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg><span><b>PUBLIC MATCH</b><small>Battle online · up to 10 players</small></span></button><button class="btn sec bigPick" id="privateBtn" type="button"><svg viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.5v11h-13V10Zm3 0h4V8a2 2 0 0 0-4 0Z" fill="currentColor"/></svg><span><b>PRIVATE MATCH</b><small>Just you and bots, or friends</small></span></button></div>
+    <div class="rowb pubRow"><label class="btField"><span>Your name</span><input id="btName" maxlength="14" placeholder="Player" autocomplete="off" spellcheck="false"></label><label class="btField"><span>Join a friend's public match #</span><input id="btCode" maxlength="2" inputmode="numeric" placeholder="3" autocomplete="off"><button class="btn sec" id="btJoin" type="button">JOIN</button></label></div>
+    <div id="btMsg"></div>
+    <div class="panel" id="private">
+      <div class="pv-h">Private match</div>
+      <div class="rowb"><div class="seg" data-seg="with"><span>PLAY WITH</span><button data-v="bots">Bots</button><button data-v="friends">Friends</button></div></div>
+      <div class="rowb"><div class="seg" data-seg="gm"><span>MODE</span><button data-v="1v1">1v1</button><button data-v="2v2">2v2</button><button data-v="ffa">Free for all</button></div><div class="seg ffaonly botsonly" data-seg="ffaBots"><span>BOTS</span><button data-v="2">2</button><button data-v="3">3</button></div></div>
+      <div class="rowb"><div class="seg" data-seg="map"><span>MAP</span><button data-v="dock">Dockside</button><button data-v="neon">Neon City</button><button data-v="crane">The Crane</button><button data-v="foundry">Foundry</button></div></div>
+      <div class="rowb"><div class="seg" data-seg="diff"><span>BOT LEVEL</span><button data-v="easy" title="Plays like a beginner">Easy</button><button data-v="normal" title="Plays like a very good player">Normal</button><button data-v="hard" title="Plays like a competitive player">Hard</button></div></div>
+      <div class="pv-note" id="pvNote"></div>
+      <div class="rowb botsonly"><button class="btn" id="startBtn" type="button"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>START</button></div>
+    <div class="sub" id="online">
       <div class="ol-h" id="olHead">Play online · 1v1</div>
       <div class="ol-name"><span>Your name</span><input id="olName" maxlength="14" placeholder="Player" autocomplete="off" spellcheck="false"></div>
       <div id="olMain"><button class="btn sec" id="olCreate">CREATE ROOM</button><span class="ol-or">or join</span><input id="olCode" maxlength="5" placeholder="CODE" autocomplete="off" spellcheck="false"><button class="btn sec" id="olJoin">JOIN</button></div>
       <div id="olWait" style="display:none"><div class="ol-lbl">Room code</div><div id="olShow">-----</div><div class="ol-row"><button class="btn sec" id="olCopy">COPY CODE</button><button class="btn sec" id="olLink">COPY INVITE LINK</button><button class="btn sec" id="olCancel">CLOSE ROOM</button></div><div id="olSeats"></div><div class="ol-row" id="olHostBtns" style="display:none"><button class="btn sec" id="olAddBot">ADD BOT</button><button class="btn sec" id="olDelBot">REMOVE BOT</button><button class="btn" id="olStart">START</button></div><div id="olStatus">Waiting for your rival to join…</div></div>
       <div id="olMsg"></div>
-      <div class="ol-note" id="olNote">Send your rival the link to this game. They open it, press Play Online and type your code. The map is the room creator's pick.</div>
+      <div class="ol-note" id="olNote">Send your rival the link to this game. They open it, press Private Match, then Friends, and type your code. The map is the room creator's pick.</div>
     </div>
-    <div class="rowb"><div class="seg" data-seg="gm"><span>MODE</span><button data-v="1v1">1v1</button><button data-v="2v2">2v2</button><button data-v="ffa">Free for all</button><button data-v="battle">Battle</button></div><div class="seg ffaonly" data-seg="ffaBots"><span>BOTS</span><button data-v="2">2</button><button data-v="3">3</button></div></div>
-    <div class="rowb battleonly"><div class="btRow"><div class="btInfo"><b>Battle</b> · up to 10 players online, bots fill the gaps. Get knocked out, pick a card, jump back in. First to 10 knockouts wins.</div><div class="btFields"><label class="btField"><span>Your name</span><input id="btName" maxlength="14" placeholder="Player" autocomplete="off" spellcheck="false"></label><label class="btField"><span>Join a friend · match #</span><input id="btCode" maxlength="2" inputmode="numeric" placeholder="3" autocomplete="off"><button class="btn sec" id="btJoin" type="button">JOIN</button></label></div><div id="btMsg"></div></div></div>
-    <div class="rowb"><div class="seg" data-seg="map"><span>MAP</span><button data-v="dock">Dockside</button><button data-v="neon">Neon City</button><button data-v="crane">The Crane</button><button data-v="foundry">Foundry</button></div><div class="seg" data-seg="diff"><span>BOT</span><button data-v="easy" title="Plays like a beginner">Easy</button><button data-v="normal" title="Plays like a very good player">Normal</button><button data-v="hard" title="Plays like a competitive player">Hard</button></div></div>
-    <div class="rowb"><button class="btn sec studioB" id="studioBtn"><span class="mdome" aria-hidden="true"></span>DOME STUDIO</button><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
+    </div>
+    <button id="onlineBtn" type="button" hidden></button>
+    <div class="rowb"><button class="btn sec" id="sandboxBtn">TRAINING SANDBOX</button><button class="btn sec studioB" id="studioBtn"><span class="mdome" aria-hidden="true"></span>DOME STUDIO</button><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
     <div class="panel" id="how">
       <div class="tcontrols"><span>Left thumb</span><span>Put it down anywhere on the left to move</span><span>Right thumb</span><span>Drag on the right side to aim</span><span>FIRE</span><span>Hold to shoot. Keep dragging on it to aim while you fire</span><span>DOME · DASH · JUMP</span><span>Round the fire button, in thumb reach</span><span>CLIP button</span><span>Top left. Saves the last 20 seconds so you can share it</span><span>Turn sideways</span><span>Landscape works best. Aim assist helps on touch</span></div>
       <div class="controls">

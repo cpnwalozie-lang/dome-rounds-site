@@ -248,7 +248,7 @@ function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) retur
   const inv=$('btInvite'); if(inv) inv.addEventListener('click',()=>{ const L=btInviteLink(), m=$('btInvMsg'); try{ navigator.clipboard.writeText(L).then(()=>{ m.textContent='Invite link copied. Send it to a friend and they land in this match.'; },()=>{ m.textContent='Copy failed. Send this: '+L; }); }catch(e){ m.textContent='Copy failed. Send this: '+L; } });
   // invite links: ?battle=N drops you straight into that match
   let q=null; try{ q=new URLSearchParams(location.search).get('battle'); }catch(e){}
-  const n=parseInt(q||'',10); if(n>=1&&n<=99){ settings.gm='battle'; try{ syncSettingsUI(); }catch(e){} menuRoster(); btMenuUI(); setTimeout(()=>{ if(state==='menu'){ btMsg(`Joining match #${n}…`); btPlay(n); } },500); }
+  const n=parseInt(q||'',10); if(n>=1&&n<=99){ setTimeout(()=>{ if(state==='menu'){ btMsg(`Joining match #${n}…`); btPlay(n); } },500); }
   // a match in a hidden tab can't keep up: leave after 20 s in the background (8 s if you're running the bots, so someone else takes over sooner)
   document.addEventListener('visibilitychange',()=>{ clearTimeout(BT.hidTimer); if(document.hidden&&BT.online&&BT.on) BT.hidTimer=setTimeout(()=>{ if(document.hidden&&BT.online&&BT.on){ netLeave(); BT.online=false; BT.hidden=true; } },NET.role==='host'?8000:20000);
     if(!document.hidden&&BT.hidden){ BT.hidden=false; toMenu(); btMsg('You left the match because the game was in the background. Press Play to jump back in.',true); } });

@@ -98,7 +98,7 @@ function pollPad(dt){
   if(!pad.used){ pad.prev=b; return; }
   if(sandbox.open){ if(just(0)||just(9)) UI.sbxGo.click(); }
   else if(paused){ if(just(0)||just(9)) resume(); }
-  else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); if(settings.gm==='battle'&&btHook) btHook.play(); else startMatch(); } if(just(3)) openSandbox(); }
+  else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); const pv=document.getElementById('private').classList.contains('open'); if(pv){ if(settings.with!=='friends') startMatch(); } else if(btHook) btHook.play(); } if(just(3)) openSandbox(); }
   else if(state==='matchover'){ if(just(0)||just(9)) startMatch(); }
   else if(state==='draft'||(btHook&&btHook.picking)){ const n=UI.cards.children.length; pad.navT-=dt; const dir=(b[15]||lx>0.5?1:0)-(b[14]||lx<-0.5?1:0); if(dir&&pad.navT<=0){ pad.focus=(pad.focus+dir+n)%n; pad.navT=0.25; SFX.hover(); } if(!dir) pad.navT=0; for(let i=0;i<n;i++){ const c=UI.cards.children[i]; c.classList.toggle('focus',i===pad.focus); } if(n&&UI.cards.children[pad.focus]._hover) UI.cards.children[pad.focus]._hover(); if(just(0)&&n) UI.cards.children[pad.focus].click(); }
   else if(state==='fight'||state==='countdown'){ pad.lx=lx; pad.ly=ly; look(rx*3.1*dt*settings.sens, ry*2.1*dt*settings.sens); pad.fire=b[7]; if(just(7)){ firePressed=true; steerLatch=false; } if(just(6)||just(4)) pressBlock(); if(just(0)) jumpBuffer=0.15; if(just(1)||just(2)||just(5)) wantDash=true; if(just(9)) pause(); if(just(8)){ if(mode==='sandbox') openSandbox(); else if(clipSave) clipSave(); } }
