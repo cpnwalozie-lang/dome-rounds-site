@@ -1,6 +1,6 @@
 // ================= CLIPS: an always-on replay buffer =================
 // While you play, the last ~22s of the game view are kept as compressed video (WebCodecs, hardware encoder when there is one)
-// and the game sound as raw samples. Press C (or the clip button) and the last 20 seconds are packed into an .mp4 straight away.
+// and the game sound as raw samples. Press Enter (or the clip button) and the last 20 seconds are packed into an .mp4 straight away.
 // Pauses, card picks and the menu are cut out, so a clip is always 20s of actual fighting.
 const CLIP=(()=>{
   const LEN=20, KEEP=21.5, FPS=30;
@@ -138,14 +138,15 @@ const CLIP=(()=>{
   function renderLists(){ for(const el of document.querySelectorAll('.clipList')){
       if(!OK){ el.innerHTML='<p class="clipNote">Clips need a newer browser (Chrome, Edge, Safari 17 or Firefox 130 and up).</p>'; continue; }
       if(!settings.clips){ el.innerHTML='<p class="clipNote">The clip recorder is off. Turn it on in settings.</p>'; continue; }
-      const how=TOUCH.on?'Tap the clip button':'Press <kbd>C</kbd>';
+      const how=TOUCH.on?'Tap the clip button':'Press <kbd>Enter</kbd>';
       el.innerHTML=(clips.length?'':`<p class="clipNote">${how} during a fight to save the last 20 seconds.</p>`)+clips.map((c,i)=>`<div class="clipItem"><video src="${c.url}" muted playsinline preload="metadata" controls></video><div class="cb"><b>${Math.round(c.dur)}s clip</b><button class="btn sec" type="button" data-cs="${i}">SHARE</button><button class="btn sec" type="button" data-cd="${i}">SAVE</button></div></div>`).join('')
         +(state==='fight'||state==='countdown'||state==='roundover'?`<button class="btn sec clipNow" type="button">SAVE LAST 20s</button>`:''); } }
   document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-cs],[data-cd],.clipNow,#clipBtn'); if(!t) return;
     if(t.dataset.cs!==undefined){ const c=clips[+t.dataset.cs]; if(c) share(c); }
     else if(t.dataset.cd!==undefined){ const c=clips[+t.dataset.cd]; if(c) download(c); }
     else save().then(renderLists); });
-  window.addEventListener('keydown',e=>{ if(e.code!=='KeyC'||e.repeat||e.ctrlKey||e.metaKey||e.altKey) return; const tg=e.target&&e.target.tagName; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT') return; if(state==='menu') return; save(); });
+  window.addEventListener('keydown',e=>{ if((e.code!=='Enter'&&e.code!=='NumpadEnter')||e.ctrlKey||e.metaKey||e.altKey) return; const tg=e.target&&e.target.tagName; if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT') return; if(state==='menu'||paused) return;
+    e.preventDefault(); /* stop Enter from also pressing whatever button still has focus (like Play) */ if(!e.repeat) save(); });
   setUI(); renderLists();
   return { frame, save, setUI, renderLists, setOn:v=>{ if(!v){ stop(); untap(); } setUI(); renderLists(); }, get ok(){ return OK&&!dead; }, info:()=>({a0:achunks[0]&&achunks[0].timestamp,aN:achunks.length&&achunks[achunks.length-1].timestamp,busy,OK,dead,kind,aKind,W,H,live,rec,chunks:chunks.length,ach:achunks.length,clips:clips.length,audio:!!actx,first:chunks[0]&&chunks[0].timestamp,last:chunks.length&&chunks[chunks.length-1].timestamp}), last:()=>clips[0] };
 })();
