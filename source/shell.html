@@ -711,6 +711,15 @@
   @media (max-aspect-ratio:4/3){ .bw-pod{left:2vw;top:auto;bottom:24vh;transform:none;width:44vw} .bw-life{right:2vw;top:auto;bottom:24vh;transform:none;width:40vw;animation-name:bwPop} }
   @media (prefers-reduced-motion:reduce){ #btWin .bw-rays{animation:none} .bw-title{animation:bwFade .3s both} .bw-crown{animation:bwFade .3s both} }
 </style>
+<style>
+  /* live player count on the menu */
+  .onlNow{display:none;align-items:center;gap:9px;font-size:min(2.1vh,14px);color:#e6dcff;margin:-2px 0 -4px}
+  .onlNow.on{display:flex;animation:bwFade .4s ease-out both}
+  .onlNow i{width:10px;height:10px;border-radius:50%;background:#3dff8a;flex:none;box-shadow:0 0 0 0 rgba(61,255,138,.6);animation:onlPulse 1.8s ease-out infinite}
+  .onlNow b{font-family:var(--disp);font-weight:400;color:#7dffb0;font-size:1.15em}
+  .onlNow{cursor:pointer;flex-wrap:wrap} .onlNow em{font-style:normal;opacity:.55;font-size:.9em}
+  @keyframes onlPulse{0%{box-shadow:0 0 0 0 rgba(61,255,138,.6)}70%{box-shadow:0 0 0 8px rgba(61,255,138,0)}100%{box-shadow:0 0 0 0 rgba(61,255,138,0)}}
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -785,11 +794,12 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.13.1<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.14.0<br>© 2026 Nitor Digital</div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
     <div class="tagline">Lose a round, grab a card, <b>stack the chaos</b>. Blast with energy shots, block with your dome, and outlast the bot.</div>
+    <div id="onlineNow" class="onlNow"><i></i><span></span></div>
     <div class="rowb pickRow"><button class="btn bigPick" id="publicBtn" type="button"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg><span><b>PUBLIC MATCH</b><small>Battle online · up to 10 players</small></span></button><button class="btn sec bigPick" id="privateBtn" type="button"><svg viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.5v11h-13V10Zm3 0h4V8a2 2 0 0 0-4 0Z" fill="currentColor"/></svg><span><b>PRIVATE MATCH</b><small>Just you and bots, or friends</small></span></button></div>
     <div class="rowb pubRow"><label class="btField"><span>Your name</span><input id="btName" maxlength="14" placeholder="Player" autocomplete="off" spellcheck="false"></label><label class="btField"><span>Join a friend's public match #</span><input id="btCode" maxlength="2" inputmode="numeric" placeholder="3" autocomplete="off"><button class="btn sec" id="btJoin" type="button">JOIN</button></label></div>
     <div id="btMsg"></div>

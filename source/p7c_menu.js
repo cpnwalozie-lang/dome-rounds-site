@@ -20,3 +20,31 @@ function menuFriends(){ settings.with='friends'; saveSettings(); syncSettingsUI(
   document.querySelectorAll('#private [data-seg] button').forEach(b=>b.addEventListener('click',()=>pvApply())); // after the setting itself has changed
   $('btName').addEventListener('input',()=>{ if(NET.on&&NET.role==='host'&&NET.seats[0]&&NET.kind!=='battle'){ NET.seats[0].n=myName(); lobbyRender(); } });
   syncSettingsUI(); pvApply(); })();
+
+// ================= Who's online =================
+// Every open copy of the game keeps one tiny connection to the server's Hub and says where it is
+// (menu, public match, private room, playing bots, or tucked away in a background tab).
+// Only the owner gets the numbers back: open the game once with ?owner=<key> and this copy shows them on the menu
+// (?owner=off forgets it). Everyone else's game just reports; nothing comes back. Idle connections cost nothing.
+const ONL={ws:null,w:'',retry:0,last:null,key:''};
+(()=>{ try{ const q=new URLSearchParams(location.search), k=q.get('owner'); if(k!==null){ if(k==='off') localStorage.removeItem('domeRoundsOwner'); else if(/^[A-Za-z0-9]{8,64}$/.test(k)) localStorage.setItem('domeRoundsOwner',k);
+    const u=new URL(location.href); u.searchParams.delete('owner'); history.replaceState(null,'',u.pathname+u.search+u.hash); } ONL.key=localStorage.getItem('domeRoundsOwner')||''; }catch(e){} })();
+function onlWhere(){ if(document.hidden) return 'away'; if(BT.on) return BT.online?'battle':'bots'; if(NET.on) return 'private'; return state==='menu'&&!sandbox.open?'menu':'bots'; }
+function onlDev(){ let d=''; try{ d=localStorage.getItem('domeRoundsDev')||''; if(!/^[a-z0-9]{8,24}$/.test(d)){ d=(Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,10)).replace(/[^a-z0-9]/g,'').slice(0,18); localStorage.setItem('domeRoundsDev',d); } }catch(e){} return d; }
+function onlConnect(){ if(!DR_SERVER||typeof WebSocket!=='function') return; let ws; const w=onlWhere();
+  try{ ws=new WebSocket(DR_SERVER.replace(/^http/,'ws').replace(/\/$/,'')+'/hub?d='+onlDev()+'&w='+w+(ONL.key?'&k='+encodeURIComponent(ONL.key):'')); }catch(e){ return; }
+  ONL.ws=ws; ONL.w=w;
+  ws.onopen=()=>{ ONL.retry=0; const now=onlWhere(); if(now!==ONL.w){ ONL.w=now; try{ ws.send(JSON.stringify({w:now})); }catch(e){} } };
+  ws.onmessage=ev=>{ if(ev.data==='pong') return; let m=null; try{ m=JSON.parse(ev.data); }catch(e){ return; } if(m&&m.t==='n') onlShow(m); };
+  ws.onclose=()=>{ if(ONL.ws===ws) ONL.ws=null; onlShow(null); setTimeout(onlConnect,Math.min(60000,3000*Math.pow(2,ONL.retry++))); };
+  ws.onerror=()=>{}; }
+function onlTell(){ const ws=ONL.ws; if(!ws||ws.readyState!==1) return; const w=onlWhere(); if(w===ONL.w) return; ONL.w=w; try{ ws.send(JSON.stringify({w})); }catch(e){} }
+// owner only: the live count on the menu (tap it for the full stats page)
+function onlShow(m){ ONL.last=m; const el=document.getElementById('onlineNow'); if(!el) return;
+  if(!m||!ONL.key){ el.classList.remove('on'); return; } const f=v=>(v|0).toLocaleString('en-GB');
+  el.querySelector('span').innerHTML=`<b>${f(m.online)}</b> online · <b>${f(m.battle)}</b> public · <b>${f(m.private)}</b> private · <b>${f(m.bots)}</b> vs bots · <b>${f(m.menu)}</b> on menu <em>(only you see this)</em>`; el.classList.add('on'); }
+(()=>{ const el=document.getElementById('onlineNow'); if(el) el.addEventListener('click',()=>{ if(!ONL.key) return; try{ window.open(DR_SERVER.replace(/\/$/,'')+'/stats?key='+encodeURIComponent(ONL.key),'_blank','noopener'); }catch(e){} }); })();
+setInterval(onlTell,1000);
+setInterval(()=>{ const ws=ONL.ws; if(ws&&ws.readyState===1) try{ ws.send('ping'); }catch(e){} },45000);
+document.addEventListener('visibilitychange',onlTell);
+setTimeout(onlConnect,600);
