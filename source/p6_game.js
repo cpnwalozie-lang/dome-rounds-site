@@ -520,7 +520,7 @@ function computeAimPoint(){
 let camDist=1, specT=null;
 // knocked out in FFA: watch whoever knocked you out (or anyone still standing)
 function camFighter(){ if(!(matchKind!=='1v1'&&player.dead&&(state==='fight'||state==='roundover'))) return player; if(specT&&!specT.dead&&specT.active!==false) return specT; specT=fighters.find(f=>f!==player&&f.side===player.side&&!f.dead&&f.active!==false)||((player.lastHitBy&&!player.lastHitBy.dead)?player.lastHitBy:null)||fighters.find(f=>!f.dead&&f.active!==false)||player; return specT; }
-function updateCamera(dt){ if(camHold) return;
+function updateCamera(dt){ if(camHold) return; if(btHook&&btHook.cam&&btHook.cam(dt)) return;
   const t=gameT;
   if(state==='menu'&&STUDIO.open){ const p=player.pos, s=p.x>0.5?-1:1, R=player.domeR(); const a=Math.sin(t*0.18)*0.22; camera.fov=50; camera.updateProjectionMatrix();
     const off=V3(s*R*2.15,R*0.95,-s*R*1.25).applyAxisAngle(UP,a); const ctr=V3(p.x,p.y+R*0.42,p.z); const cp=ctr.clone().add(off); camera.position.copy(cp);
