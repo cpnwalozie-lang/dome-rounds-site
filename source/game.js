@@ -3751,7 +3751,7 @@ function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.
   el.innerHTML=NET.on? NET.seats.map(seat).join('')+(multi&&!NET.started?Array.from({length:Math.max(0,4-NET.seats.length)},(_,k)=>empty(NET.seats.length+k)).join(''):'') : '';
   NET.kind=K;
   const hb=$id('olHostBtns'); hb.style.display=host&&multi&&!NET.started?'':'none'; const need=two?4:3;
-  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olStart').disabled=NET.seats.length<need;
+  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olTeam').style.display=two?'':'none'; $id('olTeam').disabled=NET.seats.length<3; $id('olStart').disabled=NET.seats.length<need;
   $id('olCancel').textContent=host?'CLOSE ROOM':'LEAVE ROOM';
   const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (multi? (n<need?`Waiting for players… (${n}/4). ${two?'2v2 needs 4':'You need 3'} to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (multi?`${n} in the room. Waiting for the host to start…`:'Get ready…');
   const nm=$id('olName'); if(nm&&document.activeElement!==nm) nm.value=settings.name||''; }
@@ -3764,6 +3764,7 @@ $id('olJoin').addEventListener('click',doJoin); codeIn.addEventListener('keydown
 const nameIn=$id('olName'); nameIn.addEventListener('keydown',e=>e.stopPropagation()); nameIn.addEventListener('input',()=>{ settings.name=cleanName(nameIn.value)==='Player'&&!nameIn.value.trim()?'':nameIn.value.replace(/[<>&"'`]/g,'').slice(0,14); saveSettings(); if(NET.on&&NET.role==='host'&&NET.seats[0]) NET.seats[0].n=myName(); if(state==='menu'&&settings.gm!=='1v1') player.name=myName(); });
 $id('olAddBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length>=4) return; const used=new Set(NET.seats.map(s=>s.n)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; NET.seats.push({p:'bot'+Math.random().toString(36).slice(2,7),n,b:true}); lobbyRender(); SFX.hover(); });
 $id('olDelBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started) return; for(let i=NET.seats.length-1;i>0;i--) if(NET.seats[i].b){ NET.seats.splice(i,1); break; } lobbyRender(); });
+$id('olTeam').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started||NET.kind!=='2v2'||NET.seats.length<3) return; const rest=NET.seats.slice(1); rest.push(rest.shift()); NET.seats=[NET.seats[0],...rest]; const mate=NET.seats[2]; olMsg(mate?`${mate.n} is on your team now.`:''); lobbyRender(); SFX.hover(); });
 $id('olStart').addEventListener('click',()=>{ SFX.unlock(); if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length<seatsNeeded()) return; requestLock(); netHostStart(); });
 $id('olCopy').addEventListener('click',()=>{ try{ navigator.clipboard.writeText(NET.code).then(()=>olMsg('Code copied.'),()=>olMsg('Copy failed. Read it out instead: '+NET.code)); }catch(e){ olMsg('Copy failed. Read it out instead: '+NET.code); } });
 // invite links: ?room=CODE opens the game straight into that room
@@ -3805,8 +3806,8 @@ function btUnseat(k,quiet){ const f=btF(k); BT.seats[k]=null;
   if(!quiet&&!f.dead&&f.mesh.visible){ burst(f.center(),f.team.light,18,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.4); }
   const i=fighters.indexOf(f); if(i>=0) fighters.splice(i,1); f.setActive(false); f.peer=null; ffaBoardKey=''; }
 
-// a public match has all sorts: some beginners, mostly good players, a few really strong ones
-const btLv=()=>{ const r=Math.random(); return r<0.3?'easy':r<0.75?'normal':'hard'; };
+// Battle bots all play at Normal (a very good player)
+const btLv=()=>'normal';
 // ---------- spawning ----------
 function btSpot(f){ const sp=curMap.spawns||[[0,0]]; const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false);
   const sc=sp.map(s=>{ let d=60; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1])); return {s,d:d+Math.random()*5}; }).sort((a,b)=>b.d-a.d);
@@ -3893,7 +3894,7 @@ function btOver(dt){ BT.overT-=dt; let sdt=dt; if(slowMoT>0){ slowMoT-=dt; sdt=d
   if(btHost()&&BT.overT<=0) btNewMatch(BT.mid+1); }
 function btScoreboard(){ const w=btSeatedF(BT.w); const L=fighters.filter(f=>f.active!==false).sort((a,b)=>(b.score-a.score)||((a.deaths|0)-(b.deaths|0)));
   UI.btOverTitle.textContent=w===player?'YOU WIN!':w?esc(w.name).toUpperCase()+' WINS':'MATCH OVER'; UI.btOverTitle.className='title stroke '+(w===player?'win':'lose');
-  UI.btRows.innerHTML='<div class="bo-h"><span></span><span>Player</span><span>KOs</span><span>Outs</span></div>'+L.map((f,i)=>`<div class="bo-r${f===player?' me':''}" style="--c:${f.team.css}"><span class="bo-n">${i+1}</span><span class="bo-nm"><i></i>${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}${f.ctl!=='local'&&!f.peer?` <em>${f.lv?f.lv.name.toLowerCase()+' bot':'bot'}</em>`:''}</span><b>${f.score|0}</b><span>${f.deaths|0}</span></div>`).join(''); }
+  UI.btRows.innerHTML='<div class="bo-h"><span></span><span>Player</span><span>KOs</span><span>Outs</span></div>'+L.map((f,i)=>`<div class="bo-r${f===player?' me':''}" style="--c:${f.team.css}"><span class="bo-n">${i+1}</span><span class="bo-nm"><i></i>${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}${f.ctl!=='local'&&!f.peer?' <em>bot</em>':''}</span><b>${f.score|0}</b><span>${f.deaths|0}</span></div>`).join(''); }
 
 // ---------- HUD ----------
 let btBoardKey='';
@@ -4044,7 +4045,7 @@ if(settings.gm==='battle'){ settings.gm='1v1'; saveSettings(); } // Battle used 
 if(settings.with!=='friends') settings.with='bots';
 function pvNote(){ const el=document.getElementById('pvNote'); if(!el) return; const lv=(DIFF[settings.diff]||DIFF.easy).name;
   const mb=document.querySelector('#private .seg[data-seg="map"] button.on'); const map=mb?mb.textContent:'';
-  if(settings.with==='friends') el.textContent=settings.gm==='1v1'?'Make a room and send your friend the code or link. You pick the mode and map, they just join.':settings.gm==='2v2'?'2v2 room for 4 people. Bots can fill any empty seats.':'Free-for-all room for 3 or 4 people. Bots can fill any empty seats.';
+  if(settings.with==='friends') el.textContent=settings.gm==='1v1'?'Make a room and send your friend the code or link. You pick the mode and map, they just join.':settings.gm==='2v2'?'2v2 room for 4. Fill empty seats with bots, and use Change Teammate to team up with a friend against bots.':'Free-for-all room for 3 or 4. Mix friends and bots any way you like: add bots to fill the empty seats.';
   else { const a=/^[AEIOU]/.test(lv)?'an':'a'; el.textContent=settings.gm==='ffa'?`You against ${settings.ffaBots} ${lv} bots, everyone for themselves.`:settings.gm==='2v2'?`You and ${a} ${lv} bot teammate against two ${lv} bots on ${map}.`:`You against ${a} ${lv} bot on ${map}.`; } }
 function pvApply(){ const fr=settings.with==='friends'; document.body.classList.toggle('with-friends',fr); document.body.classList.toggle('no-bots',fr&&settings.gm==='1v1'); const p=document.getElementById('private'), ol=document.getElementById('online');
   if(p.classList.contains('open')&&fr){ if(!ol.classList.contains('open')){ ol.classList.add('open'); olView(NET.on&&NET.seated?'wait':'main'); lobbyRender(); getRoomApi().then(a=>{ if(!a) olMsg('Online play is not available in this browser.',true); }); } }

@@ -26,8 +26,8 @@ function btUnseat(k,quiet){ const f=btF(k); BT.seats[k]=null;
   if(!quiet&&!f.dead&&f.mesh.visible){ burst(f.center(),f.team.light,18,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.4); }
   const i=fighters.indexOf(f); if(i>=0) fighters.splice(i,1); f.setActive(false); f.peer=null; ffaBoardKey=''; }
 
-// a public match has all sorts: some beginners, mostly good players, a few really strong ones
-const btLv=()=>{ const r=Math.random(); return r<0.3?'easy':r<0.75?'normal':'hard'; };
+// Battle bots all play at Normal (a very good player)
+const btLv=()=>'normal';
 // ---------- spawning ----------
 function btSpot(f){ const sp=curMap.spawns||[[0,0]]; const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false);
   const sc=sp.map(s=>{ let d=60; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1])); return {s,d:d+Math.random()*5}; }).sort((a,b)=>b.d-a.d);
@@ -114,7 +114,7 @@ function btOver(dt){ BT.overT-=dt; let sdt=dt; if(slowMoT>0){ slowMoT-=dt; sdt=d
   if(btHost()&&BT.overT<=0) btNewMatch(BT.mid+1); }
 function btScoreboard(){ const w=btSeatedF(BT.w); const L=fighters.filter(f=>f.active!==false).sort((a,b)=>(b.score-a.score)||((a.deaths|0)-(b.deaths|0)));
   UI.btOverTitle.textContent=w===player?'YOU WIN!':w?esc(w.name).toUpperCase()+' WINS':'MATCH OVER'; UI.btOverTitle.className='title stroke '+(w===player?'win':'lose');
-  UI.btRows.innerHTML='<div class="bo-h"><span></span><span>Player</span><span>KOs</span><span>Outs</span></div>'+L.map((f,i)=>`<div class="bo-r${f===player?' me':''}" style="--c:${f.team.css}"><span class="bo-n">${i+1}</span><span class="bo-nm"><i></i>${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}${f.ctl!=='local'&&!f.peer?` <em>${f.lv?f.lv.name.toLowerCase()+' bot':'bot'}</em>`:''}</span><b>${f.score|0}</b><span>${f.deaths|0}</span></div>`).join(''); }
+  UI.btRows.innerHTML='<div class="bo-h"><span></span><span>Player</span><span>KOs</span><span>Outs</span></div>'+L.map((f,i)=>`<div class="bo-r${f===player?' me':''}" style="--c:${f.team.css}"><span class="bo-n">${i+1}</span><span class="bo-nm"><i></i>${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}${f.ctl!=='local'&&!f.peer?' <em>bot</em>':''}</span><b>${f.score|0}</b><span>${f.deaths|0}</span></div>`).join(''); }
 
 // ---------- HUD ----------
 let btBoardKey='';

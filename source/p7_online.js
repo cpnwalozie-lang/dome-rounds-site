@@ -209,7 +209,7 @@ function lobbyRender(){ const el=$id('olSeats'); if(!el) return; const kind=NET.
   el.innerHTML=NET.on? NET.seats.map(seat).join('')+(multi&&!NET.started?Array.from({length:Math.max(0,4-NET.seats.length)},(_,k)=>empty(NET.seats.length+k)).join(''):'') : '';
   NET.kind=K;
   const hb=$id('olHostBtns'); hb.style.display=host&&multi&&!NET.started?'':'none'; const need=two?4:3;
-  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olStart').disabled=NET.seats.length<need;
+  $id('olAddBot').disabled=NET.seats.length>=4; $id('olDelBot').disabled=!NET.seats.some(st=>st.b); $id('olTeam').style.display=two?'':'none'; $id('olTeam').disabled=NET.seats.length<3; $id('olStart').disabled=NET.seats.length<need;
   $id('olCancel').textContent=host?'CLOSE ROOM':'LEAVE ROOM';
   const n=NET.seats.length; $id('olStatus').textContent=!NET.on?'':NET.started?'Match in progress':host? (multi? (n<need?`Waiting for players… (${n}/4). ${two?'2v2 needs 4':'You need 3'} to start, so add a bot or wait.`:`${n} players ready. Press START when everyone's in.`) : (n<2?'Waiting for your rival to join…':'Rival joined! Starting…')) : (multi?`${n} in the room. Waiting for the host to start…`:'Get ready…');
   const nm=$id('olName'); if(nm&&document.activeElement!==nm) nm.value=settings.name||''; }
@@ -222,6 +222,7 @@ $id('olJoin').addEventListener('click',doJoin); codeIn.addEventListener('keydown
 const nameIn=$id('olName'); nameIn.addEventListener('keydown',e=>e.stopPropagation()); nameIn.addEventListener('input',()=>{ settings.name=cleanName(nameIn.value)==='Player'&&!nameIn.value.trim()?'':nameIn.value.replace(/[<>&"'`]/g,'').slice(0,14); saveSettings(); if(NET.on&&NET.role==='host'&&NET.seats[0]) NET.seats[0].n=myName(); if(state==='menu'&&settings.gm!=='1v1') player.name=myName(); });
 $id('olAddBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length>=4) return; const used=new Set(NET.seats.map(s=>s.n)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; NET.seats.push({p:'bot'+Math.random().toString(36).slice(2,7),n,b:true}); lobbyRender(); SFX.hover(); });
 $id('olDelBot').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started) return; for(let i=NET.seats.length-1;i>0;i--) if(NET.seats[i].b){ NET.seats.splice(i,1); break; } lobbyRender(); });
+$id('olTeam').addEventListener('click',()=>{ if(!NET.on||NET.role!=='host'||NET.started||NET.kind!=='2v2'||NET.seats.length<3) return; const rest=NET.seats.slice(1); rest.push(rest.shift()); NET.seats=[NET.seats[0],...rest]; const mate=NET.seats[2]; olMsg(mate?`${mate.n} is on your team now.`:''); lobbyRender(); SFX.hover(); });
 $id('olStart').addEventListener('click',()=>{ SFX.unlock(); if(!NET.on||NET.role!=='host'||NET.started||NET.seats.length<seatsNeeded()) return; requestLock(); netHostStart(); });
 $id('olCopy').addEventListener('click',()=>{ try{ navigator.clipboard.writeText(NET.code).then(()=>olMsg('Code copied.'),()=>olMsg('Copy failed. Read it out instead: '+NET.code)); }catch(e){ olMsg('Copy failed. Read it out instead: '+NET.code); } });
 // invite links: ?room=CODE opens the game straight into that room
