@@ -596,6 +596,36 @@
   #touchUI #tPowers{top:calc(var(--st) + 114px)}
   body.touch #clipBtn{display:none!important}
 </style>
+<style>
+  /* ================= Battle ================= */
+  .battleonly{display:none} body.gm-battle .battleonly{display:flex}
+  body.gm-battle #start .seg[data-seg="map"],body.gm-battle #start .seg[data-seg="diff"],body.gm-battle #onlineBtn,body.gm-battle #online,body.gm-battle .seg.ffaonly{display:none!important}
+  .btRow{background:var(--plum,rgba(11,16,38,.82));border:2px solid var(--edge,#4a2a80);box-shadow:6px 6px 0 rgba(0,0,0,.45);padding:10px 14px;max-width:560px;display:flex;flex-direction:column;gap:8px}
+  .btInfo{font-size:14px;line-height:1.4} .btInfo b{font-family:var(--disp);font-weight:400;color:var(--ye,#ffd23d)}
+  .btFields{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+  .btField{display:flex;align-items:center;gap:7px;font-size:13px;opacity:.95}
+  .btField input{background:#14081f;color:#fff;border:2px solid var(--edge,#4a2a80);font:500 15px/1 system-ui,sans-serif;padding:6px 8px;width:130px}
+  #btCode{width:46px;text-align:center;font-family:var(--disp)}
+  .btField .btn.sec{font-size:15px;padding:6px 12px 5px}
+  #btMsg{font-size:13px;color:#ffd23d;min-height:0} #btMsg:empty{display:none} #btMsg.bad{color:#ff8a8a}
+  .btPause{margin-bottom:10px;font-size:14px;line-height:1.45} .btPause .ol-row{margin-top:8px} #btInvMsg{font-size:13px;color:#ffd23d;margin-top:6px} #btInvMsg:empty{display:none}
+  .fb-row.bt{gap:7px} .fb-row .fb-rk{font-family:var(--disp);font-size:14px;color:#c9c2e8;min-width:14px;text-align:center}
+  .fb-row .fb-k{margin-left:auto;font-family:var(--disp);font-size:18px;line-height:1} .fb-row .fb-k small{font-size:11px;opacity:.6}
+  #hud.battlemode #ffaBoard{width:min(28vw,250px)}
+  #hud.battlemode #toasts{top:226px} body.touch #hud.battlemode #toasts{top:46%} #hud.battlemode .fb-row{padding:3px 9px} #hud.battlemode .fb-row.out{opacity:.55}
+  #draft.bpick{background:radial-gradient(ellipse at 50% 55%,rgba(48,18,92,.42),rgba(15,6,28,.7))}
+  .btOverP{min-width:min(440px,86vw)}
+  #btRows{display:flex;flex-direction:column;gap:4px}
+  .bo-h,.bo-r{display:grid;grid-template-columns:26px 1fr 54px 54px;align-items:center;gap:8px;padding:4px 8px}
+  .bo-h{font-size:12px;opacity:.7} .bo-h span:nth-child(n+3){text-align:center}
+  .bo-r{background:rgba(255,255,255,.05);border-left:5px solid var(--c);font-size:15px}
+  .bo-r.me{background:rgba(53,233,255,.14)} .bo-n{font-family:var(--disp);opacity:.8;text-align:center}
+  .bo-r b{font-family:var(--disp);font-weight:400;font-size:20px;text-align:center;color:#ffd23d} .bo-r>span:last-child{text-align:center}
+  .bo-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .bo-nm i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px}
+  .bo-nm em{font-style:normal;font-size:11px;opacity:.6;margin-left:4px} .bo-nm small{opacity:.7}
+  #btNext{margin-top:10px;font-size:14px;color:#ffd23d}
+  @media (max-height:520px){ .bo-h,.bo-r{padding:2px 8px} .bo-r{font-size:13px} .bo-r b{font-size:16px} .btRow{padding:6px 10px;gap:5px} .btInfo{font-size:12px;line-height:1.3} .btField input{padding:4px 6px;font-size:14px} .btField{font-size:12px} .btField .btn.sec{font-size:13px;padding:4px 10px 3px} }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -670,7 +700,7 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.9.0<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.10.0<br>© 2026 Nitor Digital</div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
@@ -684,7 +714,8 @@
       <div id="olMsg"></div>
       <div class="ol-note" id="olNote">Send your rival the link to this game. They open it, press Play Online and type your code. The map is the room creator's pick.</div>
     </div>
-    <div class="rowb"><div class="seg" data-seg="gm"><span>MODE</span><button data-v="1v1">1v1</button><button data-v="2v2">2v2</button><button data-v="ffa">Free for all</button></div><div class="seg ffaonly" data-seg="ffaBots"><span>BOTS</span><button data-v="2">2</button><button data-v="3">3</button></div></div>
+    <div class="rowb"><div class="seg" data-seg="gm"><span>MODE</span><button data-v="1v1">1v1</button><button data-v="2v2">2v2</button><button data-v="ffa">Free for all</button><button data-v="battle">Battle</button></div><div class="seg ffaonly" data-seg="ffaBots"><span>BOTS</span><button data-v="2">2</button><button data-v="3">3</button></div></div>
+    <div class="rowb battleonly"><div class="btRow"><div class="btInfo"><b>Battle</b> · up to 10 players online, bots fill the gaps. Get knocked out, pick a card, jump back in. First to 10 knockouts wins.</div><div class="btFields"><label class="btField"><span>Your name</span><input id="btName" maxlength="14" placeholder="Player" autocomplete="off" spellcheck="false"></label><label class="btField"><span>Join a friend · match #</span><input id="btCode" maxlength="2" inputmode="numeric" placeholder="3" autocomplete="off"><button class="btn sec" id="btJoin" type="button">JOIN</button></label></div><div id="btMsg"></div></div></div>
     <div class="rowb"><div class="seg" data-seg="map"><span>MAP</span><button data-v="dock">Dockside</button><button data-v="neon">Neon City</button><button data-v="crane">The Crane</button><button data-v="foundry">Foundry</button></div><div class="seg" data-seg="diff"><span>BOT</span><button data-v="easy">Easy</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button></div></div>
     <div class="rowb"><button class="btn sec studioB" id="studioBtn"><span class="mdome" aria-hidden="true"></span>DOME STUDIO</button><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
     <div class="panel" id="how">
@@ -731,6 +762,7 @@
   <div class="side">
     <div class="title stroke">PAUSED</div>
     <div class="rowb"><button class="btn" id="resumeBtn"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg>RESUME</button><button class="btn sec" id="quitBtn">QUIT TO MENU</button><button class="btn sec tEditBtn tonlyI" type="button">MOVE BUTTONS</button></div>
+    <div id="btPause" class="panel btPause" style="display:none"><div id="btPauseLbl"></div><div class="ol-row"><button class="btn sec" id="btInvite" type="button">INVITE A FRIEND</button></div><div id="btInvMsg"></div></div>
     <div class="panel"><h3>THIS MATCH</h3><div class="stats" id="pauseStats"></div><h3 style="margin-top:12px">YOUR CARDS</h3><div class="strip" id="pauseCards"></div>
       <h3 style="margin-top:12px">CLIPS</h3><div class="clipList"></div>
       <div class="sets">
@@ -757,6 +789,15 @@
   <div id="coach"></div>
   <div id="statbar"></div>
   <div class="hintk">CLICK A CARD OR PRESS <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></div>
+</div>
+
+<div id="btOver" class="overlay">
+  <div class="shade full"></div>
+  <div class="side">
+    <div class="title stroke" id="btOverTitle">MATCH OVER</div>
+    <div class="panel btOverP"><div id="btRows"></div><div id="btNext"></div></div>
+    <div class="rowb"><button class="btn sec" id="btLeave" type="button">LEAVE MATCH</button></div>
+  </div>
 </div>
 
 <div id="matchover" class="overlay">

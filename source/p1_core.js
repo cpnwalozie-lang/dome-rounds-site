@@ -22,9 +22,16 @@ const TEAM = {
   bot:   { body:0xff7a1a, light:0xffc27a, dark:0x8a3604, band:0x1b2340, cannon:0xc2301c, ink:0xff7a1a, css:'#ff7a1a' },
   green: { body:0x35d977, light:0xa8ffc9, dark:0x0d6b33, band:0xffffff, cannon:0x15964a, ink:0x35d977, css:'#35d977' },
   purple:{ body:0xa46bff, light:0xd9c4ff, dark:0x45208e, band:0x1b2340, cannon:0x6a35d6, ink:0xa46bff, css:'#a46bff' },
+  // Battle (up to 10 fighters) adds six more
+  yellow:{ body:0xffcf1f, light:0xfff0a0, dark:0x8a6a00, band:0x1b2340, cannon:0xd99a00, ink:0xffcf1f, css:'#ffcf1f' },
+  pink:  { body:0xff4fa3, light:0xffb8da, dark:0x8a1450, band:0xffffff, cannon:0xd12a7c, ink:0xff4fa3, css:'#ff4fa3' },
+  red:   { body:0xf0413c, light:0xffaaa6, dark:0x7a1210, band:0xffffff, cannon:0xb81f1b, ink:0xf0413c, css:'#f0413c' },
+  white: { body:0xe9edf6, light:0xffffff, dark:0x6f7891, band:0x1b2340, cannon:0x9aa3b8, ink:0xd8deea, css:'#e9edf6' },
+  lime:  { body:0xa6e22e, light:0xe0ffa0, dark:0x4a6e00, band:0x1b2340, cannon:0x7aa814, ink:0xa6e22e, css:'#a6e22e' },
+  black: { body:0x353b4c, light:0x9aa4bd, dark:0x14171f, band:0xffcf1f, cannon:0x1d212c, ink:0x8a93a8, css:'#5b6378' },
 };
 for(const k in TEAM) TEAM[k].id=k;
-const SLOT_TEAMS=['player','bot','green','purple']; // FFA seat colours, same on every screen
+const SLOT_TEAMS=['player','bot','green','purple','yellow','pink','red','white','lime','black']; // seat colours, same on every screen (FFA uses the first 4)
 const INK = 0x0b1026;
 
 // ================= SETTINGS =================

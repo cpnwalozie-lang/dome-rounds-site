@@ -25,9 +25,16 @@ const TEAM = {
   bot:   { body:0xff7a1a, light:0xffc27a, dark:0x8a3604, band:0x1b2340, cannon:0xc2301c, ink:0xff7a1a, css:'#ff7a1a' },
   green: { body:0x35d977, light:0xa8ffc9, dark:0x0d6b33, band:0xffffff, cannon:0x15964a, ink:0x35d977, css:'#35d977' },
   purple:{ body:0xa46bff, light:0xd9c4ff, dark:0x45208e, band:0x1b2340, cannon:0x6a35d6, ink:0xa46bff, css:'#a46bff' },
+  // Battle (up to 10 fighters) adds six more
+  yellow:{ body:0xffcf1f, light:0xfff0a0, dark:0x8a6a00, band:0x1b2340, cannon:0xd99a00, ink:0xffcf1f, css:'#ffcf1f' },
+  pink:  { body:0xff4fa3, light:0xffb8da, dark:0x8a1450, band:0xffffff, cannon:0xd12a7c, ink:0xff4fa3, css:'#ff4fa3' },
+  red:   { body:0xf0413c, light:0xffaaa6, dark:0x7a1210, band:0xffffff, cannon:0xb81f1b, ink:0xf0413c, css:'#f0413c' },
+  white: { body:0xe9edf6, light:0xffffff, dark:0x6f7891, band:0x1b2340, cannon:0x9aa3b8, ink:0xd8deea, css:'#e9edf6' },
+  lime:  { body:0xa6e22e, light:0xe0ffa0, dark:0x4a6e00, band:0x1b2340, cannon:0x7aa814, ink:0xa6e22e, css:'#a6e22e' },
+  black: { body:0x353b4c, light:0x9aa4bd, dark:0x14171f, band:0xffcf1f, cannon:0x1d212c, ink:0x8a93a8, css:'#5b6378' },
 };
 for(const k in TEAM) TEAM[k].id=k;
-const SLOT_TEAMS=['player','bot','green','purple']; // FFA seat colours, same on every screen
+const SLOT_TEAMS=['player','bot','green','purple','yellow','pink','red','white','lime','black']; // seat colours, same on every screen (FFA uses the first 4)
 const INK = 0x0b1026;
 
 // ================= SETTINGS =================
@@ -1034,6 +1041,7 @@ function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Gr
   if(S!==1){ g.scale.set(S,1,S); for(const b of boxes){ b.min.x*=S; b.max.x*=S; b.min.z*=S; b.max.z*=S; } for(const r of ramps){ r.minX*=S; r.maxX*=S; r.minZ*=S; r.maxZ*=S; } if(g.userData.waterMat) g.userData.waterMat.uniforms.dock.value.set(HX*S,HZ*S); }
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
+  { const R=m.shadow||0, c=sun.shadow.camera; const w=R||33, h=R||28; if(c.right!==w||c.top!==h){ c.left=-w; c.right=w; c.top=h; c.bottom=-h; c.far=R?130:95; c.updateProjectionMatrix(); } } // bigger arenas need a bigger shadow area
   const e=m.env; scene.fog.color.copy(col(e.fog[0])); scene.fog.near=e.fog[1]; scene.fog.far=e.fog[2]; hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity=e.hemi[2]; sun.color.set(e.sun[0]); sun.intensity=e.sun[1]; sun.position.set(e.sun[2][0],e.sun[2][1],e.sun[2][2]); applyBloom(); }
 const QUAL={ low:{pr:0.8,sh:0,post:0}, medium:{pr:1.25,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
 function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) return; try{
@@ -1634,6 +1642,128 @@ MAPS.foundry={ name:'Foundry', native:[24,17], scale:1, spawnX:20.5, killY:-1.4,
 LOOK_MAP.crane={ exp:1.0, envI:1.0, hemi:0.45, sun:1.3, grade:{sat:1.1,con:0.22,vig:0.28,warm:[1.02,1.0,0.98],cool:[0.95,0.98,1.05]} };
 LOOK_MAP.foundry={ exp:1.05, envI:1.2, hemi:0.6, sun:1.0, grade:{sat:1.18,con:0.26,vig:0.45,warm:[1.07,0.98,0.92],cool:[0.94,0.95,1.02]} };
 
+// ================= SKYFORT: the Battle arena (up to 10 fighters) =================
+// A stone fort on a floating island, high above a sea of clouds at golden hour.
+// Middle: a raised keep with four ramps and a crystal beacon. Corners: four towers with ramps up.
+// In between: pillars, broken walls and crates for cover. Low walls run along the edges with gaps
+// where you can get knocked off into the clouds.
+function buildSkyfort(){
+  const rng=RNG(2026); const A=30; // half-size of the plaza
+  // ---- textures ----
+  const tileTex=mkTex(512,512,(g,W2,H2)=>{ const r=RNG(5); const n=4, s=W2/n;
+    g.fillStyle='#9c8763'; g.fillRect(0,0,W2,H2);
+    for(let i=0;i<n;i++) for(let j=0;j<n;j++){ const v=r(); const c=[226-v*22,207-v*20,166-v*22].map(Math.round); g.fillStyle=`rgb(${c})`; g.fillRect(i*s+3,j*s+3,s-6,s-6);
+      for(let k=0;k<70;k++){ g.fillStyle=`rgba(${r()<0.5?60:255},${r()<0.5?45:240},${r()<0.5?30:210},${0.05+r()*0.06})`; g.fillRect(i*s+3+r()*(s-8),j*s+3+r()*(s-8),2+r()*3,2+r()*3); }
+      const gr=g.createLinearGradient(i*s,j*s,i*s+s,j*s+s); gr.addColorStop(0,'rgba(255,255,255,.07)'); gr.addColorStop(1,'rgba(0,0,0,.08)'); g.fillStyle=gr; g.fillRect(i*s+3,j*s+3,s-6,s-6);
+      if(r()<0.22){ g.strokeStyle='rgba(90,72,48,.45)'; g.lineWidth=1.5; g.beginPath(); let x=i*s+10+r()*(s-20), y=j*s+10+r()*(s-20); g.moveTo(x,y); for(let q=0;q<4;q++){ x+=(r()-0.5)*40; y+=(r()-0.5)*40; g.lineTo(x,y); } g.stroke(); } } });
+  const stoneTex=mkTex(512,512,(g,W2,H2)=>{ const r=RNG(9); g.fillStyle='#8f7d5c'; g.fillRect(0,0,W2,H2); const rows=8, h=H2/rows;
+    for(let y=0;y<rows;y++){ const off=(y%2)*0.5; for(let x=-1;x<4;x++){ const v=r(); g.fillStyle=`rgb(${Math.round(212-v*26)},${Math.round(192-v*24)},${Math.round(152-v*24)})`; const bx=(x+off)*W2/4+3, by=y*h+3; g.fillRect(bx,by,W2/4-6,h-6);
+      g.fillStyle='rgba(255,255,255,.08)'; g.fillRect(bx,by,W2/4-6,4); g.fillStyle='rgba(0,0,0,.1)'; g.fillRect(bx,by+h-10,W2/4-6,4); } } });
+  const rockTex=mkTex(256,256,(g,W2,H2)=>{ const r=RNG(11); g.fillStyle='#7a5f43'; g.fillRect(0,0,W2,H2); for(let y=0;y<H2;y+=6){ g.fillStyle=`rgba(${r()<0.5?40:150},${r()<0.5?28:115},${r()<0.5?18:80},${0.12+r()*0.18})`; g.fillRect(0,y,W2,2+r()*4); }
+    for(let i=0;i<300;i++){ g.fillStyle=`rgba(30,20,12,${0.08+r()*0.12})`; g.fillRect(r()*W2,r()*H2,2+r()*6,1+r()*3); } });
+  const bannerTex=mkTex(128,256,(g,W2,H2)=>{ g.fillStyle='#ffffff'; g.fillRect(0,0,W2,H2); g.fillStyle='rgba(0,0,0,.18)'; g.fillRect(0,0,W2,18); g.fillRect(0,H2-62,W2,8);
+    g.fillStyle='rgba(255,255,255,.95)'; g.beginPath(); g.arc(W2/2,H2*0.48,34,Math.PI,0); g.closePath(); g.fill(); g.strokeStyle='rgba(0,0,0,.35)'; g.lineWidth=5; g.stroke();
+    g.fillStyle='rgba(0,0,0,.28)'; g.fillRect(W2/2-40,H2*0.48+4,80,8); });
+  const MS={ tile:toon({map:tileTex}), stone:toon({map:stoneTex}), trim:toon({color:0x6f7d97}), cap:toon({color:0xe9dcbc}), rock:toon({map:rockTex,flatShading:true}), grass:toon({color:0x7cbf4a,flatShading:true}),
+    dark:toon({color:0x4a3f33}), gold:toon({color:0xffcf4a,metalness:0.6,roughness:0.35}), crystal:toon({color:0x9ff7ff,emissive:0x35e9ff,emissiveIntensity:1.4,transparent:true,opacity:0.92}) };
+  const tileW=4, stoneW=2;
+  // ---- the plaza ----
+  { const m=new T.Mesh(boxGeo(A*2,2.4,A*2,tileW),[MS.stone,MS.stone,MS.tile,MS.rock,MS.stone,MS.stone]); m.position.set(0,-1.2,0); m.receiveShadow=true; m.castShadow=true; W.add(m); collider(-A,A,-2.4,0,-A,A); }
+  // edge band and a lip of darker stone all round
+  addMerged([[new T.BoxGeometry(A*2+0.5,0.5,A*2+0.5),MX(0,-2.55,0)]],MS.trim,{cast:false});
+  // ---- the island underneath ----
+  { const g=new T.CylinderGeometry(30.5,3,30,8,5); g.rotateY(Math.PI/8); const p=g.attributes.position; const r=RNG(21);
+    for(let i=0;i<p.count;i++){ const y=p.getY(i); if(y>14.9) continue; const k=1+(r()-0.5)*0.28*(1-(y+15)/40); p.setX(i,p.getX(i)*k); p.setZ(i,p.getZ(i)*k); p.setY(i,y+(r()-0.5)*1.6); }
+    g.computeVertexNormals(); const m=new T.Mesh(g,MS.rock); m.position.y=-17.4; W.add(m);
+    // hanging rocks and roots
+    const L=[]; for(let i=0;i<14;i++){ const a=r()*Math.PI*2, d=8+r()*16; const s=1+r()*2.6; L.push([new T.ConeGeometry(s,s*3,5),MX(Math.cos(a)*d,-31-r()*6-s,Math.sin(a)*d,Math.PI,r()*3,0)]); } addMerged(L,MS.rock,{cast:false});
+    // a waterfall pouring off the south edge
+    const wt=mkTex(64,256,(g2,W2,H2)=>{ g2.fillStyle='#bfe9ff'; g2.fillRect(0,0,W2,H2); const r2=RNG(4); for(let i=0;i<70;i++){ g2.fillStyle=`rgba(255,255,255,${0.3+r2()*0.6})`; g2.fillRect(r2()*W2,r2()*H2,2+r2()*3,20+r2()*40); } });
+    const wm=new T.MeshBasicMaterial({map:wt,transparent:true,opacity:0.82,side:T.DoubleSide,depthWrite:false}); const wf=new T.Mesh(new T.PlaneGeometry(5,46),wm); wf.position.set(0,-25,A+0.35); W.add(wf); wt.repeat.set(1,3);
+    const mist=sprite(0xffffff,14,0.55); mist.position.set(0,-46,A+1); W.add(mist);
+    animated.push(t=>{ wt.offset.y=(t*1.4)%1; }); }
+  // ---- stone ramp: walkable wedge (pushed into the shared ramp list) with stone faces ----
+  function sRamp(minX,maxX,minZ,maxZ,axis,lowAtMin,h){ const r={minX,maxX,minZ,maxZ,axis,lowAtMin,hLow:0,hHigh:h}; ramps.push(r);
+    const yAt=(x,z)=>rampHeight(r,x,z); const c=[[minX,minZ],[maxX,minZ],[maxX,maxZ],[minX,maxZ]]; const top=c.map(p=>[p[0],yAt(p[0],p[1]),p[1]]), bot=c.map(p=>[p[0],-0.001,p[1]]);
+    const mk=(quads,mat)=>{ const v=[],uv=[]; for(const [a,b,cc,d,su,sv] of quads){ v.push(...a,...b,...cc,...a,...cc,...d); uv.push(0,0,su,0,su,sv,0,0,su,sv,0,sv); } const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(v,3)); g.setAttribute('uv',new T.Float32BufferAttribute(uv,2)); g.computeVertexNormals(); const m=new T.Mesh(g,mat); m.castShadow=true; m.receiveShadow=true; W.add(m); };
+    const lx=(maxX-minX)/tileW, lz=(maxZ-minZ)/tileW; mk([[top[0],top[3],top[2],top[1],lz,lx]],MS.tile);
+    mk([[top[0],top[1],bot[1],bot[0],(maxX-minX)/stoneW,h/stoneW],[top[1],top[2],bot[2],bot[1],(maxZ-minZ)/stoneW,h/stoneW],[top[2],top[3],bot[3],bot[2],(maxX-minX)/stoneW,h/stoneW],[top[3],top[0],bot[0],bot[3],(maxZ-minZ)/stoneW,h/stoneW]],MS.stone);
+    contact(minX,maxX,minZ,maxZ,0,0.3); }
+  // a block of stone (walls, keep, towers): solid + merged faces
+  const STONE=[], CAPS=[], TRIM=[];
+  function block(x0,x1,y0,y1,z0,z1,o={}){ collider(x0,x1,y0,y1,z0,z1); if(o.shadow!==false) contact(x0,x1,z0,z1,y0,0.4,0.8);
+    STONE.push([boxGeo(x1-x0,y1-y0,z1-z0,stoneW),MX((x0+x1)/2,(y0+y1)/2,(z0+z1)/2)]);
+    if(o.cap) CAPS.push([new T.BoxGeometry(x1-x0+0.16,0.16,z1-z0+0.16),MX((x0+x1)/2,y1+0.02,(z0+z1)/2)]); }
+  // ---- the keep in the middle ----
+  const KH=2.6, KS=7;
+  { const m=new T.Mesh(boxGeo(KS*2,KH,KS*2,stoneW),[MS.stone,MS.stone,MS.tile,MS.stone,MS.stone,MS.stone]); m.position.set(0,KH/2,0); m.castShadow=true; m.receiveShadow=true; W.add(m); collider(-KS,KS,0,KH,-KS,KS); contact(-KS,KS,-KS,KS,0,0.5);
+    TRIM.push([new T.BoxGeometry(KS*2+0.12,0.26,KS*2+0.12),MX(0,KH-0.14,0)]); }
+  sRamp(-2.25,2.25,KS,KS+6.5,'z',false,KH); sRamp(-2.25,2.25,-KS-6.5,-KS,'z',true,KH); sRamp(KS,KS+6.5,-2.25,2.25,'x',false,KH); sRamp(-KS-6.5,-KS,-2.25,2.25,'x',true,KH);
+  // low walls on top with gaps for the ramps
+  for(const s of [-1,1]){ for(const [a,b] of [[-KS,-2.25],[2.25,KS]]){ block(a,b,KH,KH+0.95,s>0?KS-0.5:-KS,s>0?KS:-KS+0.5,{cap:true,shadow:false}); block(s>0?KS-0.5:-KS,s>0?KS:-KS+0.5,KH,KH+0.95,a,b,{cap:true,shadow:false}); } }
+  // the beacon: stepped base, a tall shaft, and a floating crystal
+  block(-1.3,1.3,KH,KH+1.0,-1.3,1.3,{cap:true}); block(-0.75,0.75,KH+1.0,KH+6.2,-0.75,0.75,{cap:true,shadow:false});
+  const crystal=new T.Mesh(new T.OctahedronGeometry(1.05,0),MS.crystal); crystal.scale.set(1,1.5,1); crystal.position.set(0,KH+8.1,0); W.add(crystal);
+  const cg=sprite(0x35e9ff,9,0.75); cg.position.copy(crystal.position); W.add(cg);
+  const ring=new T.Mesh(new T.TorusGeometry(1.8,0.08,6,32),MS.gold); ring.position.copy(crystal.position); ring.rotation.x=Math.PI/2; W.add(ring);
+  animated.push(t=>{ crystal.rotation.y=t*0.8; crystal.position.y=KH+8.1+Math.sin(t*1.3)*0.25; ring.rotation.z=t*0.5; ring.position.y=crystal.position.y; cg.position.y=crystal.position.y; cg.material.opacity=0.6+Math.sin(t*2.1)*0.15; });
+  // ---- corner towers with ramps ----
+  const TH=3.6, TS=3.5, TC=23;
+  const bannerCols=SLOT_TEAMS.map(k=>TEAM[k].body); const banners=[];
+  for(const sx of [-1,1]) for(const sz of [-1,1]){ const cx=sx*TC, cz=sz*TC;
+    block(cx-TS,cx+TS,0,TH,cz-TS,cz+TS); { const m=new T.Mesh(new T.PlaneGeometry(TS*2,TS*2),MS.tile); m.rotation.x=-Math.PI/2; m.position.set(cx,TH+0.004,cz); m.receiveShadow=true; W.add(m); }
+    TRIM.push([new T.BoxGeometry(TS*2+0.12,0.26,TS*2+0.12),MX(cx,TH-0.14,cz)]);
+    // battlements on the two outer sides
+    const ox=cx+sx*(TS-0.25), oz=cz+sz*(TS-0.25);
+    block(ox-0.25,ox+0.25,TH,TH+0.7,cz-TS,cz+TS,{shadow:false}); block(cx-TS,cx+TS,TH,TH+0.7,oz-0.25,oz+0.25,{shadow:false});
+    for(let i=0;i<4;i++){ const u=-TS+0.6+i*(TS*2-1.2)/3; CAPS.push([boxGeo(0.62,0.6,0.62,stoneW),MX(ox,TH+1.0,cz+u)]); CAPS.push([boxGeo(0.62,0.6,0.62,stoneW),MX(cx+u,TH+1.0,oz)]); }
+    // ramp up from the inside
+    if(sx>0) sRamp(TC-TS-8,TC-TS,sz>0?cz-2.5:cz-1,sz>0?cz+1:cz+2.5,'x',true,TH); else sRamp(-TC+TS,-TC+TS+8,sz>0?cz-2.5:cz-1,sz>0?cz+1:cz+2.5,'x',false,TH);
+    // banner poles on the outer corner
+    for(const k of [0,1]){ const px=k?cx+sx*(TS+0.15):cx+sx*(TS-1.6), pz=k?cz+sz*(TS-1.6):cz+sz*(TS+0.15);
+      const pole=new T.Mesh(new T.CylinderGeometry(0.07,0.07,4.2,6),MS.dark); pole.position.set(px,TH+2.1,pz); W.add(pole);
+      const ci=banners.length%bannerCols.length; const bm=toon({map:bannerTex,color:bannerCols[ci],side:T.DoubleSide,emissive:bannerCols[ci],emissiveIntensity:0.12});
+      const g=new T.PlaneGeometry(1.1,2.1); g.translate(0.58,-1.05,0); const b=new T.Mesh(g,bm); b.position.set(px,TH+4.1,pz); b.rotation.y=(k? (sx>0?-Math.PI/2:Math.PI/2) : (sz>0?0:Math.PI)); b.castShadow=true; W.add(b); banners.push({b,ph:rng()*6,base:b.rotation.y}); } }
+  animated.push(t=>{ for(const o of banners){ o.b.rotation.y=o.base+Math.sin(t*1.7+o.ph)*0.18; o.b.rotation.x=Math.sin(t*2.3+o.ph)*0.06; } });
+  // ---- cover in the four side bays: a broken wall and crates ----
+  for(const [ax,s] of [['z',1],['z',-1],['x',1],['x',-1]]){ const P=(u,v)=>ax==='z'?[u,v]:[v,u];
+    const w0=P(-3.5,s*19.6), w1=P(3.5,s*20.4); block(Math.min(w0[0],w1[0]),Math.max(w0[0],w1[0]),0,1.7,Math.min(w0[1],w1[1]),Math.max(w0[1],w1[1]),{cap:true});
+    for(const [u,v,h] of [[-5.2,22.6,1.4],[5.2,22.6,2.8]]){ const c=P(u,s*v); solid(c[0]-0.7,c[0]+0.7,0,h,c[1]-0.7,c[1]+0.7,M.crate,1.4); if(h>1.5){ boxEdges(c[0]-0.7,c[0]+0.7,0,1.4,c[1]-0.7,c[1]+0.7,0.08,M.wood); boxEdges(c[0]-0.7,c[0]+0.7,1.4,h,c[1]-0.7,c[1]+0.7,0.08,M.wood); } else boxEdges(c[0]-0.7,c[0]+0.7,0,h,c[1]-0.7,c[1]+0.7,0.08,M.wood); } }
+  // ---- a ring of pillars ----
+  for(let i=0;i<8;i++){ const a=Math.PI/8+i*Math.PI/4, x=Math.cos(a)*13.5, z=Math.sin(a)*13.5;
+    block(x-0.65,x+0.65,0,3.8,z-0.65,z+0.65); CAPS.push([boxGeo(1.6,0.35,1.6,stoneW),MX(x,3.95,z)]); CAPS.push([boxGeo(1.6,0.3,1.6,stoneW),MX(x,0.15,z)]);
+    const fl=sprite(0xffb347,1.6,0.9); fl.position.set(x,4.55,z); W.add(fl); const bowl=new T.Mesh(new T.CylinderGeometry(0.4,0.25,0.3,8),MS.dark); bowl.position.set(x,4.25,z); W.add(bowl);
+    animated.push(t=>{ fl.scale.setScalar(1.5+Math.sin(t*9+i)*0.12); }); }
+  // ---- low walls along the edges, with gaps ----
+  for(const s of [-1,1]) for(const [a,b] of [[-17,-6],[6,17]]){ block(a,b,0,1.0,s*A-(s>0?0.6:0),s*A+(s<0?0.6:0),{cap:true,shadow:false}); block(s*A-(s>0?0.6:0),s*A+(s<0?0.6:0),0,1.0,a,b,{cap:true,shadow:false}); }
+  // merge all the stone, caps and trims into a few meshes
+  addMerged(STONE,MS.stone); addMerged(CAPS,MS.cap); addMerged(TRIM,MS.trim,{cast:false});
+  // ---- sky: golden hour ----
+  const sunDir=V3(-34,40,22).normalize();
+  const sky=new T.Mesh(new T.SphereGeometry(700,32,20),new T.ShaderMaterial({side:T.BackSide,depthWrite:false,fog:false,uniforms:{sunDir:{value:sunDir}},
+    vertexShader:'varying vec3 vDir; void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    fragmentShader:'uniform vec3 sunDir; varying vec3 vDir; void main(){ vec3 d=normalize(vDir); float h=d.y; vec3 low=vec3(0.96,0.86,0.80), hor=vec3(1.0,0.80,0.60), mid=vec3(0.66,0.76,0.93), top=vec3(0.30,0.48,0.85); vec3 c=mix(low,hor,smoothstep(-0.35,0.0,h)); c=mix(c,mid,smoothstep(0.02,0.3,h)); c=mix(c,top,smoothstep(0.28,0.9,h)); float s=max(dot(d,sunDir),0.0); c+=vec3(1.0,0.85,0.6)*(smoothstep(0.996,0.998,s)*0.9+pow(s,10.0)*0.35); gl_FragColor=vec4(c,1.0); }'}));
+  W.add(sky); animated.push(()=>{ sky.position.copy(camera.position); });
+  // ---- a sea of clouds below, and a few far islands ----
+  { const cm=toon({color:0xffffff,emissive:0xffe6cf,emissiveIntensity:0.45,flatShading:false}); const L=[]; const r=RNG(31);
+    for(let i=0;i<70;i++){ const a=r()*Math.PI*2, d=26+Math.pow(r(),0.7)*330, y=-30-r()*26; const n=3+Math.floor(r()*4); const sc=4+r()*9+d*0.02;
+      for(let j=0;j<n;j++){ const g=new T.SphereGeometry(1,8,6); L.push([g,MX(Math.cos(a)*d+(j-n/2)*sc*1.2,y+r()*2,Math.sin(a)*d+(r()-0.5)*sc,0,r()*3,0,sc*1.6,sc*0.62,sc)]); } }
+    addMerged(L,cm,{cast:false});
+    const floor=new T.Mesh(new T.CircleGeometry(900,24),new T.MeshBasicMaterial({color:0xf7e6d6,fog:true})); floor.rotation.x=-Math.PI/2; floor.position.y=-58; W.add(floor);
+    const R=[], G=[]; for(let i=0;i<7;i++){ const a=i/7*Math.PI*2+r()*0.4, d=110+r()*170, s=6+r()*12, y=-6+r()*30; const x=Math.cos(a)*d, z=Math.sin(a)*d;
+      R.push([new T.ConeGeometry(s,s*2.4,7),MX(x,y-s*1.2,z,Math.PI,r()*3,0)]); G.push([new T.CylinderGeometry(s*1.02,s*0.95,s*0.3,7),MX(x,y+s*0.15,z,0,r()*3,0)]);
+      for(let k=0;k<3;k++) kenPlace({name:'trees',x:x+(r()-0.5)*s,y:y+s*0.3,z:z+(r()-0.5)*s,ry:r()*6,s:s*0.25,group:W}); }
+    addMerged(R,MS.rock,{cast:false}); addMerged(G,MS.grass,{cast:false});
+    // little rocks drifting round the island
+    const orbit=new T.Group(); W.add(orbit); const oL=[]; for(let i=0;i<12;i++){ const a=i/12*Math.PI*2, d=40+r()*14, s=0.6+r()*1.4; oL.push([new T.DodecahedronGeometry(s,0),MX(Math.cos(a)*d,-6-r()*16,Math.sin(a)*d,r()*3,r()*3,0)]); }
+    const om=new T.Mesh(mergeGeos(oL),MS.rock); orbit.add(om); animated.push(t=>{ orbit.rotation.y=t*0.02; orbit.position.y=Math.sin(t*0.4)*0.6; }); }
+}
+MAPS.skyfort={ name:'Skyfort', native:[30,30], scale:1, spawnX:24, killY:-14, battleOnly:true, shadow:37, build(){ buildSkyfort(); },
+  // where people drop in: away from walls, spread over the whole fort (the keep top too)
+  spawns:[[9,25],[-9,25],[9,-25],[-9,-25],[25,9],[25,-9],[-25,9],[-25,-9],[14,14],[-14,14],[14,-14],[-14,-14],[4.6,4.6],[-4.6,4.6],[4.6,-4.6],[-4.6,-4.6]],
+  env:{ fog:[0xf1d8c2,90,460], hemi:[0xfff0dc,0x8a7a9a,0.72], sun:[0xffd6a3,1.3,[-34,40,22]], bloom:[0.2,0.45,0.9] } };
+LOOK_MAP.skyfort={ exp:1.02, envI:1.05, hemi:0.5, sun:1.25, grade:{sat:1.12,con:0.2,vig:0.3,warm:[1.05,1.0,0.95],cool:[0.95,0.98,1.04]} };
+
 // ================= DOME SHADER (glassy guardian shield) =================
 const DOME_VS='varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP=position; vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }';
 const DOME_FS=`uniform float skin; uniform vec3 tint; uniform vec3 color; uniform vec3 cols[4]; uniform float ncol; uniform float split; uniform float opacity; uniform float time; uniform float fill; uniform float flash; uniform float hitAge; uniform vec3 hitDir; varying vec3 vN; varying vec3 vV; varying vec3 vP;
@@ -1940,8 +2070,8 @@ class Fighter{
   center(){ return V3(this.pos.x,this.pos.y+this.bodyY,this.pos.z); }
   distTo(p){ const z=this.sz||1; const y=clamp(p.y,this.pos.y+0.4*z,this.pos.y+1.8*z); const dx=p.x-this.pos.x, dy=p.y-y, dz=p.z-this.pos.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
   domeC(){ return V3(this.pos.x,this.pos.y+0.05,this.pos.z); }
-  domeR(){ return this.stats.dome*(matchKind==='ffa'?1.2:1); }
-  auraR(){ return this.silenceT>0?0:this.stats.auraR*(matchKind==='ffa'?1.25:1); }
+  domeR(){ return this.stats.dome*(matchKind==='ffa'||matchKind==='battle'?1.2:1); }
+  auraR(){ return this.silenceT>0?0:this.stats.auraR*(matchKind==='ffa'||matchKind==='battle'?1.25:1); }
   addCard(id){ this.cards.push(id); this.stats=computeStats(this.cards); this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.applySize();
     const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.cardPal=pc; this.domePal= pc.length===0?[team]: pc.slice(0,4); }
   auraPal(){ const s=this.stats,l=[]; if(s.chill) l.push(AURA_PAL.chill); if(s.staticf) l.push(AURA_PAL.staticf); if(s.drain) l.push(AURA_PAL.drain); return l; }
@@ -2166,7 +2296,7 @@ function fatal(target,source,cause){
 function applyDamage(target,amount,source,o={}){
   if(target.dead||state!=='fight'||amount<=0||target.invulnT>0) return 0;
   if(source&&source.ctl==='ai'&&target.ctl!=='ai'&&!o.fromDecay) amount*=botLevel().dmg;
-  if(source&&source!==target) target.lastHitBy=source;
+  if(source&&source!==target){ target.lastHitBy=source; target.lastHitT=gameT; }
   if(target===player&&source&&source!==player&&!o.tick){ dmgFrom.copy(source.pos); dmgDirT=1; }
   if(target.stats.decay>0&&!o.tick&&!o.fromDecay){ target.decayPool+=amount; target.decaySrc=source; target.decayRate=Math.max(target.decayRate||0,target.decayPool/4); target.hitFlash=0.12; if(source&&source!==target) onDeal(source,target,amount); if(source===player&&target!==player) matchStats.dmg+=amount, roundInfo.dmg+=amount; return amount; }
   amount=Math.max(1,Math.round(amount));
@@ -2302,6 +2432,7 @@ function killFighter(f,source){
   if(remoteCtl.b&&(f===player||remoteCtl.b.owner===f)){ remoteCtl.b.remote=false; remoteCtl.b=null; }
   if(mode==='sandbox'){ f.respawnT=1.4; if(!f.isPlayer) toast('<b class="you">You</b> knocked out the <b class="bot">bot</b>','you'); return; }
   const by=(source&&source!==f)?source:null; if(by&&!by.dead) by.setMood('happy',3);
+  if(matchKind==='battle'){ if(btHook) btHook.onKill(f,by); return; } // Battle: no rounds, you pick a card and come back
   if(matchKind!=='1v1'){ const alive=fighters.filter(x=>x.active!==false&&!x.dead); const sides=new Set(alive.map(x=>x.side)); ffaKnockout(f,by,sides.size); if(sides.size>1) return; endRoundWith(alive[0]||by); return; }
   endRoundWith(other(f));
 }
@@ -2517,13 +2648,14 @@ function poisonSplash(pos,A){ const a=A||1; burst(pos,0x49d86b,Math.round(14*a),
 const BASE_POS={player:V3(), bot:V3()};
 function applyMap(id){ setMap(id); bakeLoad(id); bakeUse(id); detailApply(curMap.group); bakeHook(scene); lookMap(id); const sx=curMap.spawnX*curMap.scale; BASE_POS.player.set(-sx,1,0); BASE_POS.bot.set(sx,1,0); }
 applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality);
-applyMap(settings.gm==='ffa'?'ffa':settings.map);
+function gmMap(){ return settings.gm==='ffa'?'ffa':settings.gm==='battle'?'skyfort':settings.map; } // free-for-all and Battle have their own arenas
+applyMap(gmMap());
 const player=new Fighter('YOU',true,TEAM.player), bot=new Fighter('BOT',false,TEAM.bot);
 const other=f=>f===player?bot:player; // 1v1 only
 const fighters=[player,bot]; // everyone in the current match (2 in 1v1, up to 4 in FFA)
-let matchKind='1v1'; // '1v1' | 'ffa'
+let matchKind='1v1'; // '1v1' | '2v2' | 'ffa' | 'battle'
 const ffaPool=[]; // extra fighters for FFA seats 3 and 4, made on first use
-const BOT_NAMES=['Bolt','Nova','Pixel','Rumble','Zip','Fizz','Comet','Dash'];
+const BOT_NAMES=['Bolt','Nova','Pixel','Rumble','Zip','Fizz','Comet','Dash','Blaze','Echo','Turbo','Gizmo','Rocket','Sparky','Jinx','Vex'];
 function seatFighter(i){ if(i===0) return player; if(i===1) return bot; while(ffaPool.length<i-1){ const f=new Fighter('BOT',false,TEAM[SLOT_TEAMS[ffaPool.length+2]]); f.setActive(false); ffaPool.push(f); } return ffaPool[i-2]; }
 function myName(){ return (settings.name||'').trim()||'You'; }
 // seats: [{ctl:'local'|'ai'|'net', name}] in seat order; seat 0 is always this screen's own fighter in solo play
@@ -2544,11 +2676,12 @@ const sandbox={cards:[],bot:'dummy',open:false};
 let paused=false, roundOverT=0, slowMoT=0, countdownT=0, countdownStep=0, roundNum=1, lastWinner=null, matchOverPending=false;
 const score={player:0,bot:0};
 let clipHook=null, clipLists=null, clipSave=null, clipSet=null; /* set by the clip recorder (p6d_clip) */
+let btHook=null; /* set by Battle mode (p7b_battle) */
 let camHold=false, botHold=false, botPuppet=false, killMarkT=0, shakeT=0, hitMarkerT=0, hurtT=0, crossKick=0, gameT=0, dmgDirT=0, tipsT=0; const aimPoint=V3(), dmgFrom=V3();
-const botLevel=()=> mode==='sandbox' ? (DIFF[sandbox.bot]||DIFF.easy) : (DIFF[settings.diff]||DIFF.easy);
+const botLevel=()=> mode==='sandbox' ? (DIFF[sandbox.bot]||DIFF.easy) : matchKind==='battle' ? DIFF.normal : (DIFF[settings.diff]||DIFF.easy);
 
 // ================= DOM =================
-const UI={}; ['roundClock','draftClock','loading','hud','pipsYou','pipsBot','roundPill','roundSub','hpBot','hpBotT','cardsBot','youFace','botFace','hpYou','hpYouGhost','hpYouT','statusYou','ammo','cardsYou','blockCd','dashCd','crosshair','reloadRing','hitmark','vignette','hurt','toasts','botTag','botTagFill','banner','bannerSplat','bannerText','countdown','cdSplat','cdText','start','startBtn','sandboxBtn','pause','resumeBtn','quitBtn','pauseStats','pauseCards','draft','draftTitle','draftSub','cards','coach','statbar','steer','tips','dmgdir','botPanel','matchover','moTitle','moSub','moStats','moCards','againBtn','menuBtn','logoSplat','howBtn','how','fsBtn','sandbox','sbxCards','sbxGo','sbxClear','sbxQuit','sbxBuild','ffaBoard','tagLayer','specMsg'].forEach(k=>UI[k]=$(k));
+const UI={}; ['btOver','btNext','btOverTitle','btRows','roundClock','draftClock','loading','hud','pipsYou','pipsBot','roundPill','roundSub','hpBot','hpBotT','cardsBot','youFace','botFace','hpYou','hpYouGhost','hpYouT','statusYou','ammo','cardsYou','blockCd','dashCd','crosshair','reloadRing','hitmark','vignette','hurt','toasts','botTag','botTagFill','banner','bannerSplat','bannerText','countdown','cdSplat','cdText','start','startBtn','sandboxBtn','pause','resumeBtn','quitBtn','pauseStats','pauseCards','draft','draftTitle','draftSub','cards','coach','statbar','steer','tips','dmgdir','botPanel','matchover','moTitle','moSub','moStats','moCards','againBtn','menuBtn','logoSplat','howBtn','how','fsBtn','sandbox','sbxCards','sbxGo','sbxClear','sbxQuit','sbxBuild','ffaBoard','tagLayer','specMsg'].forEach(k=>UI[k]=$(k));
 function domBurst(seed,color,o={}){ const rng=RNG(seed), N=o.n||13, sx=o.sx||1; let d=''; for(let i=0;i<N*2;i++){ const a=i/(N*2)*Math.PI*2-0.3; const rr=(i%2? 92+rng()*10 : 124+rng()*22); d+=(i?'L':'M')+(Math.cos(a)*rr*sx).toFixed(1)+' '+(Math.sin(a)*rr).toFixed(1)+' '; }
   const w=160*sx; return `<svg viewBox="${-w} -160 ${2*w} 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><path d="${d}Z" fill="${color}" stroke="#0b1026" stroke-width="8" stroke-linejoin="round"/></svg>`; }
 UI.logoSplat.innerHTML=domBurst(4,'#2460e6',{sx:1.9,n:17});
@@ -2565,7 +2698,7 @@ function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ c
 document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='clips'&&clipSet) clipSet(settings.clips); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
   if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
-    if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm') lobbyRender(); }
+    if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=gmMap(); if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm'){ lobbyRender(); if(btHook) btHook.menuUI(); } }
   syncSettingsUI(); }); });
 syncSettingsUI();
 UI.howBtn.addEventListener('click',()=>{ UI.how.classList.toggle('open'); if(UI.how.classList.contains('open')) setTimeout(()=>{ try{ UI.how.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },30); }); // on short laptop screens the panel opens below the fold
@@ -2581,7 +2714,7 @@ function look(dx,dy){ const tgt=remoteCtl.b?remoteCtl:player; tgt.yaw-=dx; tgt.p
 window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Tab'||e.code.startsWith('Arrow')) e.preventDefault(); if(e.repeat) return; keys[e.code]=true;
   if(e.code==='Space') jumpBuffer=0.15; if(e.code==='ShiftLeft'||e.code==='ShiftRight') wantDash=true;
   if(e.code==='KeyE'||e.code==='KeyQ') pressBlock(); if(e.code==='KeyF'){ firePressed=true; steerLatch=false; }
-  if(state==='draft'&&['Digit1','Digit2','Digit3'].includes(e.code)){ const c=UI.cards.children[parseInt(e.code.slice(5))-1]; if(c) c.click(); }
+  if((state==='draft'||(btHook&&btHook.picking))&&['Digit1','Digit2','Digit3'].includes(e.code)){ const c=UI.cards.children[parseInt(e.code.slice(5))-1]; if(c) c.click(); }
   if(e.code==='Tab'&&mode==='sandbox'&&state==='fight'){ if(sandbox.open) closeSandbox(); else openSandbox(); return; }
   if((e.code==='Escape'||e.code==='KeyP')&&(state==='fight'||state==='countdown')&&!sandbox.open){ if(e.code==='KeyP'||mouseFallback||paused) togglePause(); } });
 window.addEventListener('keyup',e=>{ keys[e.code]=false; });
@@ -2593,7 +2726,7 @@ window.addEventListener('mousedown',e=>{ lastBtns=e.buttons|0; },true); window.a
 window.addEventListener('contextmenu',e=>{ e.preventDefault(); if(blockBtn()===2&&performance.now()-lastBlockPress>250&&state==='fight'&&!paused){ pressBlock(); } });
 document.addEventListener('mousemove',e=>{ mouseX=e.clientX/window.innerWidth; { const bm=e.buttons|0, bit=blockBtn()===2?2:1; if((bm&bit)&&!(lastBtns&bit)&&performance.now()-lastBlockPress>250&&(locked||mouseFallback)&&state==='fight'&&!paused) pressBlock(); lastBtns=bm; } if(locked||(mouseFallback&&!paused&&(state==='fight'||state==='countdown'))){ const s=0.0022*settings.sens; look(e.movementX*s,e.movementY*s); } });
 function requestLock(){ if(locked||pad.used||TOUCH.on) return; try{ const p=canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ mouseFallback=true; }); }catch(err){ mouseFallback=true; } }
-document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(locked) mouseFallback=false; document.body.classList.toggle('nolock',!locked&&mouseFallback); if(!locked&&(state==='fight'||state==='countdown')&&!paused&&!pad.used) pause(); });
+document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(locked) mouseFallback=false; document.body.classList.toggle('nolock',!locked&&mouseFallback); if(!locked&&(state==='fight'||state==='countdown')&&!paused&&!pad.used&&!(btHook&&(btHook.picking||btHook.lockFree()))) pause(); });
 document.addEventListener('pointerlockerror',()=>{ mouseFallback=true; document.body.classList.add('nolock'); });
 document.addEventListener('mouseleave',()=>{ mouseX=0.5; }); window.addEventListener('blur',()=>{ mouseX=0.5; });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden&&(state==='fight'||state==='countdown')&&!paused) pause(); });
@@ -2611,15 +2744,16 @@ function pollPad(dt){
   if(!pad.used){ pad.prev=b; return; }
   if(sandbox.open){ if(just(0)||just(9)) UI.sbxGo.click(); }
   else if(paused){ if(just(0)||just(9)) resume(); }
-  else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); startMatch(); } if(just(3)) openSandbox(); }
+  else if(state==='menu'){ if(just(0)||just(9)){ SFX.unlock(); if(settings.gm==='battle'&&btHook) btHook.play(); else startMatch(); } if(just(3)) openSandbox(); }
   else if(state==='matchover'){ if(just(0)||just(9)) startMatch(); }
-  else if(state==='draft'){ const n=UI.cards.children.length; pad.navT-=dt; const dir=(b[15]||lx>0.5?1:0)-(b[14]||lx<-0.5?1:0); if(dir&&pad.navT<=0){ pad.focus=(pad.focus+dir+n)%n; pad.navT=0.25; SFX.hover(); } if(!dir) pad.navT=0; for(let i=0;i<n;i++){ const c=UI.cards.children[i]; c.classList.toggle('focus',i===pad.focus); } if(n&&UI.cards.children[pad.focus]._hover) UI.cards.children[pad.focus]._hover(); if(just(0)&&n) UI.cards.children[pad.focus].click(); }
+  else if(state==='draft'||(btHook&&btHook.picking)){ const n=UI.cards.children.length; pad.navT-=dt; const dir=(b[15]||lx>0.5?1:0)-(b[14]||lx<-0.5?1:0); if(dir&&pad.navT<=0){ pad.focus=(pad.focus+dir+n)%n; pad.navT=0.25; SFX.hover(); } if(!dir) pad.navT=0; for(let i=0;i<n;i++){ const c=UI.cards.children[i]; c.classList.toggle('focus',i===pad.focus); } if(n&&UI.cards.children[pad.focus]._hover) UI.cards.children[pad.focus]._hover(); if(just(0)&&n) UI.cards.children[pad.focus].click(); }
   else if(state==='fight'||state==='countdown'){ pad.lx=lx; pad.ly=ly; look(rx*3.1*dt*settings.sens, ry*2.1*dt*settings.sens); pad.fire=b[7]; if(just(7)){ firePressed=true; steerLatch=false; } if(just(6)||just(4)) pressBlock(); if(just(0)) jumpBuffer=0.15; if(just(1)||just(2)||just(5)) wantDash=true; if(just(9)) pause(); if(just(8)){ if(mode==='sandbox') openSandbox(); else if(clipSave) clipSave(); } }
   pad.prev=b;
 }
 
 // ================= FLOW =================
 function placeAtBases(){
+  if(matchKind==='battle'&&btHook){ btHook.placeAll(); return; }
   if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   const sw=NET.on&&NET.role==='guest'; // the guest spawns at the far base so both screens agree on the world
@@ -2643,7 +2777,7 @@ function startMatch(){
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
 const menuCam={key:'',a:0};
-function toMenu(){ hideTags(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=settings.gm==='ffa'?'ffa':settings.map; if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
+function toMenu(){ hideTags(); if(btHook) btHook.stop(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=gmMap(); if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
 function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
   if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
@@ -2658,13 +2792,13 @@ function onRoundEnd(winner){
   if(score.player>=CFG.winsToTakeMatch||score.bot>=CFG.winsToTakeMatch) matchOverPending=true;
   buildPips(); updateHUD();
 }
-function pause(){ /*DEBUG-START*/window.__ps=(window.__ps||[]).concat([new Error().stack.split("\n").slice(1,5).join(" | ")]);/*DEBUG-END*/ if(paused) return; paused=!NET.on; exitLock(); fillStats(UI.pauseStats,UI.pauseCards); show(UI.pause,true,'block'); }
+function pause(){ /*DEBUG-START*/window.__ps=(window.__ps||[]).concat([new Error().stack.split("\n").slice(1,5).join(" | ")]);/*DEBUG-END*/ if(paused) return; paused=!NET.on; exitLock(); fillStats(UI.pauseStats,UI.pauseCards); if(btHook) btHook.pauseUI(); show(UI.pause,true,'block'); }
 function resume(){ if(sandbox.open) return; paused=false; show(UI.pause,false); requestLock(); last=performance.now(); }
 function togglePause(){ if(paused) resume(); else pause(); }
 UI.resumeBtn.addEventListener('click',()=>resume());
 UI.quitBtn.addEventListener('click',()=>toMenu());
 UI.menuBtn.addEventListener('click',()=>toMenu());
-UI.startBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); requestLock(); startMatch(); });
+UI.startBtn.addEventListener('click',()=>{ SFX.unlock(); if(settings.gm==='battle'&&btHook){ btHook.play(); return; } if(NET.on) netLeave(); requestLock(); startMatch(); });
 UI.againBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on){ if(NET.role==='host'){ requestLock(); netHostStart(); } else toast('Waiting for the room host to start the rematch…','status'); return; } requestLock(); startMatch(); });
 function fillStats(statsEl,cardsEl){ if(clipLists) clipLists();
   const acc=matchStats.shots? Math.round(matchStats.hits/matchStats.shots*100):0;
@@ -2705,7 +2839,7 @@ function respawn(f){ const keepCd=f.dashCdT; f.resetRound(); if(f.isPlayer){ f.p
 const TYPE_ICON={ gun:'<circle cx="13" cy="12" r="6" fill="currentColor"/><path d="M2 12h4M3 7h3M3 17h3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>', dome:'<path d="M3 18a9 9 0 0 1 18 0Z" fill="currentColor"/>', aura:'<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="4 3"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/>', body:'<path d="M12 20C4 13 3 6 8.5 5c2-.3 3.2 1.4 3.5 2.4.3-1 1.5-2.7 3.5-2.4C21 6 20 13 12 20Z" fill="currentColor"/>' };
 const typeIcon=t=>`<svg viewBox="0 0 24 24">${TYPE_ICON[t]}</svg>`;
 function pick3(){ const pool=ALL_CARDS.slice(), out=[]; for(let k=0;k<3&&pool.length;k++){ out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); } return out; } // every card has the same odds
-function botPick(f){ f=f||bot; const opts=pick3(); const w=opts.map(id=>({id,w:(['glasscannon','remote','demonicpact'].includes(id)?0.4:1)+Math.random()})); w.sort((a,b)=>b.w-a.w); const id=w[0].id; f.addCard(id); toast(matchKind==='ffa'?`<b style="color:${f.team.css}">${esc(f.name)}</b> took <b>${CARDS[id].name}</b>`:`<b class="bot">Bot</b> took <b>${CARDS[id].name}</b>`,'bot'); return id; }
+function botPick(f,quiet){ f=f||bot; const opts=pick3(); const w=opts.map(id=>({id,w:(['glasscannon','remote','demonicpact'].includes(id)?0.4:1)+Math.random()})); w.sort((a,b)=>b.w-a.w); const id=w[0].id; f.addCard(id); if(!quiet) toast(matchKind==='ffa'?`<b style="color:${f.team.css}">${esc(f.name)}</b> took <b>${CARDS[id].name}</b>`:`<b class="bot">Bot</b> took <b>${CARDS[id].name}</b>`,'bot'); return id; }
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function coachPick(opts,playerLost){
   const s=player.stats, bs=bot.stats, ri=roundInfo; const acc=ri.shots>=3? ri.hits/ri.shots : null; const domeCount=player.cards.filter(c=>CARDS[c].type==='dome').length;
@@ -2784,7 +2918,7 @@ function updateHUD(){
   if(key!==lastAmmoKey){ lastAmmoKey=key; let html=''; if(max<=14){ for(let i=0;i<max;i++) html+=`<span class="shot ${i<player.ammo?'on':''}"></span>`; } else html=`<span class="ammoNum">${player.ammo}<small>/${max}</small></span>`; UI.ammo.innerHTML=html; }
   UI.ammo.classList.toggle('reloading',player.reloading);
   const rp=player.reloading? (1-player.reloadT/player.stats.reload) : 0; UI.reloadRing.style.setProperty('--p',(rp*100).toFixed(1)+'%'); UI.reloadRing.style.opacity=player.reloading?'1':'0';
-  if(mode!=='sandbox'){ UI.roundPill.textContent='ROUND '+roundNum; const left=Math.max(0,ROUND_LIMIT-roundInfo.t), m=Math.floor(Math.ceil(left)/60), sec=Math.ceil(left)%60; UI.roundClock.textContent=m+':'+String(sec).padStart(2,'0'); UI.roundClock.classList.toggle('warn',left<=30); UI.roundClock.style.display=''; } else UI.roundClock.style.display='none';
+  if(matchKind==='battle'&&btHook) btHook.hud(); else if(mode!=='sandbox'){ UI.roundPill.textContent='ROUND '+roundNum; const left=Math.max(0,ROUND_LIMIT-roundInfo.t), m=Math.floor(Math.ceil(left)/60), sec=Math.ceil(left)%60; UI.roundClock.textContent=m+':'+String(sec).padStart(2,'0'); UI.roundClock.classList.toggle('warn',left<=30); UI.roundClock.style.display=''; } else UI.roundClock.style.display='none';
   const bk=player.blockCdT>0? (1-player.blockCdT/player.stats.blockCd):1; UI.blockCd.style.setProperty('--p',(bk*100).toFixed(1)+'%'); UI.blockCd.classList.toggle('ready',bk>=1&&player.silenceT<=0); UI.blockCd.classList.toggle('off',player.silenceT>0);
   const cdTxt=player.blockCdT>0.05? player.blockCdT.toFixed(1) : ''; if(UI.blockCd._t!==cdTxt){ UI.blockCd._t=cdTxt; UI.blockCd.dataset.t=cdTxt; }
   const dk=player.dashCdT>0? (1-player.dashCdT/CFG.dashCd):1; UI.dashCd.style.setProperty('--p',(dk*100).toFixed(1)+'%'); UI.dashCd.classList.toggle('ready',dk>=1);
@@ -2804,7 +2938,8 @@ function updateHUD(){
 let ffaBoardKey=''; const ffaRows=new Map(), tagEls=new Map();
 function updateFFAHud(){
   const key=fighters.map(f=>f.id+':'+f.score+':'+(f.dead?1:0)+':'+f.name).join('|');
-  if(key!==ffaBoardKey){ ffaBoardKey=key; UI.ffaBoard.innerHTML=fighters.slice().sort((a,b)=>matchKind==='2v2'?(a.side-b.side)||(a.slot-b.slot):b.score-a.score).map(f=>`<div class="fb-row${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}" data-id="${f.id}"><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?myName():f.name)}${f===player&&myName()!=='You'?' <small>(you)</small>':''}</span><span class="fb-pp">${Array.from({length:CFG.winsToTakeMatch},(_,k)=>`<i class="${k<f.score?'on':''}"></i>`).join('')}</span><span class="fb-hp"><b></b></span></div>`).join('');
+  if(matchKind==='battle'){ if(btHook) btHook.board(); }
+  else if(key!==ffaBoardKey){ ffaBoardKey=key; UI.ffaBoard.innerHTML=fighters.slice().sort((a,b)=>matchKind==='2v2'?(a.side-b.side)||(a.slot-b.slot):b.score-a.score).map(f=>`<div class="fb-row${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}" data-id="${f.id}"><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?myName():f.name)}${f===player&&myName()!=='You'?' <small>(you)</small>':''}</span><span class="fb-pp">${Array.from({length:CFG.winsToTakeMatch},(_,k)=>`<i class="${k<f.score?'on':''}"></i>`).join('')}</span><span class="fb-hp"><b></b></span></div>`).join('');
     ffaRows.clear(); for(const el of UI.ffaBoard.children) ffaRows.set(+el.dataset.id,el.querySelector('.fb-hp b')); }
   for(const f of fighters){ const b=ffaRows.get(f.id); if(b) b.style.width=(f.dead?0:clamp(f.hp/f.maxHp(),0,1)*100).toFixed(1)+'%'; }
   const live=new Set(), on=state==='fight'||state==='countdown';
@@ -2813,7 +2948,7 @@ function updateFFAHud(){
     const nb=el.firstChild; if(nb._t!==f.name){ nb._t=f.name; nb.textContent=f.name; } el.style.setProperty('--c',f.team.css); el.lastChild.firstChild.style.width=(clamp(f.hp/f.maxHp(),0,1)*100).toFixed(1)+'%';
     el.style.display='block'; el.style.opacity=hasLOS(camera.position,f.center())?'1':'0.45'; el.style.transform=`translate(-50%,-100%) translate(${((_proj.x+1)/2*window.innerWidth).toFixed(1)}px,${((1-_proj.y)/2*window.innerHeight).toFixed(1)}px)`; live.add(f); }
   for(const [f,el] of tagEls) if(!live.has(f)) el.style.display='none';
-  const spec=player.dead&&state==='fight'; if(UI.specMsg._on!==spec){ UI.specMsg._on=spec; UI.specMsg.style.display=spec?'block':'none'; }
+  const spec=player.dead&&state==='fight'&&matchKind!=='battle'; if(UI.specMsg._on!==spec){ UI.specMsg._on=spec; UI.specMsg.style.display=spec?'block':'none'; }
   if(spec){ const w=camFighter(); const t=w&&w!==player?'Watching '+w.name+' · you\'re back next round':'You\'re back next round'; if(UI.specMsg._t!==t){ UI.specMsg._t=t; UI.specMsg.textContent=t; } } }
 function hideTags(){ for(const el of tagEls.values()) el.style.display='none'; }
 function ffaKnockout(f,by,left){ const nm=x=>x===player?'You':esc(x.name);
@@ -2821,7 +2956,7 @@ function ffaKnockout(f,by,left){ const nm=x=>x===player?'You':esc(x.name);
   if(f===player&&left>1){ showBanner('KNOCKED OUT!','#e0364f','lose'); SFX.lose(); specT=null; }
   if(by===player){ hitMarkerT=0.45; killMarkT=0.45; } ffaBoardKey=''; }
 // the menu shows the line-up for the mode you've picked
-function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); }
+function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa'||settings.gm==='battle') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); document.body.classList.toggle('gm-battle',settings.gm==='battle'); }
 
 // ================= BOT AI =================
 // each bot keeps its own plan and picks who to fight: the closest enemy it can see, with a grudge against whoever hit it last
@@ -2984,9 +3119,10 @@ function update(dt){
     return;
   }
   if(state==='draft'&&!testMode){ draftT-=dt; const sl=Math.max(0,Math.ceil(draftT)); UI.draftClock.textContent=sl+'s'; UI.draftClock.classList.toggle('warn',sl<=10); if(sl<=10&&sl!==draftTick&&sl>0){ draftTick=sl; SFX.tick(); } if(draftT<=0){ const left=[...UI.cards.children].filter(c=>!c.classList.contains('picked')); if(left.length){ toast('Time up! A random card was picked for you','status'); left[Math.floor(Math.random()*left.length)].click(); } } }
+  if(state==='bover'){ if(btHook) btHook.over(dt); return; } // Battle: the scoreboard between matches
   if(state==='draft'||state==='picked'||state==='matchover'){ fxUpdate(dt); updateCamera(dt); vis(); return; }
   // ---- fight ----
-  roundInfo.t+=dt; if(mode!=='sandbox'){ const left=ROUND_LIMIT-roundInfo.t; if(left<=10&&Math.ceil(left)!==clockTick&&left>0){ clockTick=Math.ceil(left); SFX.tick(); } if(left<=0&&!(NET.on&&NET.role==='guest')){ timeUp(); return; } } if(jumpBuffer>0) jumpBuffer-=dt; if(tipsT>0) tipsT-=dt;
+  roundInfo.t+=dt; if(matchKind==='battle'&&btHook) btHook.tick(dt); else if(mode!=='sandbox'){ const left=ROUND_LIMIT-roundInfo.t; if(left<=10&&Math.ceil(left)!==clockTick&&left>0){ clockTick=Math.ceil(left); SFX.tick(); } if(left<=0&&!(NET.on&&NET.role==='guest')){ timeUp(); return; } } if(jumpBuffer>0) jumpBuffer-=dt; if(tipsT>0) tipsT-=dt;
   const sbx=mode==='sandbox';
   if(sbx){ for(const f of [player,bot]) if(f.dead&&f.respawnT>0){ f.respawnT-=dt; if(f.respawnT<=0) respawn(f); } if(sandbox.bot==='dummy'&&!bot.dead&&bot.hp<bot.maxHp()) bot.hp=Math.min(bot.maxHp(),bot.hp+dt*12); }
   const steering=!!remoteCtl.b;
@@ -3237,7 +3373,8 @@ const CLIP=(()=>{
       bar(m,m+22*u,bw,bh,player,'#19c8ff',(player.name||'YOU').toUpperCase(),false);
       if(matchKind==='1v1'||mode==='sandbox'){ if(bot&&bot.mesh&&fighters.includes(bot)) bar(W-m-bw,m+22*u,bw,bh,bot,'#ff7a1a',(bot.name||'BOT').toUpperCase(),true);
         if(mode!=='sandbox'){ const s=`${score.player} – ${score.bot}`; cx.font=`${Math.round(26*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.textAlign='center'; cx.textBaseline='top'; cx.lineWidth=5*u; cx.strokeStyle='#14081f'; cx.fillStyle='#fff'; cx.strokeText(s,W/2,m); cx.fillText(s,W/2,m);
-          cx.font=`${Math.round(13*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=4*u; const r='ROUND '+roundNum; cx.strokeText(r,W/2,m+30*u); cx.fillStyle='#ffd23d'; cx.fillText(r,W/2,m+30*u); } } }
+          cx.font=`${Math.round(13*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=4*u; const r='ROUND '+roundNum; cx.strokeText(r,W/2,m+30*u); cx.fillStyle='#ffd23d'; cx.fillText(r,W/2,m+30*u); } } 
+      else if(matchKind==='battle'){ const s=`${player.score|0} / 10 KOs`; cx.font=`${Math.round(24*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.textAlign='center'; cx.textBaseline='top'; cx.lineWidth=5*u; cx.strokeStyle='#14081f'; cx.fillStyle='#ffd23d'; cx.strokeText(s,W/2,m); cx.fillText(s,W/2,m); } }
     cx.textAlign='left'; cx.textBaseline='alphabetic'; cx.globalAlpha=0.92; cx.font=`${Math.round(26*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=5*u; cx.strokeStyle='#14081f';
     const y=H-m-20*u; cx.strokeText('DOME ROUNDS',m,y); cx.fillStyle='#fff'; cx.fillText('DOME ROUNDS',m,y);
     cx.font=`700 ${Math.round(16*u)}px system-ui,"Segoe UI",sans-serif`; cx.lineWidth=4*u; cx.strokeText('dome-rounds.pages.dev',m+1*u,y+20*u); cx.fillStyle='#35e9ff'; cx.fillText('dome-rounds.pages.dev',m+1*u,y+20*u);
@@ -3399,7 +3536,7 @@ async function netOpen(code,role){
 }
 function myPeer(){ const r=NET.room; if(!r) return null; return r.peers().find(p=>p.sameTab)||null; }
 function myPeerId(){ const m=myPeer(); return m?m.peer:'me'; }
-function netPeers(ch){ if(!NET.on) return; const others=ch.peers.filter(p=>!p.sameTab&&p.kind==='viewer'&&p.presence&&p.presence.v===2); const now=performance.now();
+function netPeers(ch){ if(!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.peers(ch); return; } const others=ch.peers.filter(p=>!p.sameTab&&p.kind==='viewer'&&p.presence&&p.presence.v===2); const now=performance.now();
   for(const p of others) NET.rx[p.peer]=now;
   if(NET.role==='host') hostLobby(others); else if(!guestLobby(others)) return;
   for(const p of others) netRx(p.peer,p.presence);
@@ -3450,7 +3587,7 @@ function netApplyHits(peer,list){ if(!Array.isArray(list)||!(state==='fight')) {
 function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(o.z),R3(d.x),R3(d.y),R3(d.z)]; if(!f||f===player){ NET.shots.push([++NET.shotId,...sh]); player.lastSid=NET.shotId; if(NET.shots.length>8) NET.shots.shift(); } else { f.nShots=f.nShots||[]; f.nShotId=(f.nShotId||0)+1; f.nShots.push([f.nShotId,...sh]); f.lastSid=f.nShotId; if(f.nShots.length>8) f.nShots.shift(); } }
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
-function netSend(){ const r=NET.room; if(!r||!NET.on) return; const p=player;
+function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
   const o={ v:2, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
@@ -3492,6 +3629,7 @@ function netHostStart(){ if(NET.seats.length<seatsNeeded()) return; NET.mid++; N
 function netStartLocal(){ NET.started=true; netBuildRoster(); startMatch(); }
 function netAfterPick(){ UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
 function netTick(dt){ if(!NET.on) return;
+  if(NET.kind==='battle'){ if(btHook) btHook.netTick(dt); return; }
   netSend(); const now=performance.now();
   if(NET.role==='guest'){ if(NET.hostPeer&&now-NET.lastRx>15000){ netDrop('Lost connection to the host.'); return; } if(!NET.hostPeer&&now-NET.joinT>7000){ olMsg('No room found with code '+NET.code+'. Check the code and try again.',true); netLeave(); return; } }
   if(NET.role==='host'&&NET.started){ for(const st of NET.seats.slice()) if(st.p&&!st.b&&st.p!==myPeerId()&&now-(NET.rx[st.p]||now)>15000) seatLeft(st); if(!NET.on) return; }
@@ -3544,6 +3682,264 @@ $id('olLink').addEventListener('click',()=>{ if(!NET.on) return; const L=inviteL
   setTimeout(()=>{ const p=$id('online'); if(!p.classList.contains('open')) p.classList.add('open'); olView('main'); codeIn.value=c; olMsg('Joining room '+c+'…'); doJoin(); },400); })();
 $id('olCancel').addEventListener('click',()=>{ netLeave(); olView('main'); olMsg(''); });
 netReset();
+
+// ================= BATTLE: drop-in matches for up to 10 =================
+// Press Play and you land in an open public match (or start a new one). Bots fill the empty spots and step out as people join.
+// No rounds: get knocked out, pick a card while the fight carries on, and drop back in with a short shield.
+// First to 10 knockouts wins; then everyone's cards are wiped and the next match starts by itself.
+// Online, one player's game is the referee (scores, knockouts, the bots). If they leave, the server hands that job on.
+const BT_N=10, BT_WIN=10, BT_TIME=480, BT_PICK=10, BT_OVER=8, BT_BOT_BACK=2.4, BT_SHIELD=1.6, BT_ROOM='bt1-', BT_ROOMS=40, BT_HZ=66;
+const BT={ on:false, online:false, no:0, me:0, seats:new Array(BT_N).fill(null), mid:0, ph:'count', t:0, overT:0, w:-1, kf:[], kfSeq:0, kfShown:0,
+  picking:false, pickT:0, first:false, deadT:0, refill:{}, joining:false, lastHost:0, hidTimer:null, waitT:0, overShown:false, introDone:false };
+const btHost=()=>!BT.online||NET.role==='host';
+const btSlotOf=f=>f.slot;
+// the Fighter that plays slot k on this screen (you are always `player`)
+function btF(k){ if(k===BT.me) return player; return seatFighter(k<BT.me?k+1:k); }
+const btSeatedF=k=>BT.seats[k]?btF(k):null;
+const btOwns=f=>f===player||(f.ctl==='ai'&&btHost());
+const btName=()=>{ const n=(settings.name||'').trim(); return n||('Player'+(100+Math.floor(Math.random()*900))); };
+let btMyName='';
+
+// ---------- seats ----------
+function btNetReset(f){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; }
+function btHide(f){ f.dead=true; f.hp=0; f.mesh.visible=false; for(const k of ['dome','dome2','domeRing','sawRing','aura','auraRing','statusRing']) if(f[k]) f[k].visible=false; }
+function btSeat(k,seat){ BT.seats[k]=seat; const f=btF(k), me=k===BT.me;
+  f.slot=k; f.side=k; f.name=me?btMyName:seat.n; f.peer=(!me&&!seat.b)?seat.p:null; f.ctl=me?'local':(seat.b&&btHost()?'ai':'net');
+  f.setTeam(TEAM[SLOT_TEAMS[k]]); if(!fighters.includes(f)) fighters.push(f); f.active=true;
+  f.setCards([]); f.score=0; f.deaths=0; f.life=f.life|0; f.respawnT=0; btHide(f); btNetReset(f); aiReset(f); ffaBoardKey=''; return f; }
+function btUnseat(k,quiet){ const f=btF(k); BT.seats[k]=null;
+  if(!quiet&&!f.dead&&f.mesh.visible){ burst(f.center(),f.team.light,18,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.4); }
+  const i=fighters.indexOf(f); if(i>=0) fighters.splice(i,1); f.setActive(false); f.peer=null; ffaBoardKey=''; }
+
+// ---------- spawning ----------
+function btSpot(f){ const sp=curMap.spawns||[[0,0]]; const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false);
+  const sc=sp.map(s=>{ let d=60; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1])); return {s,d:d+Math.random()*5}; }).sort((a,b)=>b.d-a.d);
+  return sc[Math.floor(Math.random()*Math.min(3,sc.length))].s; }
+function btSpawn(f){ const s=btSpot(f); const g=groundAt(s[0],s[1],20,0.3);
+  f.resetRound(); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos);
+  f.invulnT=BT_SHIELD; f.life=(f.life|0)+1; f.respawnT=0; aiReset(f); f.setMood('normal',0);
+  burst(f.center(),f.team.light,16,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.45); }
+// someone else's fighter came back (their own screen spawned them)
+function btRevive(f,life){ f.resetRound(); f.life=life; f.invulnT=BT_SHIELD; f.snaps=[]; if(f.rs) f.pos.copy(f.rs.pos); f.vel.set(0,0,0);
+  burst(f.center(),f.team.light,16,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.45); ffaBoardKey=''; }
+function btPlaceAll(){ for(const f of fighters) if(btOwns(f)&&!f.dead) btSpawn(f); }
+
+// ---------- match flow ----------
+function btHudOn(){ show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.add('ffamode','battlemode'); show(UI.start,false); show(UI.draft,false); show(UI.matchover,false); show(UI.pause,false); paused=false; document.getElementById('online').classList.remove('open'); }
+function btArena(){ if(curMapId!=='skyfort') applyMap('skyfort'); matchKind='battle'; mode='match'; sandbox.open=false; show(UI.sandbox,false); for(const f of ffaPool) f.setActive(false); bot.setActive(false); fighters.length=0; BT.seats=new Array(BT_N).fill(null); BT.refill={}; BT.kf=[]; BT.kfShown=BT.kfSeq; ffaRows.clear(); }
+// host or offline: a fresh line-up (you plus bots everywhere else)
+function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
+  btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true});
+  btNewMatch(1); }
+function btNewMatch(mid){ BT.mid=mid; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
+  clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
+  for(const f of fighters) if(btOwns(f)) btSpawn(f);
+  roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
+  state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); SFX.music('fight'); ffaBoardKey='';
+  if(!BT.introDone){ BT.introDone=true; tipsT=0; setTimeout(()=>{ if(BT.on) toast('<b>First to 10 knockouts wins.</b> Get knocked out and you pick a card','status'); },3300); } }
+function btEnd(w){ BT.ph='over'; BT.w=w?w.slot:-1; BT.overT=BT_OVER; btEnterOver(); }
+function btEnterOver(){ if(state==='bover') return; state='bover'; btClosePick(); exitLock(); slowMoT=0.9; shakeT=Math.max(shakeT,0.3); BT.overShown=false; firePressed=false; fireHeld=false;
+  const w=btSeatedF(BT.w); if(w===player){ showBanner('YOU WIN!','#27c46b','win'); SFX.win(); } else { showBanner(w?esc(w.name).toUpperCase()+' WINS':'TIME!','#e0364f','lose'); SFX.lose(); } }
+function btWinnerByScore(){ let best=null; for(const f of fighters){ if(f.active===false) continue; if(!best||f.score>best.score||(f.score===best.score&&(f.deaths|0)<(best.deaths|0))) best=f; } return best; }
+
+// ---------- knockouts ----------
+function btOnKill(f,by){ f.respawnT=0;
+  if(btHost()){ f.deaths=(f.deaths|0)+1; const cr=(by&&by!==f&&fighters.includes(by)&&gameT-(f.lastHitT||-99)<=8)?by:null;
+    if(cr) cr.score=(cr.score|0)+1; BT.kf.push([++BT.kfSeq,cr?cr.slot:-1,f.slot]); if(BT.kf.length>8) BT.kf.shift();
+    if(f.ctl==='ai') f.respawnT=BT_BOT_BACK; btFeed(); ffaBoardKey='';
+    if(cr&&cr.score>=BT_WIN&&BT.ph!=='over') btEnd(cr); }
+  if(f===player){ specT=(by&&by!==player&&!by.dead)?by:null; BT.deadT=1.0; BT.first=false; if(state==='fight') showBanner('KNOCKED OUT!','#e0364f','lose'); } }
+function btFeed(){ for(const e of BT.kf){ if(e[0]<=BT.kfShown) continue; BT.kfShown=e[0]; const k=btSeatedF(e[1]), v=btSeatedF(e[2]); if(!v) continue;
+  const nm=x=>x===player?'You':esc(x.name); const c=x=>`<b style="color:${btTxt(x)}">${nm(x)}</b>`;
+  const cls=v===player?'bot':(k===player?'you':'status');
+  toast(k?`${c(k)} knocked out ${c(v)}`+(k===player?` · <b>${player.score}/${BT_WIN}</b>`:''):`${c(v)} fell off`,cls);
+  if(k===player){ killMarkT=0.45; } } }
+
+// name colour that stays readable on the dark toasts
+const btTxt=f=>f.team===TEAM.black?'#b4bdd2':f.team===TEAM.player?'#6fe9ff':f.team.css;
+// ---------- the card picker (you're out: pick one, then you're back) ----------
+function btOpenPick(first){ if(BT.picking) return; BT.picking=true; BT.first=first; BT.pickT=BT_PICK;
+  const opts=pick3(); const rec=coachPick(opts,true); pad.focus=Math.max(0,opts.indexOf(rec.id));
+  const k=player.lastHitBy; UI.draftTitle.textContent=first?'PICK YOUR FIRST CARD':'PICK A CARD';
+  UI.draftSub.textContent=first?'Then you drop into the match.':(k&&k!==player&&fighters.includes(k)?`${k.name} knocked you out. Pick a card and get back in there.`:'You got knocked out. Pick a card and get back in there.');
+  UI.coach.innerHTML=`<b>COACH:</b> take <em style="color:${CARDS[rec.id].c}">${CARDS[rec.id].name}</em>. ${rec.why}`;
+  UI.cards.innerHTML=''; renderStatbar(null); UI.draftClock.textContent=BT_PICK+'s'; UI.draftClock.classList.remove('warn'); BT.rec=rec.id;
+  opts.forEach((id,i)=>{ const c=CARDS[id]; const el=document.createElement('div'); el.className=`card t-${c.type}`+(id===rec.id?' rec':''); el.style.setProperty('--c',c.c); el.style.setProperty('--i',i);
+    el.innerHTML=cardHTML(id,i,player.cards.filter(x=>x===id).length,id===rec.id); el._hover=()=>{ if(UI.statbar._id!==id){ UI.statbar._id=id; renderStatbar(id); } };
+    el.addEventListener('mouseenter',()=>{ SFX.hover(); el._hover(); }); el.addEventListener('mouseleave',()=>{ UI.statbar._id=null; renderStatbar(null); });
+    el.addEventListener('click',()=>{ if(!BT.picking||el.classList.contains('picked')) return; el.classList.add('picked'); for(const o of UI.cards.children) if(o!==el) o.classList.add('gone'); btPicked(id); });
+    UI.cards.appendChild(el); setTimeout(()=>SFX.deal(),80+i*110); });
+  UI.statbar._id=null; UI.draft.classList.add('bpick'); show(UI.draft,true); UI.banner.className='banner'; exitLock(); }
+function btPicked(id){ player.addCard(id); SFX.pick(); BT.picking=false; BT.first=false; setTimeout(()=>{ if(!BT.picking){ show(UI.draft,false); UI.draft.classList.remove('bpick'); } },380);
+  if(!paused) requestLock(); if(state==='fight'||state==='countdown') btSpawn(player); else if(state!=='bover'){ btSpawn(player); } updateCardStrips(); ffaBoardKey=''; }
+function btClosePick(){ BT.picking=false; UI.draft.classList.remove('bpick'); if(state!=='draft') show(UI.draft,false); }
+
+// ---------- every fight frame ----------
+function btTick(dt){ if(!BT.on) return; BT.t+=dt; const host=btHost();
+  // your own way back in
+  if(player.dead&&!BT.picking){ BT.deadT-=dt; if(BT.deadT<=0) btOpenPick(BT.first); }
+  if(BT.picking){ BT.pickT-=dt; const sl=Math.max(0,Math.ceil(BT.pickT)); if(UI.draftClock._s!==sl){ UI.draftClock._s=sl; UI.draftClock.textContent=sl+'s'; UI.draftClock.classList.toggle('warn',sl<=3); if(sl<=3&&sl>0) SFX.tick(); }
+    if(BT.pickT<=0){ const el=[...UI.cards.children].find(c=>c.classList.contains('rec'))||UI.cards.children[0]; if(el) el.click(); } }
+  if(!host) return;
+  // bots come back after a moment, with a new card
+  for(const f of fighters){ if(f.ctl!=='ai'||f.active===false||!f.dead) continue; if(f.respawnT<=0) f.respawnT=BT_BOT_BACK; f.respawnT-=dt; if(f.respawnT<=0){ botPick(f,true); btSpawn(f); } }
+  // a bot takes over a spot someone left
+  for(const k in BT.refill){ if(gameT<BT.refill[k]) continue; delete BT.refill[k]; if(BT.seats[k]) continue; const used=new Set(BT.seats.filter(Boolean).map(s=>s.n)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; const f=btSeat(+k,{p:null,n,b:true}); f.respawnT=0.5; }
+  if(BT.t>=BT_TIME&&BT.ph!=='over') btEnd(btWinnerByScore());
+  if(BT.ph==='count') BT.ph='fight'; }
+// the scoreboard between matches
+function btOver(dt){ BT.overT-=dt; let sdt=dt; if(slowMoT>0){ slowMoT-=dt; sdt=dt*0.3; }
+  updateBullets(sdt); updateBombs(sdt); updateFields(sdt,gameT); fxUpdate(sdt);
+  for(const f of fighters){ if(f.active===false) continue; if(f.ctl==='net') netApplyRemote(f,sdt); else if(!f.dead) moveFighter(f,sdt,V3(),false); if(!f.dead) f.updateVisual(sdt,gameT); }
+  updateCamera(dt); updateHUD();
+  if(!BT.overShown&&BT.overT<BT_OVER-1.3){ BT.overShown=true; btScoreboard(); show(UI.btOver,true,'block'); UI.banner.className='banner'; }
+  if(BT.overShown){ const s=Math.max(0,Math.ceil(BT.overT)); if(UI.btNext._s!==s){ UI.btNext._s=s; UI.btNext.textContent=`Next match in ${s}s. Everyone's cards reset.`; } }
+  if(btHost()&&BT.overT<=0) btNewMatch(BT.mid+1); }
+function btScoreboard(){ const w=btSeatedF(BT.w); const L=fighters.filter(f=>f.active!==false).sort((a,b)=>(b.score-a.score)||((a.deaths|0)-(b.deaths|0)));
+  UI.btOverTitle.textContent=w===player?'YOU WIN!':w?esc(w.name).toUpperCase()+' WINS':'MATCH OVER'; UI.btOverTitle.className='title stroke '+(w===player?'win':'lose');
+  UI.btRows.innerHTML='<div class="bo-h"><span></span><span>Player</span><span>KOs</span><span>Outs</span></div>'+L.map((f,i)=>`<div class="bo-r${f===player?' me':''}" style="--c:${f.team.css}"><span class="bo-n">${i+1}</span><span class="bo-nm"><i></i>${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}${f.ctl!=='local'&&!f.peer?' <em>bot</em>':''}</span><b>${f.score|0}</b><span>${f.deaths|0}</span></div>`).join(''); }
+
+// ---------- HUD ----------
+let btBoardKey='';
+function btHud(){ UI.roundPill.textContent='FIRST TO '+BT_WIN; const left=Math.max(0,BT_TIME-BT.t), m=Math.floor(Math.ceil(left)/60), s=Math.ceil(left)%60; UI.roundClock.textContent=m+':'+String(s).padStart(2,'0'); UI.roundClock.classList.toggle('warn',left<=30); UI.roundClock.style.display='';
+  const people=BT.seats.filter(x=>x&&!x.b).length; const sub=BT.online?`BATTLE · MATCH #${BT.no} · ${people} ${people===1?'PERSON':'PEOPLE'}`:'BATTLE · OFFLINE WITH BOTS'; if(UI.roundSub._t!==sub){ UI.roundSub._t=sub; UI.roundSub.textContent=sub; } }
+function btBoard(){ const L=fighters.filter(f=>f.active!==false).sort((a,b)=>(b.score-a.score)||((a.deaths|0)-(b.deaths|0))||(a.slot-b.slot)); let rows=L.slice(0,5); if(!rows.includes(player)&&L.includes(player)) rows=rows.slice(0,4).concat([player]);
+  const key=rows.map(f=>f.id+':'+f.score+':'+(f.dead?1:0)+':'+f.name).join('|')+'|'+(player.score|0);
+  if(key===btBoardKey&&UI.ffaBoard.dataset.k==='bt') return; btBoardKey=key; UI.ffaBoard.dataset.k='bt';
+  UI.ffaBoard.innerHTML=rows.map(f=>{ const rk=L.indexOf(f)+1; return `<div class="fb-row bt${f===player?' me':''}${f.dead?' out':''}" style="--c:${f.team.css}"><span class="fb-rk">${rk}</span><i class="fb-sw"></i><span class="fb-nm">${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}</span><span class="fb-k">${f.score|0}<small>/${BT_WIN}</small></span></div>`; }).join(''); }
+
+// ---------- online: our own server, drop-in rooms with a hand-over when the host leaves ----------
+function btConnect(name){ return new Promise((resolve,reject)=>{ const base=DR_SERVER; if(!base||typeof WebSocket!=='function'){ reject({code:'upstream_error'}); return; }
+  const me=Math.random().toString(36).slice(2,12); let ws; try{ ws=new WebSocket(base.replace(/^http/,'ws').replace(/\/$/,'')+'/room/'+encodeURIComponent(name)+'?role=any&peer='+me); }catch(e){ reject({code:'upstream_error'}); return; }
+  let done=false; const M={mine:{},others:{},handlers:[],hostH:[],closeH:[],sendT:0,pingT:performance.now(),left:false,role:'guest',host:null};
+  const alone=()=>{ for(const k in M.others) return false; return true; };
+  const emit=()=>{ const peers=R.peers(); for(const h of M.handlers.slice()) try{ h({peers,joined:[],left:[],updated:[]}); }catch(e){ console.error(e); } };
+  // nobody else here: just a keep-alive now and then (the server answers it without waking the room)
+  const flush=now=>{ if(ws.readyState!==1) return; const t=performance.now(); if(alone()){ if(t-M.pingT>25000){ M.pingT=t; try{ ws.send('ping'); }catch(e){} } return; } if(!now&&t-M.sendT<BT_HZ) return; M.sendT=t; M.pingT=t; try{ ws.send(JSON.stringify(M.mine)); }catch(e){} };
+  const R={ name, via:'server', me, role:()=>M.role, host:()=>M.host, alone, presence:async p=>{ for(const k in p){ if(p[k]===null) delete M.mine[k]; else M.mine[k]=p[k]; } flush(false); },
+    peers:()=>[{peer:me,sameTab:true,isMe:true,kind:'viewer',presence:M.mine}].concat(Object.keys(M.others).map(k=>({peer:k,sameTab:false,isMe:false,kind:'viewer',presence:M.others[k]}))),
+    onPeers:fn=>{ M.handlers.push(fn); return ()=>{ M.handlers=M.handlers.filter(h=>h!==fn); }; }, onHost:fn=>{ M.hostH.push(fn); }, onClose:fn=>{ M.closeH.push(fn); },
+    leave:async()=>{ M.left=true; try{ ws.close(1000,'bye'); }catch(e){} }, connected:()=>ws.readyState===1 };
+  ws.onmessage=ev=>{ if(ev.data==='pong') return; let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
+    if(m.t==='hello'){ M.role=m.role==='host'?'host':'guest'; M.host=m.host; if(Array.isArray(m.peers)) for(const p of m.peers) if(typeof p==='string') M.others[p]=M.others[p]||{}; if(!done){ done=true; resolve(R); } }
+    else if(m.t==='err'){ if(!done){ done=true; reject({code:m.code}); } }
+    else if(m.t==='p'&&m.d&&typeof m.d==='object'&&!Array.isArray(m.d)){ M.others[m.f]=m.d; emit(); }
+    else if(m.t==='joined'){ if(typeof m.f==='string') M.others[m.f]=M.others[m.f]||{}; flush(true); }
+    else if(m.t==='left'){ delete M.others[m.f]; if(!M.left) emit(); }
+    else if(m.t==='host'){ M.host=m.f; if(m.f===me) M.role='host'; for(const h of M.hostH) try{ h(m.f); }catch(e){ console.error(e); } } };
+  ws.onclose=()=>{ if(!done){ done=true; reject({code:'upstream_error'}); return; } if(!M.left){ M.others={}; for(const h of M.closeH) try{ h(); }catch(e){} } };
+  ws.onerror=()=>{};
+  setTimeout(()=>{ if(!done){ done=true; try{ ws.close(); }catch(e){} reject({code:'upstream_error'}); } },7000); }); }
+// Play: the first public match with space (or the one a friend sent you)
+async function btPlay(friendNo){ if(BT.joining) return; SFX.unlock(); if(NET.on) await netLeave(); btStop(); BT.joining=true; btMyName=btName(); requestLock();
+  btMsg(friendNo?`Joining match #${friendNo}…`:'Finding a match…');
+  try{ const list=friendNo?[friendNo]:Array.from({length:BT_ROOMS},(_,i)=>i+1);
+    for(const n of list){ let r; try{ r=await btConnect(BT_ROOM+n); }catch(e){ if(e&&e.code==='full'){ if(friendNo){ btMsg(`Match #${n} is full (10 people). Press Play to find another one.`,true); exitLock(); return; } continue; } throw e; }
+      btGoOnline(r,n); return; }
+    btMsg('Every match is full right now, so here\'s one with bots.',true); btStartOffline(); }
+  catch(e){ btStartOffline('<b>Couldn\'t reach the game server</b>, so this is an offline match with bots.'); }
+  finally{ BT.joining=false; } }
+function btGoOnline(r,n){ netReset(); NET.room=r; NET.on=true; NET.kind='battle'; NET.role=r.role(); NET.code=String(n); NET.joinT=performance.now(); NET.hostPeer=NET.role==='host'?null:r.host(); NET.hits=[]; NET.hitSeq=0; NET.hitSeen={}; NET.clk={}; NET.shots=[]; NET.shotId=0; NET.blockN=0;
+  BT.online=true; BT.no=n; BT.lastHost=performance.now(); BT.waitT=0;
+  r.onPeers(ch=>netPeers(ch)); r.onHost(h=>btHostChanged(h)); r.onClose(()=>{ if(BT.online) btDrop('Lost the connection to the match.'); });
+  if(NET.role==='host'){ btBegin(); btMsg(''); } else { BT.on=false; btMsg(`Joining match #${n}…`); }
+  try{ const u=new URL(location.href); if(u.searchParams.get('battle')){ u.searchParams.delete('battle'); history.replaceState(null,'',u.pathname+u.search+u.hash); } }catch(e){} }
+function btStartOffline(note){ if(NET.on) netLeave(); BT.online=false; BT.no=0; btMyName=btMyName||btName(); btBegin(); btMsg(''); if(note) setTimeout(()=>toast(note,'status'),400); }
+function btDrop(why){ const was=BT.on; netLeave(); BT.online=false; if(was&&state!=='menu'){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); btMsg(why,true); },1400); } else btMsg(why,true); }
+function btStop(){ BT.on=false; BT.online=false; btClosePick(); if(UI.btOver) show(UI.btOver,false); UI.hud.classList.remove('battlemode'); if(UI.ffaBoard) delete UI.ffaBoard.dataset.k; btBoardKey=''; }
+// the referee job moved (the old host left)
+function btHostChanged(h){ if(!BT.online) return; const me=myPeerId(), old=NET.hostPeer;
+  if(h===me){ NET.role='host'; NET.hostPeer=null; if(!BT.on){ btBegin(); btMsg(''); return; } toast('<b>You\'re now running this match</b> (the last host left)','status');
+    for(let k=0;k<BT_N;k++){ const s=BT.seats[k]; if(!s) continue; const f=btF(k); if(s.b){ f.ctl='ai'; aiReset(f); f.rs=null; if(f.dead) f.respawnT=BT_BOT_BACK; } else if(old&&s.p===old) btLeft(k); } }
+  else { NET.hostPeer=h; BT.lastHost=performance.now(); } }
+function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b> left the match`,'status'); btUnseat(k); BT.refill[k]=gameT+3; }
+
+// ---------- what we send ----------
+function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
+  const o={ v:3, r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
+  if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
+  else { o.B=null; o.bots=null; }
+  r.presence(o).catch(()=>{}); }
+function btState(){ const A=fn=>BT.seats.map((s,k)=>s?fn(btF(k)):0);
+  return { m:BT.mid, ph:BT.ph, t:Math.round(BT.t*10)/10, w:BT.w, ot:Math.round(BT.overT*10)/10, st:BT.seats.map(s=>s?[s.b?'':s.p,s.n,s.b?1:0]:0),
+    k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6) }; }
+
+// ---------- what we receive ----------
+function btPeers(ch){ const others=ch.peers.filter(p=>!p.sameTab&&p.presence&&p.presence.v===3); const now=performance.now(); for(const p of others) NET.rx[p.peer]=now;
+  if(btHost()){ if(BT.on) btHostSeats(others); } else btFollow(others);
+  if(!BT.on) return; for(const p of others) btRx(p.peer,p.presence); }
+// host: give each new person a spot (a free one, or the bot with the fewest knockouts), and free up the spots of anyone who left
+function btHostSeats(others){ const ids=new Set(others.map(p=>p.peer)), me=myPeerId();
+  for(let k=0;k<BT_N;k++){ const s=BT.seats[k]; if(s&&!s.b&&s.p!==me&&!ids.has(s.p)) btLeft(k); }
+  for(const p of others){ const s=BT.seats.find(x=>x&&x.p===p.peer); const nm=cleanName(p.presence.nm);
+    if(s){ if(s.n!==nm){ s.n=nm; const f=fighters.find(x=>x.peer===p.peer); if(f){ f.name=nm; ffaBoardKey=''; } } continue; }
+    const k=btFreeSlot(); if(k<0) continue; if(BT.seats[k]) btUnseat(k); delete BT.refill[k];
+    btSeat(k,{p:p.peer,n:nm,b:false}); toast(`<b>${esc(nm)}</b> joined the match`,'status'); SFX.hover(); } }
+function btFreeSlot(){ for(let k=0;k<BT_N;k++) if(!BT.seats[k]&&!(k in BT.refill)) return k;
+  let best=-1, bs=1e9; for(let k=0;k<BT_N;k++){ const s=BT.seats[k]; if(!s||!s.b) continue; const f=btF(k); const sc=(f.score|0)*10+(f.dead?0:3); if(sc<bs){ bs=sc; best=k; } }
+  if(best>=0) return best; for(const k in BT.refill) return +k; return -1; }
+// guest: follow the host's line-up and scoreboard
+function btFollow(others){ const h=others.find(p=>p.peer===NET.hostPeer&&p.presence.B)||others.find(p=>p.presence.r==='host'&&p.presence.B); if(!h) return;
+  NET.hostPeer=h.peer; NET.lastRx=BT.lastHost=performance.now(); const B=h.presence.B; if(!B||!Array.isArray(B.st)) return; const me=myPeerId();
+  const mine=B.st.findIndex(s=>Array.isArray(s)&&s[0]===me);
+  if(!BT.on){ if(mine<0) return; btJoin(mine,B); return; }
+  if(mine<0){ btDrop('You were removed from the match.'); return; }
+  btApplySeats(B); btApplyState(B); }
+function btJoin(k,B){ btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|0; BT.t=+B.t||0; BT.ph=B.ph==='over'?'fight':B.ph||'fight';
+  btApplySeats(B,true); player.life=(Array.isArray(B.l)&&B.l[k])|0; BT.joinLife=player.life; btHide(player);
+  for(let j=0;j<BT_N;j++){ if(j===k||!BT.seats[j]) continue; const f=btF(j); f.life=(B.l&&B.l[j])|0; if(B.x&&B.x[j]===0) btRevive(f,f.life); }
+  state='fight'; resetInputs(); btHudOn(); updateHUD(); SFX.music('fight'); btMsg(''); BT.kfShown=Math.max(0,...(B.kf||[]).map(e=>Array.isArray(e)?e[0]|0:0)); BT.deadT=0.2; BT.first=true;
+  toast(`<b>You're in match #${BT.no}.</b> First to ${BT_WIN} knockouts wins`,'status'); }
+function btApplySeats(B,first){ for(let k=0;k<BT_N;k++){ const a=B.st[k]; const cur=BT.seats[k];
+    if(!Array.isArray(a)){ if(cur&&k!==BT.me) btUnseat(k); continue; }
+    const want={p:a[0]||null,n:cleanName(a[1]),b:!!a[2]};
+    if(k===BT.me){ if(!cur){ BT.seats[k]={p:myPeerId(),n:btMyName,b:false}; btSeat(k,BT.seats[k]); } continue; }
+    if(!cur||cur.b!==want.b||(!want.b&&cur.p!==want.p)){ if(cur) btUnseat(k,first); btSeat(k,want); }
+    else if(cur.n!==want.n){ cur.n=want.n; btF(k).name=want.n; ffaBoardKey=''; } } }
+function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return; }
+  if(isNum(B.t)) BT.t=B.t; if(isNum(B.w)) BT.w=B.w;
+  if(B.ph==='over'){ BT.overT=isNum(B.ot)?B.ot:BT.overT; if(BT.ph!=='over'){ BT.ph='over'; btEnterOver(); } } else if(B.ph==='fight'&&BT.ph==='count') BT.ph='fight';
+  const now=performance.now();
+  for(let k=0;k<BT_N;k++){ if(!BT.seats[k]) continue; const f=btF(k); if(isNum(B.k&&B.k[k])) f.score=B.k[k]; if(isNum(B.d&&B.d[k])) f.deaths=B.d[k];
+    const L=B.l?B.l[k]|0:0, X=B.x?B.x[k]|0:0;
+    if(f===player){ if(X===1&&L===(player.life|0)&&!player.dead&&state==='fight'){ NET.allowKill=true; try{ killFighter(player,player.lastHitBy); } finally{ NET.allowKill=false; } } }
+    else if(X===1){ if(!f.dead&&L>=(f.life|0)&&state==='fight'){ f.life=L; NET.allowKill=true; try{ killFighter(f,f.lastHitBy); } finally{ NET.allowKill=false; } } else f.life=Math.max(f.life|0,L); }
+    else if(L>(f.life|0)) btRevive(f,L);
+    if(!f.dead&&f!==player&&isNum(B.hp&&B.hp[k])&&now-(f.lastLocalHit||0)>400) f.hp=B.hp[k];
+    else if(f===player&&!player.dead&&isNum(B.hp&&B.hp[k])&&L===(player.life|0)&&X===0) player.hp=B.hp[k]; }
+  if(Array.isArray(B.kf)){ const seen=new Set(BT.kf.map(e=>e[0])); for(const e of B.kf) if(Array.isArray(e)&&!seen.has(e[0])){ BT.kf.push(e); BT.kfSeq=Math.max(BT.kfSeq,e[0]|0); } if(BT.kf.length>12) BT.kf.splice(0,BT.kf.length-12); btFeed(); } }
+function btRx(peer,pr){ const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
+  if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }
+  netApplyHits(peer,pr.ht);
+  if(!btHost()&&peer===NET.hostPeer&&Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const s=BT.seats[b.s]; if(!s||!s.b) continue; const bf=btF(b.s); if(bf.ctl==='net') netRxFighter(bf,b); } }
+function btNetTick(dt){ btSend(); const now=performance.now();
+  if(!btHost()){ if(!BT.on){ BT.waitT+=dt; if(BT.waitT>9){ btStartOffline('<b>That match didn\'t answer</b>, so this is an offline match with bots.'); } return; }
+    if(now-BT.lastHost>12000) btDrop('Lost the connection to the match.'); } }
+
+// ---------- menu, pause and invites ----------
+function btMsg(t,bad){ const m=document.getElementById('btMsg'); if(!m) return; m.textContent=t||''; m.classList.toggle('bad',!!bad); }
+function btMenuUI(){ const on=settings.gm==='battle'; document.body.classList.toggle('gm-battle',on); const n=document.getElementById('btName'); if(n&&document.activeElement!==n) n.value=settings.name||''; if(!on) btMsg(''); }
+function btInviteLink(){ const u=new URL(location.href); u.hash=''; u.search=''; const q=new URLSearchParams(location.search); for(const k of ['server']) if(q.get(k)) u.searchParams.set(k,q.get(k)); u.searchParams.set('battle',String(BT.no)); return u.toString(); }
+function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) return; const on=matchKind==='battle'&&BT.on; el.style.display=on?'':'none'; if(!on) return;
+  const people=BT.seats.filter(x=>x&&!x.b).length; document.getElementById('btPauseLbl').innerHTML=BT.online?`<b>Match #${BT.no}</b> · ${people} ${people===1?'person':'people'} · the fight keeps going while you're in this menu`:'<b>Offline match</b> with bots (the game server couldn\'t be reached)';
+  document.getElementById('btInvite').style.display=BT.online?'':'none'; document.getElementById('btInvMsg').textContent=''; }
+(()=>{ const $=id=>document.getElementById(id);
+  const nameIn=$('btName'); if(nameIn){ nameIn.addEventListener('keydown',e=>e.stopPropagation()); nameIn.addEventListener('input',()=>{ settings.name=nameIn.value.replace(/[<>&"'`]/g,'').slice(0,14); saveSettings(); }); }
+  const code=$('btCode'); if(code){ code.addEventListener('input',()=>{ code.value=code.value.replace(/[^0-9]/g,'').slice(0,2); }); code.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter') $('btJoin').click(); }); }
+  const lv=$('btLeave'); if(lv) lv.addEventListener('click',()=>toMenu());
+  const join=$('btJoin'); if(join) join.addEventListener('click',()=>{ const n=parseInt(code.value,10); if(!(n>=1&&n<=99)){ btMsg('Type the match number your friend sent you.',true); return; } btPlay(n); });
+  const inv=$('btInvite'); if(inv) inv.addEventListener('click',()=>{ const L=btInviteLink(), m=$('btInvMsg'); try{ navigator.clipboard.writeText(L).then(()=>{ m.textContent='Invite link copied. Send it to a friend and they land in this match.'; },()=>{ m.textContent='Copy failed. Send this: '+L; }); }catch(e){ m.textContent='Copy failed. Send this: '+L; } });
+  // invite links: ?battle=N drops you straight into that match
+  let q=null; try{ q=new URLSearchParams(location.search).get('battle'); }catch(e){}
+  const n=parseInt(q||'',10); if(n>=1&&n<=99){ settings.gm='battle'; try{ syncSettingsUI(); }catch(e){} menuRoster(); btMenuUI(); setTimeout(()=>{ if(state==='menu'){ btMsg(`Joining match #${n}…`); btPlay(n); } },500); }
+  // a match in a hidden tab can't keep up: leave after 20 s in the background (8 s if you're running the bots, so someone else takes over sooner)
+  document.addEventListener('visibilitychange',()=>{ clearTimeout(BT.hidTimer); if(document.hidden&&BT.online&&BT.on) BT.hidTimer=setTimeout(()=>{ if(document.hidden&&BT.online&&BT.on){ netLeave(); BT.online=false; BT.hidden=true; } },NET.role==='host'?8000:20000);
+    if(!document.hidden&&BT.hidden){ BT.hidden=false; toMenu(); btMsg('You left the match because the game was in the background. Press Play to jump back in.',true); } });
+  btMenuUI(); })();
+
+btHook={ get picking(){ return BT.picking; }, lockFree:()=>BT.on&&player.dead, onKill:btOnKill, tick:btTick, over:btOver, hud:btHud, board:btBoard, placeAll:btPlaceAll, play:()=>btPlay(), stop:btStop,
+  peers:btPeers, send:btSend, netTick:btNetTick, pauseUI:btPauseUI, menuUI:btMenuUI };
+/*DEBUG-START*/window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
 
 }
 let __started=false; function __go(){ if(__started) return; __started=true; try{ __boot(); }catch(e){ console.error(e); const l=document.getElementById('loading'); if(l) l.textContent='Something broke while loading: '+e.message; } }

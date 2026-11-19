@@ -179,6 +179,7 @@ function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Gr
   if(S!==1){ g.scale.set(S,1,S); for(const b of boxes){ b.min.x*=S; b.max.x*=S; b.min.z*=S; b.max.z*=S; } for(const r of ramps){ r.minX*=S; r.maxX*=S; r.minZ*=S; r.maxZ*=S; } if(g.userData.waterMat) g.userData.waterMat.uniforms.dock.value.set(HX*S,HZ*S); }
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
+  { const R=m.shadow||0, c=sun.shadow.camera; const w=R||33, h=R||28; if(c.right!==w||c.top!==h){ c.left=-w; c.right=w; c.top=h; c.bottom=-h; c.far=R?130:95; c.updateProjectionMatrix(); } } // bigger arenas need a bigger shadow area
   const e=m.env; scene.fog.color.copy(col(e.fog[0])); scene.fog.near=e.fog[1]; scene.fog.far=e.fog[2]; hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity=e.hemi[2]; sun.color.set(e.sun[0]); sun.intensity=e.sun[1]; sun.position.set(e.sun[2][0],e.sun[2][1],e.sun[2][2]); applyBloom(); }
 const QUAL={ low:{pr:0.8,sh:0,post:0}, medium:{pr:1.25,sh:1024,post:0}, high:{pr:1.5,sh:2048,post:1}, ultra:{pr:2,sh:3072,post:1} };
 function buildComposer(){ if(composer||!window.THREE||!THREE.EffectComposer) return; try{

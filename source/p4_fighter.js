@@ -304,8 +304,8 @@ class Fighter{
   center(){ return V3(this.pos.x,this.pos.y+this.bodyY,this.pos.z); }
   distTo(p){ const z=this.sz||1; const y=clamp(p.y,this.pos.y+0.4*z,this.pos.y+1.8*z); const dx=p.x-this.pos.x, dy=p.y-y, dz=p.z-this.pos.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
   domeC(){ return V3(this.pos.x,this.pos.y+0.05,this.pos.z); }
-  domeR(){ return this.stats.dome*(matchKind==='ffa'?1.2:1); }
-  auraR(){ return this.silenceT>0?0:this.stats.auraR*(matchKind==='ffa'?1.25:1); }
+  domeR(){ return this.stats.dome*(matchKind==='ffa'||matchKind==='battle'?1.2:1); }
+  auraR(){ return this.silenceT>0?0:this.stats.auraR*(matchKind==='ffa'||matchKind==='battle'?1.25:1); }
   addCard(id){ this.cards.push(id); this.stats=computeStats(this.cards); this.hp=this.stats.hp; this.ammo=this.stats.ammo; this.applySize();
     const seen={}, pc=[]; for(const id of this.cards){ const c=CARDS[id]; if(c&&c.type==='dome'&&!seen[id]){ seen[id]=1; pc.push(new T.Color(c.c)); } } const team=new T.Color(this.team.light); this.cardPal=pc; this.domePal= pc.length===0?[team]: pc.slice(0,4); }
   auraPal(){ const s=this.stats,l=[]; if(s.chill) l.push(AURA_PAL.chill); if(s.staticf) l.push(AURA_PAL.staticf); if(s.drain) l.push(AURA_PAL.drain); return l; }

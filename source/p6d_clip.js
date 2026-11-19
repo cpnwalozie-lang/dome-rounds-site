@@ -79,7 +79,8 @@ const CLIP=(()=>{
       bar(m,m+22*u,bw,bh,player,'#19c8ff',(player.name||'YOU').toUpperCase(),false);
       if(matchKind==='1v1'||mode==='sandbox'){ if(bot&&bot.mesh&&fighters.includes(bot)) bar(W-m-bw,m+22*u,bw,bh,bot,'#ff7a1a',(bot.name||'BOT').toUpperCase(),true);
         if(mode!=='sandbox'){ const s=`${score.player} – ${score.bot}`; cx.font=`${Math.round(26*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.textAlign='center'; cx.textBaseline='top'; cx.lineWidth=5*u; cx.strokeStyle='#14081f'; cx.fillStyle='#fff'; cx.strokeText(s,W/2,m); cx.fillText(s,W/2,m);
-          cx.font=`${Math.round(13*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=4*u; const r='ROUND '+roundNum; cx.strokeText(r,W/2,m+30*u); cx.fillStyle='#ffd23d'; cx.fillText(r,W/2,m+30*u); } } }
+          cx.font=`${Math.round(13*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=4*u; const r='ROUND '+roundNum; cx.strokeText(r,W/2,m+30*u); cx.fillStyle='#ffd23d'; cx.fillText(r,W/2,m+30*u); } } 
+      else if(matchKind==='battle'){ const s=`${player.score|0} / 10 KOs`; cx.font=`${Math.round(24*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.textAlign='center'; cx.textBaseline='top'; cx.lineWidth=5*u; cx.strokeStyle='#14081f'; cx.fillStyle='#ffd23d'; cx.strokeText(s,W/2,m); cx.fillText(s,W/2,m); } }
     cx.textAlign='left'; cx.textBaseline='alphabetic'; cx.globalAlpha=0.92; cx.font=`${Math.round(26*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=5*u; cx.strokeStyle='#14081f';
     const y=H-m-20*u; cx.strokeText('DOME ROUNDS',m,y); cx.fillStyle='#fff'; cx.fillText('DOME ROUNDS',m,y);
     cx.font=`700 ${Math.round(16*u)}px system-ui,"Segoe UI",sans-serif`; cx.lineWidth=4*u; cx.strokeText('dome-rounds.pages.dev',m+1*u,y+20*u); cx.fillStyle='#35e9ff'; cx.fillText('dome-rounds.pages.dev',m+1*u,y+20*u);

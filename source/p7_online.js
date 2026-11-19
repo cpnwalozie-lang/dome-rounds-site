@@ -88,7 +88,7 @@ async function netOpen(code,role){
 }
 function myPeer(){ const r=NET.room; if(!r) return null; return r.peers().find(p=>p.sameTab)||null; }
 function myPeerId(){ const m=myPeer(); return m?m.peer:'me'; }
-function netPeers(ch){ if(!NET.on) return; const others=ch.peers.filter(p=>!p.sameTab&&p.kind==='viewer'&&p.presence&&p.presence.v===2); const now=performance.now();
+function netPeers(ch){ if(!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.peers(ch); return; } const others=ch.peers.filter(p=>!p.sameTab&&p.kind==='viewer'&&p.presence&&p.presence.v===2); const now=performance.now();
   for(const p of others) NET.rx[p.peer]=now;
   if(NET.role==='host') hostLobby(others); else if(!guestLobby(others)) return;
   for(const p of others) netRx(p.peer,p.presence);
@@ -139,7 +139,7 @@ function netApplyHits(peer,list){ if(!Array.isArray(list)||!(state==='fight')) {
 function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(o.z),R3(d.x),R3(d.y),R3(d.z)]; if(!f||f===player){ NET.shots.push([++NET.shotId,...sh]); player.lastSid=NET.shotId; if(NET.shots.length>8) NET.shots.shift(); } else { f.nShots=f.nShots||[]; f.nShotId=(f.nShotId||0)+1; f.nShots.push([f.nShotId,...sh]); f.lastSid=f.nShotId; if(f.nShots.length>8) f.nShots.shift(); } }
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
-function netSend(){ const r=NET.room; if(!r||!NET.on) return; const p=player;
+function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
   const o={ v:2, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
@@ -181,6 +181,7 @@ function netHostStart(){ if(NET.seats.length<seatsNeeded()) return; NET.mid++; N
 function netStartLocal(){ NET.started=true; netBuildRoster(); startMatch(); }
 function netAfterPick(){ UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
 function netTick(dt){ if(!NET.on) return;
+  if(NET.kind==='battle'){ if(btHook) btHook.netTick(dt); return; }
   netSend(); const now=performance.now();
   if(NET.role==='guest'){ if(NET.hostPeer&&now-NET.lastRx>15000){ netDrop('Lost connection to the host.'); return; } if(!NET.hostPeer&&now-NET.joinT>7000){ olMsg('No room found with code '+NET.code+'. Check the code and try again.',true); netLeave(); return; } }
   if(NET.role==='host'&&NET.started){ for(const st of NET.seats.slice()) if(st.p&&!st.b&&st.p!==myPeerId()&&now-(NET.rx[st.p]||now)>15000) seatLeft(st); if(!NET.on) return; }

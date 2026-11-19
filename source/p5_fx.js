@@ -121,7 +121,7 @@ function fatal(target,source,cause){
 function applyDamage(target,amount,source,o={}){
   if(target.dead||state!=='fight'||amount<=0||target.invulnT>0) return 0;
   if(source&&source.ctl==='ai'&&target.ctl!=='ai'&&!o.fromDecay) amount*=botLevel().dmg;
-  if(source&&source!==target) target.lastHitBy=source;
+  if(source&&source!==target){ target.lastHitBy=source; target.lastHitT=gameT; }
   if(target===player&&source&&source!==player&&!o.tick){ dmgFrom.copy(source.pos); dmgDirT=1; }
   if(target.stats.decay>0&&!o.tick&&!o.fromDecay){ target.decayPool+=amount; target.decaySrc=source; target.decayRate=Math.max(target.decayRate||0,target.decayPool/4); target.hitFlash=0.12; if(source&&source!==target) onDeal(source,target,amount); if(source===player&&target!==player) matchStats.dmg+=amount, roundInfo.dmg+=amount; return amount; }
   amount=Math.max(1,Math.round(amount));
@@ -257,6 +257,7 @@ function killFighter(f,source){
   if(remoteCtl.b&&(f===player||remoteCtl.b.owner===f)){ remoteCtl.b.remote=false; remoteCtl.b=null; }
   if(mode==='sandbox'){ f.respawnT=1.4; if(!f.isPlayer) toast('<b class="you">You</b> knocked out the <b class="bot">bot</b>','you'); return; }
   const by=(source&&source!==f)?source:null; if(by&&!by.dead) by.setMood('happy',3);
+  if(matchKind==='battle'){ if(btHook) btHook.onKill(f,by); return; } // Battle: no rounds, you pick a card and come back
   if(matchKind!=='1v1'){ const alive=fighters.filter(x=>x.active!==false&&!x.dead); const sides=new Set(alive.map(x=>x.side)); ffaKnockout(f,by,sides.size); if(sides.size>1) return; endRoundWith(alive[0]||by); return; }
   endRoundWith(other(f));
 }
