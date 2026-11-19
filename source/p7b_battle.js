@@ -56,7 +56,7 @@ function btNewMatch(mid){ btChampHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.
   if(!BT.introDone){ BT.introDone=true; tipsT=0; setTimeout(()=>{ if(BT.on) toast('<b>First to 10 knockouts wins.</b> Get knocked out and you pick a card','status'); },3300); } }
 function btEnd(w){ BT.ph='over'; BT.w=w?w.slot:-1; BT.overT=BT_OVER; btEnterOver(); }
 function btEnterOver(){ if(state==='bover') return; state='bover'; btClosePick(); exitLock(); slowMoT=0.9; shakeT=Math.max(shakeT,0.3); BT.overShown=false; firePressed=false; fireHeld=false;
-  const w=btSeatedF(BT.w), L=btRecordEnd(w===player); if(w===player){ btChampion(L); return; }
+  const w=btSeatedF(BT.w), L=btRecordEnd(w===player); if(w&&fighters.includes(w)){ btChampion(L,w); return; } // everyone watches the winner celebrate
   showBanner(w?esc(w.name).toUpperCase()+' WINS':'TIME!','#e0364f','lose'); SFX.lose(); }
 function btWinnerByScore(){ let best=null; for(const f of fighters){ if(f.active===false) continue; if(!best||f.score>best.score||(f.score===best.score&&(f.deaths|0)<(best.deaths|0))) best=f; } return best; }
 
@@ -108,7 +108,7 @@ function btTick(dt){ if(!BT.on) return; BT.t+=dt; const host=btHost();
 // the scoreboard between matches
 function btOver(dt){ BT.overT-=dt; let sdt=dt; if(slowMoT>0){ slowMoT-=dt; sdt=dt*0.3; }
   updateBullets(sdt); updateBombs(sdt); updateFields(sdt,gameT); fxUpdate(sdt);
-  for(const f of fighters){ if(f.active===false) continue; if(f.ctl==='net') netApplyRemote(f,sdt); else if(!f.dead) moveFighter(f,sdt,V3(),f===player&&BW.hop); if(!f.dead) f.updateVisual(sdt,gameT); }
+  for(const f of fighters){ if(f.active===false) continue; if(f.ctl==='net') netApplyRemote(f,sdt); else if(!f.dead) moveFighter(f,sdt,V3(),f===BW.f&&BW.hop); if(!f.dead) f.updateVisual(sdt,gameT); }
   BW.hop=false; updateCamera(dt); if(!BW.on) updateHUD();
   if(BW.on){ btChampTick(dt,sdt); if(btHost()&&BT.overT<=0) btNewMatch(BT.mid+1); return; }
   if(!BT.overShown&&BT.overT<BT_OVER-1.3){ BT.overShown=true; btScoreboard(); show(UI.btOver,true,'block'); UI.banner.className='banner'; }
@@ -121,46 +121,51 @@ function btScoreboard(){ const w=btSeatedF(BT.w); const L=fighters.filter(f=>f.a
 // ---------- the champion moment: you won a Battle ----------
 // Slow-mo, the camera swings round to you, gold fireworks, a CHAMPION stamp with confetti and a fanfare,
 // your stats count up, your lifetime wins tick over (+1), and the podium slides in. One button saves the winning clip.
-const BW={on:false,t:0,fwT:0,hopT:0,hop:false,ang:0,gen:0,conf:null,shown:false,L:null,camInit:false};
+const BW={on:false,t:0,fwT:0,hopT:0,hop:false,ang:0,gen:0,conf:null,shown:false,L:null,camInit:false,f:null,me:false};
 function btLife(){ const L={wins:0,streak:0,best:0,kos:0}; try{ Object.assign(L,JSON.parse(localStorage.getItem('domeRoundsBattle1')||'{}')); }catch(e){} return L; }
 function btRecordEnd(won){ const L=btLife(); L.kos+=player.score|0; if(won){ L.wins++; L.streak++; L.best=Math.max(L.best,L.streak); } else L.streak=0; try{ localStorage.setItem('domeRoundsBattle1',JSON.stringify(L)); }catch(e){} return L; }
-function btChampion(L){ BW.on=true; BW.t=0; BW.fwT=0.15; BW.hopT=0.9; BW.shown=false; BW.L=L; BW.camInit=false; BW.gen++; BW.ang=player.yaw+Math.PI;
-  if(player.dead) btSpawn(player); player.invulnT=99; player.setMood('happy',14); show(UI.hud,false); UI.banner.className='banner';
+function btChampion(L,w){ BW.on=true; BW.t=0; BW.fwT=0.15; BW.hopT=0.9; BW.shown=false; BW.L=L; BW.camInit=false; BW.gen++; BW.f=w; BW.me=w===player; BW.ang=w.yaw+Math.PI;
+  if(w.dead&&btOwns(w)) btSpawn(w); w.invulnT=99; w.setMood('happy',14); show(UI.hud,false); UI.banner.className='banner'; specT=null;
   slowMoT=1.3; shakeT=Math.max(shakeT,0.4); SFX.champion();
-  shockRing(V3(player.pos.x,player.pos.y+0.06,player.pos.z),0xffd23d,7,0.9); burst(player.center(),0xffd23d,50,11,0.11,1.2,0.4); }
+  shockRing(V3(w.pos.x,w.pos.y+0.06,w.pos.z),0xffd23d,7,0.9); burst(w.center(),0xffd23d,50,11,0.11,1.2,0.4); }
 function btChampHide(){ if(!BW.on&&!document.getElementById('btWin').classList.contains('show')) return; BW.on=false; BW.gen++; document.getElementById('btWin').classList.remove('show'); if(BW.conf) BW.conf.stop(); BW.conf=null; }
-function btChampTick(dt,sdt){ BW.t+=dt; const p=player;
+function btChampTick(dt,sdt){ BW.t+=dt; const p=BW.f||player;
   // fireworks around you
   BW.fwT-=dt; if(BW.fwT<=0&&BW.t<9.5){ BW.fwT=rand(0.28,0.6); const away=Math.atan2(p.pos.z-camera.position.z,p.pos.x-camera.position.x), a=away+rand(-1.1,1.1), r=rand(4,10); const at=V3(p.pos.x+Math.cos(a)*r,p.pos.y+rand(2.2,5.5),p.pos.z+Math.sin(a)*r); /* behind you, in shot */
     const c=[0xffd23d,0xff2e88,0x35e9ff,0xffffff,0xa6e22e,0xffd23d][Math.floor(Math.random()*6)]; burst(at,c,48,rand(7,10),0.17,1.25,0.55); burst(at,0xffffff,14,3,0.1,0.5,0); if(Math.random()<0.6) SFX.firework(); }
   // happy little hops
-  BW.hopT-=dt; if(BW.hopT<=0&&p.onGround){ BW.hop=true; BW.hopT=rand(0.75,1.15); }
+  BW.hopT-=dt; if(BW.hopT<=0&&p.onGround&&p.ctl!=='net'){ BW.hop=true; BW.hopT=rand(0.75,1.15); } // a winner on someone else's screen hops there, and we see it
   if(!BW.shown&&BW.t>0.85) btChampShow();
   const s=Math.max(0,Math.ceil(BT.overT)), nx=document.getElementById('bwNext'); if(nx._s!==s){ nx._s=s; nx.textContent=`Next match in ${s}s. Everyone's cards reset.`; } }
 // the camera swings round to face you and slowly circles
-function btChampCam(dt){ if(!BW.on) return false; const p=player.pos; BW.ang+=dt*0.42; const R=6.6-2*Math.min(1,BW.t/2.5);
+function btChampCam(dt){ if(!BW.on) return false; const W=BW.f||player, p=W.pos; BW.ang+=dt*0.42; const R=6.6-2*Math.min(1,BW.t/2.5);
   const head=V3(p.x,p.y+1.25,p.z); const want=V3(p.x+Math.sin(BW.ang)*R,p.y+2.6+Math.sin(BW.t*0.7)*0.35,p.z+Math.cos(BW.ang)*R);
   const hit=segmentHitsBoxes(head,want,0.25,true); if(hit!==null) want.lerpVectors(head,want,Math.max(0.3,hit-0.05));
   if(!BW.camInit){ BW.camInit=true; camera.position.lerp(want,0.35); } else camera.position.lerp(want,Math.min(1,dt*3.5));
   if(Math.abs(camera.fov-52)>0.05){ camera.fov+=(52-camera.fov)*Math.min(1,dt*3); camera.updateProjectionMatrix(); } camera.lookAt(head.x,head.y+0.15,head.z);
-  const d=V3().subVectors(camera.position,p); player.yaw=Math.atan2(-d.x,-d.z); player.pitch=0; return true; }
+  const d=V3().subVectors(camera.position,p); W.yaw=Math.atan2(-d.x,-d.z); W.pitch=0; return true; }
 function btChampShow(){ BW.shown=true; const g=BW.gen, L=BW.L, $=id=>document.getElementById(id), later=(ms,fn)=>setTimeout(()=>{ if(BW.gen===g) fn(); },ms);
   const all=fighters.filter(f=>f.active!==false).sort((a,b)=>(b.score-a.score)||((a.deaths|0)-(b.deaths|0)));
-  const people=BT.seats.filter(x=>x&&!x.b).length, beat=all.length-1, m=Math.floor(BT.t/60), sec=Math.floor(BT.t%60);
-  $('bwSub').innerHTML=BT.online?`Match <b>#${BT.no}</b> · you beat <b>${beat}</b> players${people>1?` (${people-1} real ${people-1===1?'person':'people'})`:''}`:`You beat <b>${beat}</b> bots`;
-  const st=[[player.score|0,'KNOCKOUTS','#ffd23d'],[BT.best|0,'BEST STREAK','#ff2e88'],[player.deaths|0,'TIMES OUT','#35e9ff'],[m+':'+String(sec).padStart(2,'0'),'MATCH TIME','#a6e22e']];
+  const people=BT.seats.filter(x=>x&&!x.b).length, beat=all.length-1, m=Math.floor(BT.t/60), sec=Math.floor(BT.t%60), W=BW.f||player, me=BW.me;
+  const nm=f=>f===player?btMyName:f.name, tt=me?'CHAMPION':(nm(W).toUpperCase()+' WINS'), T=$('bwTitle'); T.textContent=tt; T.dataset.t=tt; T.style.fontSize=`min(17vh,${Math.min(13,104/Math.max(8,tt.length)).toFixed(1)}vw,150px)`;
+  $('bwSub').innerHTML=me?(BT.online?`Match <b>#${BT.no}</b> · you beat <b>${beat}</b> players${people>1?` (${people-1} real ${people-1===1?'person':'people'})`:''}`:`You beat <b>${beat}</b> bots`)
+    :`<b>${esc(nm(W))}</b> ${W.score>=BT_WIN?`got ${BT_WIN} knockouts first`:'had the most knockouts'}${BT.online?` · match <b>#${BT.no}</b>`:''}`;
+  const st=me?[[player.score|0,'KNOCKOUTS','#ffd23d'],[BT.best|0,'BEST STREAK','#ff2e88'],[player.deaths|0,'TIMES OUT','#35e9ff'],[m+':'+String(sec).padStart(2,'0'),'MATCH TIME','#a6e22e']]
+    :[[W.score|0,'KNOCKOUTS','#ffd23d'],[W.deaths|0,'TIMES OUT','#35e9ff'],[W.cards.length|0,'CARDS','#ff2e88'],[m+':'+String(sec).padStart(2,'0'),'MATCH TIME','#a6e22e']];
   $('bwStats').innerHTML=st.map((x,i)=>`<div class="bw-st" style="--i:${i};--c:${x[2]}"><b data-to="${typeof x[0]==='number'?x[0]:''}">${typeof x[0]==='number'?0:x[0]}</b><span>${x[1]}</span></div>`).join('');
   const md=['g','s','b'];
   $('bwPod').innerHTML=all.slice(0,3).map((f,i)=>`<div class="bw-row${f===player?' me':''}" style="--i:${i};--c:${f.team.css}"><span class="md ${md[i]}">${i+1}</span><span class="nm">${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}</span><span class="ko">${f.score|0}</span></div>`).join('');
-  const wb=$('bwWins'); wb.textContent=Math.max(0,L.wins-1); wb.classList.remove('bump'); $('bwPlus').classList.remove('go'); const bd=$('bwBadge'); bd.className='bw-badge'; bd.textContent='';
-  const cb=$('bwClip'); cb.style.display=(typeof CLIP!=='undefined'&&CLIP.ok&&settings.clips)?'':'none'; cb.disabled=false; cb.textContent='SAVE THE WINNING CLIP'; $('bwClipBtns').innerHTML='';
+  const wb=$('bwWins'); wb.textContent=me?Math.max(0,L.wins-1):'#'+(all.indexOf(player)+1); wb.classList.remove('bump'); $('bwPlus').classList.remove('go'); const bd=$('bwBadge'); bd.className='bw-badge'; bd.textContent='';
+  document.querySelector('#bwLife .bw-lbl').textContent=me?'BATTLE WINS':'YOUR RESULT';
+  const cb=$('bwClip'); cb.style.display=(typeof CLIP!=='undefined'&&CLIP.ok&&settings.clips)?'':'none'; cb.disabled=false; cb.textContent=me?'SAVE THE WINNING CLIP':'SAVE THE LAST 20s'; $('bwClipBtns').innerHTML='';
   const el=$('btWin'); el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   BW.conf=btConfetti($('bwConfetti'));
   later(420,()=>{ SFX.stamp(); shakeT=Math.max(shakeT,0.25); BW.conf&&BW.conf.burst(0.5,0.3,160,1); });
   // count the stats up, tick tick tick
   later(1400,()=>{ document.querySelectorAll('#bwStats b[data-to]').forEach((b,i)=>{ const to=+b.dataset.to; if(!to) return; let n=0; const step=Math.max(40,Math.min(110,700/to)); const go=()=>{ if(BW.gen!==g) return; n++; b.textContent=n; SFX.coin(); if(n<to) setTimeout(go,step); }; setTimeout(go,i*120); }); });
   later(2100,()=>{ BW.conf&&(BW.conf.burst(0.02,0.95,90,-1),BW.conf.burst(0.98,0.95,90,1)); });
-  later(2600,()=>{ wb.textContent=L.wins; wb.classList.add('bump'); $('bwPlus').classList.add('go'); SFX.levelup();
+  if(!me) later(2600,()=>{ wb.classList.add('bump'); SFX.coin(); const k=player.score|0; later(350,()=>{ bd.textContent=`${k} knockout${k===1?'':'s'} · next one's yours`; bd.classList.add('on'); }); });
+  if(me) later(2600,()=>{ wb.textContent=L.wins; wb.classList.add('bump'); $('bwPlus').classList.add('go'); SFX.levelup();
     const t=L.wins===1?'FIRST WIN EVER!':L.streak>=2?(L.streak>=L.best?`${L.streak} IN A ROW · NEW BEST!`:`${L.streak} IN A ROW!`):L.wins%10===0?`${L.wins} WINS!`:''; if(t) later(450,()=>{ bd.textContent=t; bd.classList.add('on'); SFX.coin(); }); });
   later(4200,()=>{ BW.conf&&BW.conf.rain(140); }); }
 (()=>{ const cb=document.getElementById('bwClip'); if(!cb) return; cb.addEventListener('click',async()=>{ if(cb.disabled) return; cb.disabled=true; cb.textContent='SAVING…';
