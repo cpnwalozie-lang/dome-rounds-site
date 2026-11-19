@@ -107,6 +107,7 @@ function pollPad(dt){
 
 // ================= FLOW =================
 function placeAtBases(){
+  for(const f of fighters) if(f.ai) f.ai.fresh=true; // bots get their bearings again
   if(matchKind==='battle'&&btHook){ btHook.placeAll(); return; }
   if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
   if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
@@ -313,36 +314,128 @@ function ffaKnockout(f,by,left){ const nm=x=>x===player?'You':esc(x.name);
 function menuRoster(){ if(NET.on) return; if(settings.gm==='ffa'||settings.gm==='battle') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); document.body.classList.toggle('gm-ffa',settings.gm==='ffa'); document.body.classList.toggle('gm-battle',settings.gm==='battle'); }
 
 // ================= BOT AI =================
-// each bot keeps its own plan and picks who to fight: the closest enemy it can see, with a grudge against whoever hit it last
-function aiReset(f){ f.ai={ strafe:Math.random()<0.5?-1:1, strafeT:rand(1,2), shootT:rand(1.2,2.0), shooting:false, jumpT:rand(1.5,3), reactT:0, stuckT:0, lastPos:V3(), decided:false, tgt:null, tgtT:0 }; }
-function aiTarget(b,dt){ const A=b.ai; A.tgtT-=dt; const list=enemies(b); if(A.tgt&&list.includes(A.tgt)&&A.tgtT>0) return A.tgt;
-  let best=null, bs=1e9; for(const e of list){ let sc=e.pos.distanceTo(b.pos); if(!hasLOS(b.center(),e.center())) sc+=14; if(e===A.tgt) sc-=4; if(e===b.lastHitBy) sc-=7; if(e.hp<e.maxHp()*0.35) sc-=3; if(sc<bs){ bs=sc; best=e; } }
-  A.tgt=best; A.tgtT=rand(1.4,3.2); return best; }
+// Bots play like people: they only know what a player in their spot could know.
+// - They see what's in front of them (about a screen's width), never through walls or behind them.
+//   They hear gunfire nearby and feel it when they're hit, which tells them roughly where to look.
+// - Anything new they see takes a human reaction time before they act on it.
+// - They aim like a hand on a mouse: a fast flick that slows as it lands, a little wobble, and they lead a
+//   moving target from how it has been moving, so a sudden change of direction throws them off.
+// - They can only dome a shot they saw coming, and they time it like a person (sometimes early, sometimes late).
+// Levels: easy = a beginner, normal = a very good player, hard = a competitive player. Same health, speed and damage as you.
+const AI_LV={
+  easy:{ react:[0.42,0.66], tau:0.2, turn:3.2, wob:0.07, predict:0.15, lead:0.3, lag:0.4, fov:0.85, cone:2.2, dwell:0, range:24,
+    block:0.18, bTime:[0.05,0.75], dodge:0.04, strafe:0.35, strafeT:[1.2,2.8], still:0.55, jumpT:[3.5,8], cover:0, dome:0, push:0, mem:2.5, hear:14,
+    burst:[0.25,0.7], pause:[0.35,0.9], scan:[2.5,4.5], arc:0.6, flinch:0.12, moveErr:0.6, panic:0.06, walls:true },
+  normal:{ react:[0.24,0.34], tau:0.11, turn:7, wob:0.03, predict:0.6, lead:0.75, lag:0.22, fov:1.0, cone:0.85, dwell:0.1, range:32,
+    block:0.6, bTime:[0.08,0.42], dodge:0.28, strafe:0.9, strafeT:[0.45,1.3], still:0.1, jumpT:[1.6,3.6], cover:0.45, dome:0.7, push:0.3, mem:4, hear:22,
+    burst:null, scan:[1.6,3], arc:0.95, flinch:0.06, moveErr:0.35, panic:0 },
+  hard:{ react:[0.17,0.24], tau:0.065, turn:12, wob:0.015, predict:0.9, lead:0.95, lag:0.12, fov:1.08, cone:0.6, dwell:0.06, range:40,
+    block:0.85, bTime:[0.1,0.3], dodge:0.5, strafe:1, strafeT:[0.22,0.75], still:0, jumpT:[0.9,2.2], cover:0.85, dome:0.95, push:0.75, mem:6, hear:28,
+    burst:null, scan:[1,2], arc:1, flinch:0.03, moveErr:0.2, panic:0 } };
+for(const k in AI_LV){ DIFF[k].ai=AI_LV[k]; DIFF[k].dmg=1; DIFF[k].speed=1; }
+const aiProf=b=>((b.lv||botLevel()).ai)||AI_LV.normal;
+const wrapA=a=>{ while(a>Math.PI) a-=2*Math.PI; while(a<-Math.PI) a+=2*Math.PI; return a; };
+const gauss=()=>(Math.random()+Math.random()+Math.random()-1.5)*2;
+const aiRand=r=>rand(r[0],r[1]);
+function aiReset(f){ f.ai={ know:new Map(), vEst:new Map(), bseen:new Map(), tgt:null, tgtT:0, visT:Math.random()*0.1, yaw:null, pitch:0, ox:0, oy:0, tox:0, toy:0, noiseT:0, hitT:f.lastHitT||-99,
+  strafe:Math.random()<0.5?-1:1, strafeT:rand(0.5,1.5), jumpT:rand(1.5,3), stuckT:0, lastPos:f.pos.clone(), trig:true, trigT:0, still:false, stillT:0,
+  blockBul:null, blockWin:0, decidedT:-9, wander:null, wanderT:0, scanT:0, scanOff:0, cover:null, coverT:0, holdT:0, coverRoll:false, rollT:0, pushRoll:false, domeWas:false, domeHold:false, fresh:true }; }
+// can b see point p right now? (in front of them and not behind a wall)
+function aiSees(b,A,P,p,eye){ const dx=p.x-eye.x, dz=p.z-eye.z; const d=Math.hypot(dx,dz); if(d>3.2&&Math.abs(wrapA(Math.atan2(-dx,-dz)-A.yaw))>P.fov) return false; return hasLOS(eye,p); }
+function aiKnow(A,e){ let k=A.know.get(e); if(!k){ k={pos:e.pos.clone(),t:-99,at:0,vis:false,seenT:-99}; A.know.set(e,k); } return k; }
+// heard or felt something: they know roughly where, and turn that way once they've reacted
+function aiAlert(A,P,e,noise){ const k=aiKnow(A,e); if(k.vis) return; const quiet=gameT-Math.max(k.t,k.seenT)>1.5; k.pos.set(e.pos.x+rand(-noise,noise),e.pos.y,e.pos.z+rand(-noise,noise)); k.t=gameT; if(quiet) k.at=gameT+aiRand(P.react); }
+// a player's camera sits up behind their character, so they see over low cover: bots look from about the same height
+const aiEye=b=>{ const e=b.center(); e.y+=1.1; return e; };
+function aiSense(b,P,A){ const eye=aiEye(b);
+  for(const e of enemies(b)){ const c=e.center(), hd=V3(c.x,c.y+0.6,c.z); const vis=e.mesh.visible&&(aiSees(b,A,P,c,eye)||aiSees(b,A,P,hd,eye)); const k=A.know.get(e);
+    if(vis){ const n=k||aiKnow(A,e); if(!n.vis){ const recent=gameT-Math.max(n.seenT,n.t)<1.2; const at=gameT+aiRand(P.react)*(recent?0.4:1); n.at=n.at>gameT?Math.min(n.at,at):at; } /* a face you just lost behind a pillar is quicker to pick up again */ n.vis=true; n.seenT=gameT; n.t=gameT; n.pos.copy(e.pos); n.up=!hasLOS(b.center(),c); } /* only their head's showing over cover? aim there */
+    else if(k) k.vis=false; }
+  for(const bl of bullets){ if(bl.age>0.14) continue; const o=bl.owner; if(!o||o===b||o.side===b.side||o.dead||o.active===false) continue; const d=o.pos.distanceTo(b.pos); if(d<P.hear) aiAlert(A,P,o,1+d*0.08); }
+  if((b.lastHitT||-99)>A.hitT){ A.hitT=b.lastHitT; const o=b.lastHitBy; if(o&&o!==b&&o.side!==b.side&&!o.dead) aiAlert(A,P,o,0.8); A.ox+=rand(-1,1)*P.flinch; A.oy+=rand(-1,1)*P.flinch*0.6; }
+  for(const [bl] of A.bseen) if(!bullets.includes(bl)) A.bseen.delete(bl); }
+function aiPick(b,P,A,dt){ A.tgtT-=dt; let best=null, bs=1e9;
+  for(const e of enemies(b)){ const k=A.know.get(e); if(!k||gameT-k.t>P.mem||k.at>gameT) continue;
+    let sc=b.pos.distanceTo(k.pos); if(!k.vis) sc+=10; if(e===A.tgt) sc-=A.tgtT>0?8:3; if(e===b.lastHitBy&&gameT-(b.lastHitT||-99)<3) sc-=6; if(e.hp<e.maxHp()*0.35) sc-=3; if(sc<bs){ bs=sc; best=e; } }
+  if(best!==A.tgt){ A.tgt=best; A.tgtT=rand(1.2,2.8); } return best; }
+function aiSpot(b,ok){ for(let i=0;i<8;i++){ const x=rand(-HX*0.7,HX*0.7), z=rand(-HZ*0.7,HZ*0.7); const g=groundAt(x,z,b.pos.y+6,0.4); if(g!==null&&(!ok||ok(x,g,z))) return V3(x,g,z); } return V3(0,b.pos.y,0); }
+// somewhere close the enemy can't see: used to reload or patch up
+function aiCover(b,c){ let best=null, bd=1e9; for(let i=0;i<10;i++){ const a=i/10*Math.PI*2+Math.random()*0.5, r=rand(3,7); const x=b.pos.x+Math.cos(a)*r, z=b.pos.z+Math.sin(a)*r;
+    if(Math.abs(x)>HX-1.5||Math.abs(z)>HZ-1.5) continue; const g=groundAt(x,z,b.pos.y+2.5,0.35); if(g===null||Math.abs(g-b.pos.y)>2.2) continue;
+    const p=V3(x,g+1,z); if(hasLOS(p,c)||!hasLOS(b.center(),p)) continue; const d=r-0.3*Math.hypot(x-c.x,z-c.z); if(d<bd){ bd=d; best=V3(x,g,z); } } return best; }
 function botThink(b,dt){
-  const D=botLevel(); if(!b.ai) aiReset(b); const botState=b.ai; const p=b.dead?null:aiTarget(b,dt); if(b.dead||!p) return {wish:V3(),jump:false};
-  const toP=V3().subVectors(p.pos,b.pos); toP.y=0; const dist=toP.length(); const dir=dist>0.01?toP.clone().normalize():V3(1,0,0);
-  const los=hasLOS(b.center(),p.center());
-  const aimTarget=p.center(); const tFly=clamp(dist/b.stats.speed,0,1.2); aimTarget.addScaledVector(p.vel,tFly*(D===DIFF.easy?0.35:0.8));
-  const err=D.err+(b.dazzleN>0?0.3:0); aimTarget.x+=rand(-err,err)*dist; aimTarget.y+=rand(-err,err)*dist*0.6; aimTarget.z+=rand(-err,err)*dist;
-  const faceDir=V3().subVectors(p.center(),b.center()); b.yaw=Math.atan2(-faceDir.x,-faceDir.z);
-  if(b.stats.arc>0){ const tf=aimTarget.distanceTo(b.center())/b.stats.speed; aimTarget.y+=0.5*CFG.gravity*(0.85+0.4*(b.stats.arc-1))*tf*tf; } // bots lob Arc Shots
-  const aimDir=V3().subVectors(aimTarget,b.center()); if(aimDir.lengthSq()<0.01) aimDir.set(1,0,0); aimDir.normalize(); b.botAim=aimDir; b.pitch=clamp(Math.asin(clamp(aimDir.y,-1,1)),-1,1);
-  botState.strafeT-=dt; if(botState.strafeT<=0){ botState.strafe*=-1; botState.strafeT=rand(0.8,2.2); }
-  const right=V3(-dir.z,0,dir.x); const wish=V3();
-  const closeBuild=b.stats.hasAura||b.stats.domeFx>0; const want=closeBuild?4.5:10; if(dist>want+3) wish.add(dir); else if(dist<want-3) wish.sub(dir); if(!los) wish.addScaledVector(dir,0.7);
-  wish.addScaledVector(right,botState.strafe*(los?0.9:1.2));
-  let threat=null, tdist=99;
-  for(const bl of bullets){ if(bl.owner===b) continue; const rel=V3().subVectors(b.center(),bl.pos); const sp=Math.max(0.01,bl.vel.length()); const along=rel.dot(bl.vel)/sp; if(along<0||along>10) continue; const perp=rel.clone().addScaledVector(bl.vel,-along/sp).length(); if(perp<2.2&&along<tdist){ tdist=along; threat=bl; } }
-  if(threat){ botState.reactT+=dt; if(botState.reactT>D.react&&!botState.decided){ botState.decided=true; if(b.blockCdT<=0&&!b.blockActive&&b.silenceT<=0&&Math.random()<D.block) tryBlock(b,true); else if(b.dashCdT<=0&&b.onGround&&Math.random()<D.dodge){ b.dashDir.copy(right).multiplyScalar(botState.strafe); b.dashT=CFG.dashTime; b.dashCdT=CFG.dashCd; SFX.dash(); } } } else { botState.reactT=0; botState.decided=false; }
-  if(dist<b.domeR()+0.3&&b.blockCdT<=0&&b.stats.domeFx>0&&Math.random()<dt*3*D.block) tryBlock(b,true);
+  const P=aiProf(b); if(!b.ai||!b.ai.know) aiReset(b); const A=b.ai; if(b.dead) return {wish:V3(),jump:false};
+  if(A.fresh||A.yaw===null){ A.fresh=false; A.yaw=b.yaw; A.pitch=0; A.know.clear(); A.vEst.clear(); A.tgt=null; A.blockBul=null;
+    if(matchKind!=='ffa'&&matchKind!=='battle') for(const e of enemies(b)){ const k=aiKnow(A,e); k.t=gameT; k.at=gameT+aiRand(P.react); } } // in 1v1 and 2v2 everyone knows where the other side starts
+  A.visT-=dt; if(A.visT<=0){ A.visT=0.09+Math.random()*0.04; aiSense(b,P,A); }
+  const e=aiPick(b,P,A,dt), k=e?A.know.get(e):null; const eye=b.center();
+  const acted=!!(k&&gameT>=k.at), eng=acted&&k.vis;
+  if(k&&k.vis) k.pos.copy(e.pos);
+  // ---- where to look
+  let look=null, dist=99;
+  if(e){ let ve=A.vEst.get(e); if(!ve){ ve=e.vel.clone(); A.vEst.set(e,ve); } if(k.vis) ve.lerp(e.vel,1-Math.exp(-dt/P.lag));
+    if(eng){ const c=e.center(); if(k.up) c.y+=0.55; dist=c.distanceTo(eye); const tFly=clamp(dist/b.stats.speed,0,1.2); look=c.addScaledVector(ve,tFly*P.lead+P.tau*P.predict); look.y-=ve.y*(tFly*P.lead+P.tau*P.predict)*0.5;
+      if(b.stats.arc>0){ const tf=look.distanceTo(eye)/b.stats.speed; look.y+=0.5*CFG.gravity*(0.85+0.4*(b.stats.arc-1))*tf*tf*P.arc; } } // lob Arc Shots
+    else if(acted) look=V3(k.pos.x,k.pos.y+1,k.pos.z); } // pre-aim where they were seen or heard
+  if(!look&&!(k&&!acted)){ // nobody to fight: look where you're going, and glance around
+    const moving=Math.hypot(b.vel.x,b.vel.z)>1;
+    A.scanT-=dt; if(A.scanT<=0){ A.scanT=aiRand(P.scan); A.scanOff=Math.random()<0.2?Math.PI:rand(-1.1,1.1); A.scanBase=A.yaw; }
+    const y=(moving?Math.atan2(-b.vel.x,-b.vel.z):(A.scanBase??A.yaw))+A.scanOff*(moving?0.6:1); look=V3(eye.x-Math.sin(y)*10,eye.y,eye.z-Math.cos(y)*10); }
+  // ---- aim like a hand: wobble, then a flick that eases in
+  A.noiseT-=dt; if(A.noiseT<=0){ A.noiseT=rand(0.18,0.45); const m=P.wob*(1+P.moveErr*Math.hypot(b.vel.x,b.vel.z)/CFG.moveSpeed+(b.dazzleN>0?3:0)); A.tox=gauss()*m; A.toy=gauss()*m*0.6; }
+  const kk=Math.min(1,dt*5); A.ox+=(A.tox-A.ox)*kk; A.oy+=(A.toy-A.oy)*kk;
+  let wantYaw=A.yaw, wantPitch=A.pitch;
+  if(look){ const d=V3().subVectors(look,eye); wantYaw=Math.atan2(-d.x,-d.z); wantPitch=Math.atan2(d.y,Math.hypot(d.x,d.z));
+    const step=(delta)=>{ const v=clamp(delta/P.tau,-P.turn,P.turn)*dt; return Math.abs(v)>Math.abs(delta)?delta:v; };
+    A.yaw=wrapA(A.yaw+step(wrapA(wantYaw+A.ox-A.yaw))); A.pitch=clamp(A.pitch+step(wantPitch+A.oy-A.pitch),-1,1); }
+  b.yaw=A.yaw; b.pitch=A.pitch; const cp=Math.cos(A.pitch); b.botAim=V3(-Math.sin(A.yaw)*cp,Math.sin(A.pitch),-Math.cos(A.yaw)*cp);
+  // ---- shoot when the crosshair is on them (beginners are looser about it, and fire in nervous bursts)
+  let fire=false;
+  if(eng){ const err=Math.hypot(wrapA(wantYaw-A.yaw)*Math.cos(wantPitch),wantPitch-A.pitch); const cone=Math.max(0.03,Math.atan2(e.radius||0.6,dist))*P.cone;
+    const onT=err<cone&&dist<P.range; A.onT=onT?(A.onT||0)+dt:0; fire=onT&&A.onT>=P.dwell; // squeeze once the crosshair has settled on them
+    if(fire&&!P.walls&&!hasLOS(b.muzzlePos(),look)){ fire=false; A.blockedT=gameT; } // the gun's line is blocked (they can see over it, the blaster can't): find an angle first
+    if(e.blockActive&&!A.domeWas) A.domeHold=Math.random()<P.dome; A.domeWas=e.blockActive; if(e.blockActive&&A.domeHold) fire=false; // wait out their dome
+    if(P.burst){ A.trigT-=dt; if(A.trigT<=0){ A.trig=!A.trig; A.trigT=A.trig?aiRand(P.burst):aiRand(P.pause); } if(!A.trig) fire=false; }
+    if(b.stats.pact>0&&b.hp<b.maxHp()*0.4) fire=false; }
+  /*DEBUG-START*/if(window.__aiTap) window.__aiTap('think',b,{eng,acted,known:!!e,vis:!!(k&&k.vis),fire,err:eng?Math.hypot(wrapA(wantYaw-A.yaw)*Math.cos(wantPitch),wantPitch-A.pitch)/Math.max(0.03,Math.atan2(e.radius||0.6,dist)):0,dist,hold:!!(A.holdT&&(b.reloading||gameT<A.holdT)),rel:!!b.reloading,ammo:b.ammo});/*DEBUG-END*/
+  if(fire) tryFire(b,false);
+  // ---- the dome: only for shots they actually saw coming
+  if(A.blockBul){ const bl=A.blockBul; if(!bullets.includes(bl)||b.blockActive||b.blockCdT>0) A.blockBul=null;
+    else { const sp=Math.max(1,bl.vel.length()); const t=V3().subVectors(b.center(),bl.pos).dot(bl.vel)/sp/sp; if(t<=A.blockWin){ tryBlock(b,true); A.blockBul=null; } else if(t<-0.05) A.blockBul=null; } }
+  else if(gameT>A.decidedT&&!b.blockActive){ let thr=null, tImp=9, seen=0; const dr=b.domeR()*0.9+0.4;
+    for(const bl of bullets){ const o=bl.owner; if(o===b||(o&&o.side===b.side)) continue; const sp=bl.vel.length(); if(sp<1) continue; const rel=V3().subVectors(eye,bl.pos); const along=rel.dot(bl.vel)/sp; if(along<0||along>sp*1.1) continue;
+      if(rel.addScaledVector(bl.vel,-along/sp).length()>dr) continue;
+      let s=A.bseen.get(bl); if(s===undefined){ const ok=o&&bl.age<0.15&&A.know.get(o)&&A.know.get(o).vis; if(ok) s=gameT-bl.age; else if(aiSees(b,A,P,bl.pos,aiEye(b))) s=gameT; else continue; A.bseen.set(bl,s); }
+      const t=along/sp; if(t<tImp){ tImp=t; thr=bl; seen=s; } }
+    if(thr&&gameT-seen>=P.react[0]*0.9){ A.decidedT=gameT+0.45;
+      if(b.blockCdT<=0&&b.silenceT<=0&&Math.random()<P.block){ A.blockBul=thr; A.blockWin=aiRand(P.bTime); }
+      else if(b.dashCdT<=0&&b.onGround&&Math.random()<P.dodge){ const d=V3().subVectors(eye,thr.pos); const r=V3(-thr.vel.z,0,thr.vel.x).normalize(); if(r.dot(d)<0) r.negate(); b.dashDir.copy(r); b.dashT=CFG.dashTime; b.dashCdT=CFG.dashCd; SFX.dash(); } } }
+  if(eng&&b.blockCdT<=0&&!b.blockActive){ if(b.stats.domeFx>0&&dist<b.domeR()+0.3&&Math.random()<dt*3*P.block) tryBlock(b,true); else if(P.panic&&dist<7&&Math.random()<dt*P.panic) tryBlock(b,true); } // beginners sometimes panic-dome
+  // ---- moving
+  const wish=V3(); let jump=false;
+  A.rollT-=dt; if(A.rollT<=0){ A.rollT=rand(0.8,1.4); A.coverRoll=Math.random()<P.cover; A.pushRoll=Math.random()<P.push; A.still=Math.random()<P.still; }
+  if(e&&acted){ const to=V3().subVectors(k.pos,b.pos); to.y=0; const d=to.length(); const dir=d>0.01?to.multiplyScalar(1/d):V3(1,0,0); const right=V3(-dir.z,0,dir.x);
+    const hurt=b.hp<b.maxHp()*0.3; const wantCover=A.coverRoll&&(b.reloading||hurt);
+    if(wantCover&&!A.holdT) A.holdT=gameT+(hurt?rand(2,4):0); if(!wantCover&&!b.reloading&&gameT>A.holdT) A.holdT=0;
+    A.strafeT-=dt; if(A.strafeT<=0){ if(Math.random()<0.75) A.strafe*=-1; A.strafeT=aiRand(P.strafeT); }
+    if(A.holdT&&(b.reloading||gameT<A.holdT)){ // duck out of sight until the blaster's ready, then peek
+      k.t=Math.max(k.t,gameT-0.5);
+      A.coverT-=dt; if(k.vis&&(A.coverT<=0||!A.cover)){ A.coverT=0.6; A.cover=aiCover(b,e.center()); }
+      if(A.cover&&k.vis){ const c=V3().subVectors(A.cover,b.pos); c.y=0; if(c.lengthSq()>0.25) wish.add(c.normalize()); } else if(k.vis){ wish.sub(dir); wish.addScaledVector(right,A.strafe); } }
+    else if(k.vis){ A.cover=null; const closeBuild=b.stats.hasAura||b.stats.domeFx>0; let want=closeBuild?4.5:10;
+      if(A.pushRoll&&(e.reloading||e.blockCdT>1.2||e.hp<e.maxHp()*0.3)&&!hurt) want=Math.min(want,5.5); // they're open: go for it
+      if(gameT-(A.blockedT||-9)<0.4){ wish.addScaledVector(dir,0.35); wish.addScaledVector(right,A.strafe); } else { if(d>want+3) wish.add(dir); else if(d<want-3) wish.sub(dir); wish.addScaledVector(right,A.strafe*P.strafe); }
+      if(fire&&A.still) wish.set(0,0,0); // beginners stop to shoot
+      A.jumpT-=dt; if(A.jumpT<=0){ jump=Math.random()<0.6; A.jumpT=aiRand(P.jumpT); } }
+    else if(gameT-k.seenT<3&&d<P.range){ wish.addScaledVector(dir,0.4); wish.addScaledVector(right,A.strafe); } // just lost them behind something: step sideways to find an angle
+    else { if(d>1.8) wish.add(dir); else k.t=-99; wish.addScaledVector(right,A.strafe*0.2); } } // go and check where they were; nothing there? forget it
+  else if(!e){ A.wanderT-=dt; if(!A.wander||A.wanderT<=0||Math.hypot(A.wander.x-b.pos.x,A.wander.z-b.pos.z)<2){ A.wander=aiSpot(b); A.wanderT=rand(4,8); }
+    const d=V3().subVectors(A.wander,b.pos); d.y=0; if(d.lengthSq()>0.01) wish.add(d.normalize().multiplyScalar(0.75)); }
   const nx=b.pos.x+wish.x*2.2, nz=b.pos.z+wish.z*2.2; if(Math.abs(nx)>HX-1.2) wish.x=-Math.sign(b.pos.x)*0.8; if(Math.abs(nz)>HZ-1.2) wish.z=-Math.sign(b.pos.z)*0.8;
-  if(groundAt(b.pos.x+wish.x*1.6,b.pos.z+wish.z*1.6,b.pos.y+3,0.3)===null){ wish.multiplyScalar(-1); botState.strafe*=-1; }
-  if(wish.lengthSq()>1) wish.normalize(); wish.multiplyScalar(D.speed);
-  let jump=false; botState.jumpT-=dt; if(b.pos.distanceTo(botState.lastPos)<CFG.moveSpeed*dt*0.3&&wish.lengthSq()>0.1) botState.stuckT+=dt; else botState.stuckT=0; botState.lastPos.copy(b.pos);
-  if(botState.stuckT>0.3){ jump=true; botState.stuckT=0; if(Math.random()<0.6) botState.strafe*=-1; }
-  if(botState.jumpT<=0){ jump=Math.random()<0.5; botState.jumpT=rand(1.5,3.5); }
-  botState.shootT-=dt; if(botState.shootT<=0){ botState.shooting=!botState.shooting; botState.shootT=botState.shooting?rand(D.fire[0],D.fire[1]):rand(D.rest[0],D.rest[1]); }
-  if(botState.shooting&&los&&dist<36&&!(b.stats.pact>0&&b.hp<b.maxHp()*0.4)) tryFire(b,false);
+  if(wish.lengthSq()>0.01&&groundAt(b.pos.x+wish.x*1.6,b.pos.z+wish.z*1.6,b.pos.y+3,0.3)===null){ wish.multiplyScalar(-1); A.strafe*=-1; A.wander=null; }
+  if(wish.lengthSq()>1) wish.normalize();
+  if(b.pos.distanceTo(A.lastPos)<CFG.moveSpeed*dt*0.3&&wish.lengthSq()>0.1) A.stuckT+=dt; else A.stuckT=0; A.lastPos.copy(b.pos);
+  if(A.stuckT>0.3){ jump=true; A.stuckT=0; if(Math.random()<0.6) A.strafe*=-1; A.wander=null; }
   return {wish,jump};
 }
 

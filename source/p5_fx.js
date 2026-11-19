@@ -121,7 +121,7 @@ function fatal(target,source,cause){
 function applyDamage(target,amount,source,o={}){
   if(target.dead||state!=='fight'||amount<=0||target.invulnT>0) return 0;
   if(source&&source.ctl==='ai'&&target.ctl!=='ai'&&!o.fromDecay) amount*=botLevel().dmg;
-  if(source&&source!==target){ target.lastHitBy=source; target.lastHitT=gameT; }
+  if(source&&source!==target){ target.lastHitBy=source; target.lastHitT=gameT; } /*DEBUG-START*/if(window.__aiTap&&!o.tick&&!o.fromDecay) window.__aiTap('hit',source,target);/*DEBUG-END*/
   if(target===player&&source&&source!==player&&!o.tick){ dmgFrom.copy(source.pos); dmgDirT=1; }
   if(target.stats.decay>0&&!o.tick&&!o.fromDecay){ target.decayPool+=amount; target.decaySrc=source; target.decayRate=Math.max(target.decayRate||0,target.decayPool/4); target.hitFlash=0.12; if(source&&source!==target) onDeal(source,target,amount); if(source===player&&target!==player) matchStats.dmg+=amount, roundInfo.dmg+=amount; return amount; }
   amount=Math.max(1,Math.round(amount));
@@ -177,7 +177,7 @@ function tryFire(f,pressed){
   if(f.isPlayer&&remoteCtl.b){ if(pressed){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } return false; }
   if(f.stunT>0||f.reloading||f.fireCd>0||f.ammo<=0) return false;
   if(f.stats.pact>0){ const cost=10*f.stats.pact; if(f.hp<=cost){ if(f.isPlayer&&pressed) floatText(f.center().add(V3(0,1.3,0)),'NOT ENOUGH HP','status'); return false; } f.hp-=cost; f.hitFlash=0.08; }
-  f.fireCd=f.stats.fireInt; f.ammo--; f.sinceShot=0;
+  f.fireCd=f.stats.fireInt; f.ammo--; f.sinceShot=0; /*DEBUG-START*/if(window.__aiTap) window.__aiTap('fire',f);/*DEBUG-END*/
   firePellets(f);
   if(f.stats.burst>0){ f.burstQueue=f.stats.burst; f.burstT=0.07; }
   if(f.ammo<=0){ f.reloading=true; f.reloadT=f.stats.reload; }
@@ -215,7 +215,7 @@ function findBlinkSpot(f,dist){ const base=f.forward(); for(const ang of [0,0.3,
 function doBlock(f,isEcho,afterBlink){
   const s=f.stats;
   if(s.teleport>0&&!isEcho&&!afterBlink){ const dest=findBlinkSpot(f,7+3*s.teleport); if(!dest&&f.isPlayer) floatText(f.center().add(V3(0,1.2,0)),'NO ROOM TO BLINK','status'); if(dest){ floatText(f.center().add(V3(0,1.2,0)),'BLINK!','status'); blinkFx(f,f.pos.clone(),dest.clone()); SFX.shatter(); f.blinkPending=0.36; f.invulnT=Math.max(f.invulnT,0.4); f.pos.copy(dest); f.visY=dest.y; f.onGround=true; f.dashT=0; f.vel.x=0; f.vel.z=0; f.vel.y=0; SFX.teleport(); if(!isEcho) f.blockCdT=s.blockCd; return; } }
-  f.blockActive=true; f.blockT=CFG.blockDuration; if(!isEcho&&!afterBlink) f.blockCdT=s.blockCd;
+  /*DEBUG-START*/if(window.__aiTap&&!isEcho) window.__aiTap('block',f);/*DEBUG-END*/ f.blockActive=true; f.blockT=CFG.blockDuration; if(!isEcho&&!afterBlink) f.blockCdT=s.blockCd;
   SFX.block(); const c=f.domeC(), R=f.domeR(); if(f.isPlayer&&!isEcho) matchStats.blocks++;
   shockRing(V3(c.x,c.y+0.05,c.z),f.team.light,R*1.3,0.5,R*0.2); shockRing(V3(c.x,c.y+0.07,c.z),0xffffff,R*1.05,0.3,R*0.1); flashAt(V3(c.x,c.y+R*0.5,c.z),f.team.light,R*2.4,0.25); burst(f.center(),f.team.light,12,R*2.4,0.08,0.35,0);
   for(let i=bullets.length-1;i>=0;i--){ const b=bullets[i]; if(b.owner!==f && b.pos.distanceTo(c)<R+b.r) reflectBullet(b,f); }

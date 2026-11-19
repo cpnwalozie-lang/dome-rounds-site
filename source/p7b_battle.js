@@ -19,13 +19,15 @@ let btMyName='';
 function btNetReset(f){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; }
 function btHide(f){ f.dead=true; f.hp=0; f.mesh.visible=false; for(const k of ['dome','dome2','domeRing','sawRing','aura','auraRing','statusRing']) if(f[k]) f[k].visible=false; }
 function btSeat(k,seat){ BT.seats[k]=seat; const f=btF(k), me=k===BT.me;
-  f.slot=k; f.side=k; f.name=me?btMyName:seat.n; f.peer=(!me&&!seat.b)?seat.p:null; f.ctl=me?'local':(seat.b&&btHost()?'ai':'net');
+  f.slot=k; f.side=k; f.name=me?btMyName:seat.n; f.lv=seat.b?(DIFF[seat.lv]||DIFF.normal):null; f.peer=(!me&&!seat.b)?seat.p:null; f.ctl=me?'local':(seat.b&&btHost()?'ai':'net');
   f.setTeam(TEAM[SLOT_TEAMS[k]]); if(!fighters.includes(f)) fighters.push(f); f.active=true;
   f.setCards([]); f.score=0; f.deaths=0; f.life=f.life|0; f.respawnT=0; btHide(f); btNetReset(f); aiReset(f); ffaBoardKey=''; return f; }
 function btUnseat(k,quiet){ const f=btF(k); BT.seats[k]=null;
   if(!quiet&&!f.dead&&f.mesh.visible){ burst(f.center(),f.team.light,18,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.4); }
   const i=fighters.indexOf(f); if(i>=0) fighters.splice(i,1); f.setActive(false); f.peer=null; ffaBoardKey=''; }
 
+// a public match has all sorts: some beginners, mostly good players, a few really strong ones
+const btLv=()=>{ const r=Math.random(); return r<0.3?'easy':r<0.75?'normal':'hard'; };
 // ---------- spawning ----------
 function btSpot(f){ const sp=curMap.spawns||[[0,0]]; const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false);
   const sc=sp.map(s=>{ let d=60; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1])); return {s,d:d+Math.random()*5}; }).sort((a,b)=>b.d-a.d);
@@ -44,7 +46,7 @@ function btHudOn(){ show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxm
 function btArena(){ if(curMapId!=='skyfort') applyMap('skyfort'); matchKind='battle'; mode='match'; sandbox.open=false; show(UI.sandbox,false); for(const f of ffaPool) f.setActive(false); bot.setActive(false); fighters.length=0; BT.seats=new Array(BT_N).fill(null); BT.refill={}; BT.kf=[]; BT.kfShown=BT.kfSeq; ffaRows.clear(); }
 // host or offline: a fresh line-up (you plus bots everywhere else)
 function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
-  btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true});
+  btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true,lv:btLv()});
   btNewMatch(1); }
 function btNewMatch(mid){ BT.mid=mid; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
@@ -58,7 +60,7 @@ function btEnterOver(){ if(state==='bover') return; state='bover'; btClosePick()
 function btWinnerByScore(){ let best=null; for(const f of fighters){ if(f.active===false) continue; if(!best||f.score>best.score||(f.score===best.score&&(f.deaths|0)<(best.deaths|0))) best=f; } return best; }
 
 // ---------- knockouts ----------
-function btOnKill(f,by){ f.respawnT=0;
+function btOnKill(f,by){ f.respawnT=0; /*DEBUG-START*/if(window.__aiTap) window.__aiTap('ko',by,f);/*DEBUG-END*/
   if(btHost()){ f.deaths=(f.deaths|0)+1; const cr=(by&&by!==f&&fighters.includes(by)&&gameT-(f.lastHitT||-99)<=8)?by:null;
     if(cr) cr.score=(cr.score|0)+1; BT.kf.push([++BT.kfSeq,cr?cr.slot:-1,f.slot]); if(BT.kf.length>8) BT.kf.shift();
     if(f.ctl==='ai') f.respawnT=BT_BOT_BACK; btFeed(); ffaBoardKey='';
@@ -99,7 +101,7 @@ function btTick(dt){ if(!BT.on) return; BT.t+=dt; const host=btHost();
   // bots come back after a moment, with a new card
   for(const f of fighters){ if(f.ctl!=='ai'||f.active===false||!f.dead) continue; if(f.respawnT<=0) f.respawnT=BT_BOT_BACK; f.respawnT-=dt; if(f.respawnT<=0){ botPick(f,true); btSpawn(f); } }
   // a bot takes over a spot someone left
-  for(const k in BT.refill){ if(gameT<BT.refill[k]) continue; delete BT.refill[k]; if(BT.seats[k]) continue; const used=new Set(BT.seats.filter(Boolean).map(s=>s.n)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; const f=btSeat(+k,{p:null,n,b:true}); f.respawnT=0.5; }
+  for(const k in BT.refill){ if(gameT<BT.refill[k]) continue; delete BT.refill[k]; if(BT.seats[k]) continue; const used=new Set(BT.seats.filter(Boolean).map(s=>s.n)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; const f=btSeat(+k,{p:null,n,b:true,lv:btLv()}); f.respawnT=0.5; }
   if(BT.t>=BT_TIME&&BT.ph!=='over') btEnd(btWinnerByScore());
   if(BT.ph==='count') BT.ph='fight'; }
 // the scoreboard between matches
@@ -112,7 +114,7 @@ function btOver(dt){ BT.overT-=dt; let sdt=dt; if(slowMoT>0){ slowMoT-=dt; sdt=d
   if(btHost()&&BT.overT<=0) btNewMatch(BT.mid+1); }
 function btScoreboard(){ const w=btSeatedF(BT.w); const L=fighters.filter(f=>f.active!==false).sort((a,b)=>(b.score-a.score)||((a.deaths|0)-(b.deaths|0)));
   UI.btOverTitle.textContent=w===player?'YOU WIN!':w?esc(w.name).toUpperCase()+' WINS':'MATCH OVER'; UI.btOverTitle.className='title stroke '+(w===player?'win':'lose');
-  UI.btRows.innerHTML='<div class="bo-h"><span></span><span>Player</span><span>KOs</span><span>Outs</span></div>'+L.map((f,i)=>`<div class="bo-r${f===player?' me':''}" style="--c:${f.team.css}"><span class="bo-n">${i+1}</span><span class="bo-nm"><i></i>${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}${f.ctl!=='local'&&!f.peer?' <em>bot</em>':''}</span><b>${f.score|0}</b><span>${f.deaths|0}</span></div>`).join(''); }
+  UI.btRows.innerHTML='<div class="bo-h"><span></span><span>Player</span><span>KOs</span><span>Outs</span></div>'+L.map((f,i)=>`<div class="bo-r${f===player?' me':''}" style="--c:${f.team.css}"><span class="bo-n">${i+1}</span><span class="bo-nm"><i></i>${esc(f===player?btMyName:f.name)}${f===player?' <small>(you)</small>':''}${f.ctl!=='local'&&!f.peer?` <em>${f.lv?f.lv.name.toLowerCase()+' bot':'bot'}</em>`:''}</span><b>${f.score|0}</b><span>${f.deaths|0}</span></div>`).join(''); }
 
 // ---------- HUD ----------
 let btBoardKey='';
@@ -161,7 +163,7 @@ function btGoOnline(r,n){ netReset(); NET.room=r; NET.on=true; NET.kind='battle'
   try{ const u=new URL(location.href); if(u.searchParams.get('battle')){ u.searchParams.delete('battle'); history.replaceState(null,'',u.pathname+u.search+u.hash); } }catch(e){} }
 function btStartOffline(note){ if(NET.on) netLeave(); BT.online=false; BT.no=0; btMyName=btMyName||btName(); btBegin(); btMsg(''); if(note) setTimeout(()=>toast(note,'status'),400); }
 function btDrop(why){ const was=BT.on; netLeave(); BT.online=false; if(was&&state!=='menu'){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); btMsg(why,true); },1400); } else btMsg(why,true); }
-function btStop(){ BT.on=false; BT.online=false; btClosePick(); if(UI.btOver) show(UI.btOver,false); UI.hud.classList.remove('battlemode'); if(UI.ffaBoard) delete UI.ffaBoard.dataset.k; btBoardKey=''; }
+function btStop(){ for(const f of [bot,...ffaPool]) f.lv=null; BT.on=false; BT.online=false; btClosePick(); if(UI.btOver) show(UI.btOver,false); UI.hud.classList.remove('battlemode'); if(UI.ffaBoard) delete UI.ffaBoard.dataset.k; btBoardKey=''; }
 // the referee job moved (the old host left)
 function btHostChanged(h){ if(!BT.online) return; const me=myPeerId(), old=NET.hostPeer;
   if(h===me){ NET.role='host'; NET.hostPeer=null; if(!BT.on){ btBegin(); btMsg(''); return; } toast('<b>You\'re now running this match</b> (the last host left)','status');
@@ -176,7 +178,7 @@ function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.roun
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
 function btState(){ const A=fn=>BT.seats.map((s,k)=>s?fn(btF(k)):0);
-  return { m:BT.mid, ph:BT.ph, t:Math.round(BT.t*10)/10, w:BT.w, ot:Math.round(BT.overT*10)/10, st:BT.seats.map(s=>s?[s.b?'':s.p,s.n,s.b?1:0]:0),
+  return { m:BT.mid, ph:BT.ph, t:Math.round(BT.t*10)/10, w:BT.w, ot:Math.round(BT.overT*10)/10, st:BT.seats.map(s=>s?[s.b?'':s.p,s.n,s.b?1:0,s.lv||'']:0),
     k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6) }; }
 
 // ---------- what we receive ----------
@@ -207,10 +209,10 @@ function btJoin(k,B){ btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|
   toast(`<b>You're in match #${BT.no}.</b> First to ${BT_WIN} knockouts wins`,'status'); }
 function btApplySeats(B,first){ for(let k=0;k<BT_N;k++){ const a=B.st[k]; const cur=BT.seats[k];
     if(!Array.isArray(a)){ if(cur&&k!==BT.me) btUnseat(k); continue; }
-    const want={p:a[0]||null,n:cleanName(a[1]),b:!!a[2]};
+    const want={p:a[0]||null,n:cleanName(a[1]),b:!!a[2],lv:DIFF[a[3]]?a[3]:'normal'};
     if(k===BT.me){ if(!cur){ BT.seats[k]={p:myPeerId(),n:btMyName,b:false}; btSeat(k,BT.seats[k]); } continue; }
     if(!cur||cur.b!==want.b||(!want.b&&cur.p!==want.p)){ if(cur) btUnseat(k,first); btSeat(k,want); }
-    else if(cur.n!==want.n){ cur.n=want.n; btF(k).name=want.n; ffaBoardKey=''; } } }
+    else { if(cur.n!==want.n){ cur.n=want.n; btF(k).name=want.n; ffaBoardKey=''; } if(cur.b&&cur.lv!==want.lv){ cur.lv=want.lv; btF(k).lv=DIFF[want.lv]; } } } }
 function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return; }
   if(isNum(B.t)) BT.t=B.t; if(isNum(B.w)) BT.w=B.w;
   if(B.ph==='over'){ BT.overT=isNum(B.ot)?B.ot:BT.overT; if(BT.ph!=='over'){ BT.ph='over'; btEnterOver(); } } else if(B.ph==='fight'&&BT.ph==='count') BT.ph='fight';
@@ -254,4 +256,4 @@ function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) retur
 
 btHook={ get picking(){ return BT.picking; }, lockFree:()=>BT.on&&player.dead, onKill:btOnKill, tick:btTick, over:btOver, hud:btHud, board:btBoard, placeAll:btPlaceAll, play:()=>btPlay(), stop:btStop,
   peers:btPeers, send:btSend, netTick:btNetTick, pauseUI:btPauseUI, menuUI:btMenuUI };
-/*DEBUG-START*/window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
+/*DEBUG-START*/window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
