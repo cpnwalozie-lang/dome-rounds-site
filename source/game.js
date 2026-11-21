@@ -3524,7 +3524,12 @@ const CLIP=(()=>{
       const vs=chunks.slice(k), dur=(last-t0)/1e6+1/FPS, au=as.length>2;
       const target=new Mp4Muxer.ArrayBufferTarget();
       const mux=new Mp4Muxer.Muxer({target, video:{codec:kind,width:W,height:H}, audio:au?{codec:aKind,numberOfChannels:2,sampleRate:sr}:undefined, fastStart:'in-memory', firstTimestampBehavior:'cross-track-offset'});
-      vs.forEach((c,i)=>{ const d=new Uint8Array(c.byteLength); c.copyTo(d); const nx=vs[i+1]; mux.addVideoChunkRaw(d,c.type,c.timestamp-t0,nx?nx.timestamp-c.timestamp:Math.round(1e6/FPS),i===0?{decoderConfig:decCfg}:undefined); });
+      // even timing: put every frame on a steady beat (the clip's usual frame gap), so phone galleries and chat apps play it smoothly.
+      // Each frame moves at most half a frame from when it really happened, so sound stays in sync.
+      const gaps=vs.slice(1).map((c,i)=>c.timestamp-vs[i].timestamp).filter(g=>g>0).sort((x,y)=>x-y);
+      const D=Math.min(5e4,Math.max(1e6/60,gaps.length?gaps[gaps.length>>1]:1e6/FPS)); let prev=-1;
+      const ts=vs.map(c=>{ let sl=Math.round((c.timestamp-t0)/D); if(sl<=prev) sl=prev+1; prev=sl; return Math.round(sl*D); });
+      vs.forEach((c,i)=>{ const d=new Uint8Array(c.byteLength); c.copyTo(d); mux.addVideoChunkRaw(d,c.type,ts[i],i+1<ts.length?ts[i+1]-ts[i]:Math.round(D),i===0?{decoderConfig:decCfg}:undefined); });
       if(au) as.forEach((c,i)=>{ const d=new Uint8Array(c.byteLength); c.copyTo(d); const nx=as[i+1]; mux.addAudioChunkRaw(d,c.type,c.timestamp-t0,nx?nx.timestamp-c.timestamp:(c.duration||2e4),i===0?{decoderConfig:aDecCfg}:undefined); });
       mux.finalize(); const blob=new Blob([target.buffer],{type:'video/mp4'});
       const d=new Date(), p=v=>String(v).padStart(2,'0'); const name=`dome-rounds-clip-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.mp4`;
