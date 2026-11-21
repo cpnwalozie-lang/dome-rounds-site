@@ -6,6 +6,7 @@ const CLIP=(()=>{
   const LEN=20, KEEP=21.5, FPS=30;
   const OK=typeof VideoEncoder==='function'&&typeof VideoFrame==='function'&&typeof EncodedVideoChunk==='function'&&typeof Mp4Muxer!=='undefined';
   let enc=null, kind='', decCfg=null, W=0, H=0, bitrate=0, starting=false, dead=!OK;
+  let nFr=0, kStep=2, lastT=0, dts=[], nGot=0, nMiss=0, small=false; try{ small=localStorage.getItem('domeRoundsClipSmall')==='1'; }catch(e){} // frame pacing + 'this device is struggling' memory
   const cv=document.createElement('canvas'); let cx=null;
   let chunks=[], achunks=[], segs=[], live=false, rec=0, lastCapR=-1, lastKeyR=-99, minTs=0, nCap=0, needReset=false;
   let clock=()=>performance.now()/1000, actx=null, tapNode=null, tapTried=false, sr=48000;
@@ -14,7 +15,7 @@ const CLIP=(()=>{
 
   const wanted=()=>settings.clips&&!paused&&(state==='fight'||state==='countdown'||state==='roundover')&&document.visibilityState==='visible';
   function sizeFor(){ const dpr=Math.min(2,window.devicePixelRatio||1), iw=window.innerWidth*dpr, ih=window.innerHeight*dpr;
-    const L=(GPU_WEAK||settings.quality==='low')?960:1280, S=L*0.5625; const k=Math.min(1,L/Math.max(iw,ih),S/Math.min(iw,ih));
+    const L=(GPU_WEAK||settings.quality==='low'||small)?960:1280, S=L*0.5625; const k=Math.min(1,L/Math.max(iw,ih),S/Math.min(iw,ih));
     return [Math.max(2,Math.round(iw*k/2)*2), Math.max(2,Math.round(ih*k/2)*2)]; }
   function setUI(){ const on=OK&&settings.clips; if(btn){ btn.style.display=on&&!TOUCH.on?'':'none'; btn.classList.toggle('live',live); btn.classList.toggle('busy',busy); } if(tBtn) tBtn.classList.toggle('off',!on); }
 
@@ -23,8 +24,8 @@ const CLIP=(()=>{
     try{ [W,H]=sizeFor(); cv.width=W; cv.height=H; cx=cv.getContext('2d',{alpha:false}); bitrate=W*H>700000?6e6:3.5e6;
       const tries=[['avc1.42E01F','avc'],['avc1.4D401F','avc'],['avc1.640028','avc'],['vp09.00.31.08','vp9'],['av01.0.05M.08','av1']];
       let cfg=null;
-      for(const [codec,k] of tries){ const c={codec,width:W,height:H,bitrate,framerate:FPS,latencyMode:'realtime'}; if(k==='avc') c.avc={format:'avc'};
-        try{ const s=await VideoEncoder.isConfigSupported(c); if(s&&s.supported){ cfg=c; kind=k; break; } }catch(e){} }
+      for(const hw of ['prefer-hardware','no-preference']){ for(const [codec,k] of tries){ const c={codec,width:W,height:H,bitrate,framerate:FPS,latencyMode:'realtime',hardwareAcceleration:hw}; if(k==='avc') c.avc={format:'avc'};
+        try{ const s=await VideoEncoder.isConfigSupported(c); if(s&&s.supported){ cfg=c; kind=k; break; } }catch(e){} } if(cfg) break; } // the video chip encodes far faster than the processor
       if(!cfg){ dead=true; setUI(); return; }
       enc=new VideoEncoder({ output:(ch,meta)=>{ if(meta&&meta.decoderConfig) decCfg=meta.decoderConfig; if(ch.timestamp<minTs) return; if(!chunks.length&&ch.type!=='key') return; chunks.push(ch); prune(); },
         error:e=>{ console.warn('clip encoder',e); stop(); dead=true; setUI(); } });
@@ -32,7 +33,10 @@ const CLIP=(()=>{
     }catch(e){ console.warn('clip start',e); dead=true; enc=null; }
     finally{ starting=false; setUI(); } }
   function stop(){ try{ if(enc&&enc.state!=='closed') enc.close(); }catch(e){} enc=null; decCfg=null; chunks=[]; segs=[]; live=false; stopAudio(); setUI(); }
-  function reset(){ minTs=Math.round((rec+0.5)*1e6); rec+=0.5; chunks=[]; segs=[]; lastKeyR=-99; stopAudio(); startAudio(); }
+  // a device that keeps dropping frames records smaller clips from the next match on (remembered on this device)
+  function clipStrain(){ if(small||nGot+nMiss<120||nMiss/(nGot+nMiss)<0.12) return; small=true; try{ localStorage.setItem('domeRoundsClipSmall','1'); }catch(e){} needSmaller=true; }
+  let needSmaller=false;
+  function reset(){ if(needSmaller&&enc){ needSmaller=false; try{ enc.close(); }catch(e){} enc=null; } nGot=0; nMiss=0; lastT=0; minTs=Math.round((rec+0.5)*1e6); rec+=0.5; chunks=[]; segs=[]; lastKeyR=-99; stopAudio(); startAudio(); }
   function prune(){ if(!chunks.length) return; const cut=chunks[chunks.length-1].timestamp-KEEP*1e6; let k=0;
     for(let i=1;i<chunks.length&&chunks[i].timestamp<=cut;i++) if(chunks[i].type==='key') k=i;
     if(k>0) chunks.splice(0,k); const a0=chunks[0].timestamp-3e5; let j=0; while(j<achunks.length&&achunks[j].timestamp<a0) j++; if(j) achunks.splice(0,j); }
@@ -96,8 +100,13 @@ const CLIP=(()=>{
     const t=tFrame||clock();
     if(!live){ live=true; segs.push({c0:t,r0:rec+1/FPS,c1:null}); if(segs.length>6) segs.shift(); setUI(); }
     const s=segs[segs.length-1], r=s.r0+(t-s.c0);
-    if(r-lastCapR<1/FPS-0.004||r<=rec) return;
-    if(enc.encodeQueueSize>3) return;                                  // the encoder is behind: skip a frame rather than slow the game down
+    // keep every k-th game frame (every 2nd on a 60Hz screen, every 4th on 120Hz...), so the clip follows the game's own
+    // rhythm and a slightly uneven frame now and then doesn't leave a frame on screen 50% longer than the rest
+    if(lastT){ const d=t-lastT; if(d>0&&d<0.25){ dts.push(d); if(dts.length>60) dts.shift(); } } lastT=t;
+    if(++nFr%30===0&&dts.length>=20){ const m=dts.slice().sort((a,b)=>a-b)[dts.length>>1], want=(1/m)/FPS; if(Math.abs(want-kStep)>0.65) kStep=Math.max(1,Math.round(want)); }
+    if(r<=rec||nFr%kStep!==0) return;
+    if(enc.encodeQueueSize>3){ nMiss++; clipStrain(); return; }         // the encoder is behind: skip a frame rather than slow the game down
+    nGot++; if(nGot>600){ nGot=Math.round(nGot/2); nMiss=Math.round(nMiss/2); }
     if((++nCap)%60===0){ const [w,h]=sizeFor(); if(Math.abs(w/h-W/H)>0.02){ stop(); return; } }
     try{ cx.drawImage(renderer.domElement,0,0,W,H); overlay();
       const vf=new VideoFrame(cv,{timestamp:Math.round(r*1e6),duration:Math.round(1e6/FPS)}); const key=r-lastKeyR>=1; enc.encode(vf,{keyFrame:key}); vf.close();
