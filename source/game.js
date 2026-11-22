@@ -4030,7 +4030,7 @@ async function btPlay(friendNo){ if(BT.joining) return; SFX.unlock(); if(NET.on)
     btMsg('Every match is full right now, so here\'s one with bots.',true); btStartOffline(); }
   catch(e){ btStartOffline('<b>Couldn\'t reach the game server</b>, so this is an offline match with bots.'); }
   finally{ BT.joining=false; } }
-function btGoOnline(r,n){ netReset(); NET.room=r; NET.on=true; NET.kind='battle'; NET.role=r.role(); NET.code=String(n); NET.joinT=performance.now(); NET.hostPeer=NET.role==='host'?null:r.host(); NET.hits=[]; NET.hitSeq=0; NET.hitSeen={}; NET.clk={}; NET.shots=[]; NET.shotId=0; NET.blockN=0;
+function btGoOnline(r,n){ netReset(); NET.room=r; NET.on=true; NET.kind='battle'; NET.role=r.role(); NET.code=String(n); NET.joinT=performance.now(); NET.hostPeer=NET.role==='host'?null:r.host(); NET.hits=[]; NET.hitSeq=0; NET.hitSeen={}; NET.clk={}; NET.shots=[]; NET.shotId=0; NET.blockN=0; NET.started=true; /* a Battle is always under way: without this nobody's hits were shared, so guests' shots never hurt anyone on the referee's screen */
   BT.online=true; BT.no=n; BT.lastHost=performance.now(); BT.waitT=0;
   r.onPeers(ch=>netPeers(ch)); r.onHost(h=>btHostChanged(h)); r.onClose(()=>{ if(BT.online) btDrop('Lost the connection to the match.'); });
   if(NET.role==='host'){ btBegin(); btMsg(''); } else { BT.on=false; btMsg(`Joining match #${n}…`); }
