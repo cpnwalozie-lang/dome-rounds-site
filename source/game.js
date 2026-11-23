@@ -244,6 +244,7 @@ const SFX=(()=>{
       for(const at of [0.62,1.74]){ osc('sine',98,66,0.7,0.32,{at,a:0.004}); nz(0.25,0.07,900,200,{at,rv:0.4}); }
       [1568,2093,2637,3136,4186].forEach((f,i)=>osc('triangle',f,f,0.4,0.03,{at:1.85+i*0.07,rv:0.9}));
       for(let i=0;i<14;i++){ const at=0.55+i*0.2, v=0.05*Math.min(1,(i+1)/4)*(i>9?(14-i)/4:1); nz(0.45,v,1300+Math.random()*900,1100+Math.random()*900,{ft:'bandpass',q:0.7,at,a:0.15,rv:0.5}); } },
+    caught:()=>{ [[523,0],[392,0.16],[262,0.34]].forEach(([f,at])=>{ osc('square',f,f*0.97,0.16,0.07,{at,lp:[3000,900]}); }); osc('sawtooth',110,90,0.6,0.09,{at:0.52,lp:[1200,300]}); nz(0.25,0.05,1800,600,{ft:'bandpass',at:0.52}); },
     stamp:()=>{ osc('sine',92,36,0.5,0.5,{a:0.002}); nz(0.35,0.28,2200,180,{ft:'lowpass',rv:0.6}); osc('square',220,110,0.12,0.05,{lp:[2000,400]}); },
     coin:()=>{ osc('square',1320,1320,0.05,0.04,{lp:[6000,3000]}); osc('square',1760,1760,0.08,0.035,{at:0.045,lp:[6000,3000],rv:0.3}); },
     levelup:()=>{ [[784,0],[988,0.07],[1175,0.14],[1568,0.21]].forEach(([f,at])=>{ osc('square',f,f,0.16,0.05,{at,lp:[7000,2500],rv:0.5}); osc('sine',f*2,f*2,0.2,0.02,{at,rv:0.8}); }); nz(0.5,0.05,6000,9000,{ft:'highpass',at:0.2,a:0.05,rv:0.7}); },
@@ -2364,7 +2365,7 @@ function tryFire(f,pressed){
   if(f.isPlayer&&remoteCtl.b){ if(pressed){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } return false; }
   if(f.stunT>0||f.reloading||f.fireCd>0||f.ammo<=0) return false;
   if(f.stats.pact>0){ const cost=10*f.stats.pact; if(f.hp<=cost){ if(f.isPlayer&&pressed) floatText(f.center().add(V3(0,1.3,0)),'NOT ENOUGH HP','status'); return false; } f.hp-=cost; f.hitFlash=0.08; }
-  f.fireCd=f.stats.fireInt; f.ammo--; f.sinceShot=0; /*DEBUG-START*/if(window.__aiTap) window.__aiTap('fire',f);/*DEBUG-END*/
+  f.fireCd=f.stats.fireInt; f.ammo--; f.sinceShot=0; f.lastFireT=gameT; /*DEBUG-START*/if(window.__aiTap) window.__aiTap('fire',f);/*DEBUG-END*/
   firePellets(f);
   if(f.stats.burst>0){ f.burstQueue=f.stats.burst; f.burstT=0.07; }
   if(f.ammo<=0){ f.reloading=true; f.reloadT=f.stats.reload; }
@@ -3113,7 +3114,7 @@ function moveFighter(f,dt,wish,wantJump){ if(dt>0.02){ moveFighter(f,dt*0.5,wish
   f.wasGround=f.onGround;
   if(g!==null&&f.vel.y<=0&&(f.pos.y<=g+0.01||(f.wasGround&&f.pos.y-g<0.35))){ if(!f.wasGround&&f.vel.y<-7){ f.squash=Math.min(1,-f.vel.y/18); burst(V3(f.pos.x,g+0.1,f.pos.z),0xe9edf3,7,2.8,0.09,0.35,0.3); shockRing(V3(f.pos.x,g+0.06,f.pos.z),0xffffff,1.3,0.3); if(f.isPlayer) SFX.land(); } f.pos.y=g; f.vel.y=0; f.onGround=true; } else f.onGround=false;
   if(f.pos.y+f.height>18){ f.pos.y=18-f.height; f.vel.y=Math.min(f.vel.y,0); }
-  if((f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)&&!f.dead&&state==='fight'){ const wet=curMapId==='dock', lava=!!curMap.lava; if(wet){ burst(V3(f.pos.x,-1,f.pos.z),0xbfe6ff,24,7,0.16,0.9); burst(V3(f.pos.x,-1,f.pos.z),0xffffff,12,5,0.12,0.7); } if(lava){ burst(V3(f.pos.x,-1.3,f.pos.z),0xff6a1a,30,8,0.18,1.0,-0.4); burst(V3(f.pos.x,-1.3,f.pos.z),0xffd060,14,5,0.12,0.8,-0.6); flashAt(V3(f.pos.x,-0.8,f.pos.z),0xff6a1a,6,0.4); } floatText(V3(f.pos.x,0.6,f.pos.z),wet?'SPLASH!':(lava?'MELTED!':'FELL!'),'status'); f.invulnT=0; fatal(f,f.lastHitBy,'fall'); }
+  if((f.pos.y<CFG.killY||Math.abs(f.pos.x)>HX+28||Math.abs(f.pos.z)>HZ+28)&&!f.dead&&state==='fight'){ const wet=curMapId==='dock', lava=!!curMap.lava; if(wet){ burst(V3(f.pos.x,-1,f.pos.z),0xbfe6ff,24,7,0.16,0.9); burst(V3(f.pos.x,-1,f.pos.z),0xffffff,12,5,0.12,0.7); } if(lava){ burst(V3(f.pos.x,-1.3,f.pos.z),0xff6a1a,30,8,0.18,1.0,-0.4); burst(V3(f.pos.x,-1.3,f.pos.z),0xffd060,14,5,0.12,0.8,-0.6); flashAt(V3(f.pos.x,-0.8,f.pos.z),0xff6a1a,6,0.4); } floatText(V3(f.pos.x,0.6,f.pos.z),wet?'SPLASH!':(lava?'MELTED!':'FELL!'),'status'); f.invulnT=0; f.fellT=gameT; fatal(f,f.lastHitBy,'fall'); }
 }
 function separateFighters(){ const L0=fighters.filter(f=>!f.dead&&f.active!==false); for(let i=0;i<L0.length;i++) for(let j=i+1;j<L0.length;j++){ const a=L0[i], b=L0[j]; if(Math.abs(a.pos.y-b.pos.y)>1.8) continue; const d=V3().subVectors(b.pos,a.pos); d.y=0; const L=d.length(); const min=a.radius+b.radius+0.1; if(L<min&&L>0.001){ d.multiplyScalar((min-L)/L*0.5); if(b.ctl!=='net') b.pos.add(d); if(a.ctl!=='net') a.pos.sub(d); } } }
 function tickDamage(f,key,dps,dt,target,cause,colr){ f[key]=(f[key]||0)+dps*dt; if(f[key]>=3){ const n=Math.floor(f[key]); f[key]-=n; applyDamage(target,n,f,{tick:true,cause}); if(colr) burst(target.center(),colr,2,1.5,0.08,0.5,-0.3); return n; } return 0; }
@@ -3844,7 +3845,7 @@ const btLv=()=>'normal';
 function btSpot(f){ const sp=curMap.spawns||[[0,0]]; const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false);
   const sc=sp.map(s=>{ let d=60; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1])); return {s,d:d+Math.random()*5}; }).sort((a,b)=>b.d-a.d);
   return sc[Math.floor(Math.random()*Math.min(3,sc.length))].s; }
-function btSpawn(f){ const s=btSpot(f); const g=groundAt(s[0],s[1],20,0.3);
+function btSpawn(f){ if(f===player){ BT.spawnT=gameT; BT.pushT=-99; } const s=btSpot(f); const g=groundAt(s[0],s[1],20,0.3);
   f.resetRound(); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos);
   f.invulnT=BT_SHIELD; f.life=(f.life|0)+1; f.respawnT=0; aiReset(f); f.setMood('normal',0);
   burst(f.center(),f.team.light,16,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.45); }
@@ -3860,14 +3861,14 @@ function btArena(){ if(curMapId!=='skyfort') applyMap('skyfort'); matchKind='bat
 function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true,lv:btLv()});
   btNewMatch(1); }
-function btNewMatch(mid){ btChampHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
+function btNewMatch(mid){ btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
   for(const f of fighters) if(btOwns(f)) btSpawn(f);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
   state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); SFX.music('fight'); ffaBoardKey='';
   if(!BT.introDone){ BT.introDone=true; tipsT=0; setTimeout(()=>{ if(BT.on) toast('<b>First to 10 knockouts wins.</b> Get knocked out and you pick a card','status'); },3300); } }
 function btEnd(w){ BT.ph='over'; BT.w=w?w.slot:-1; BT.overT=BT_OVER; btEnterOver(); }
-function btEnterOver(){ if(state==='bover') return; state='bover'; btClosePick(); exitLock(); slowMoT=0.9; shakeT=Math.max(shakeT,0.3); BT.overShown=false; firePressed=false; fireHeld=false;
+function btEnterOver(){ if(state==='bover') return; state='bover'; btClosePick(); btCaughtHide(); exitLock(); slowMoT=0.9; shakeT=Math.max(shakeT,0.3); BT.overShown=false; firePressed=false; fireHeld=false;
   const w=btSeatedF(BT.w), L=btRecordEnd(w===player); if(w&&fighters.includes(w)){ btChampion(L,w); return; } // everyone watches the winner celebrate
   showBanner(w?esc(w.name).toUpperCase()+' WINS':'TIME!','#e0364f','lose'); SFX.lose(); }
 function btWinnerByScore(){ let best=null; for(const f of fighters){ if(f.active===false) continue; if(!best||f.score>best.score||(f.score===best.score&&(f.deaths|0)<(best.deaths|0))) best=f; } return best; }
@@ -3878,7 +3879,7 @@ function btOnKill(f,by){ f.respawnT=0; /*DEBUG-START*/if(window.__aiTap) window.
     if(cr) cr.score=(cr.score|0)+1; BT.kf.push([++BT.kfSeq,cr?cr.slot:-1,f.slot]); if(BT.kf.length>8) BT.kf.shift();
     if(f.ctl==='ai') f.respawnT=BT_BOT_BACK; btFeed(); ffaBoardKey='';
     if(cr&&cr.score>=BT_WIN&&BT.ph!=='over') btEnd(cr); }
-  if(f===player){ BT.streak=0; specT=(by&&by!==player&&!by.dead)?by:null; BT.deadT=1.0; BT.first=false; if(state==='fight') showBanner('KNOCKED OUT!','#e0364f','lose'); } }
+  if(f===player){ BT.caught=btJumpedOff(); if(BT.caught) btCaughtShow(); BT.streak=0; specT=(by&&by!==player&&!by.dead)?by:null; BT.deadT=BT.caught?3.2:1.0; BT.first=false; if(state==='fight'&&!BT.caught) showBanner('KNOCKED OUT!','#e0364f','lose'); } }
 function btFeed(){ for(const e of BT.kf){ if(e[0]<=BT.kfShown) continue; BT.kfShown=e[0]; const k=btSeatedF(e[1]), v=btSeatedF(e[2]); if(!v) continue;
   const nm=x=>x===player?'You':esc(x.name); const c=x=>`<b style="color:${btTxt(x)}">${nm(x)}</b>`;
   const cls=v===player?'bot':(k===player?'you':'status');
@@ -3887,6 +3888,24 @@ function btFeed(){ for(const e of BT.kf){ if(e[0]<=BT.kfShown) continue; BT.kfSh
 
 // name colour that stays readable on the dark toasts
 const btTxt=f=>f.team===TEAM.black?'#b4bdd2':f.team===TEAM.player?'#6fe9ff':f.team.css;
+// ---------- jumping off on purpose to farm cards ----------
+// Getting knocked out gives you a card, so some people jump off the map to stack cards faster. Your own game judges
+// each of your falls: pushed or blasted off (hit or shoved in the last few seconds) is a normal knockout; slipping off
+// mid-fight is a mistake and still gets a card; going over with nobody around, or straight after spawning, looks
+// deliberate. The first two of those in a match are let go quietly; after that: no card, the "caught" screen, and back in.
+const BT_FREE_JUMPS=2;
+function btJumpedOff(){ const P=player; if(gameT-(P.fellT||-99)>2.5&&P.pos.y>CFG.killY+0.5) return false; // not a fall
+  if(gameT-(P.lastHitT||-99)<5||gameT-(BT.pushT||-99)<3) return false;                      // pushed, shot or blasted off
+  const at=BT.ground||P.pos, near=fighters.some(e=>e!==P&&!e.dead&&e.active!==false&&Math.hypot(e.pos.x-at.x,e.pos.z-at.z)<14);
+  const fighting=near&&(gameT-(P.lastFireT||-99)<3||gameT-(P.lastHitT||-99)<6);
+  const fresh=gameT-(BT.spawnT||-99)<6;                                                       // ran off right after spawning
+  /*DEBUG-START*/window.__jdbg={near,fighting,fresh,fire:gameT-(P.lastFireT||-99),hit:gameT-(P.lastHitT||-99),at:[at.x,at.z],gameT};/*DEBUG-END*/
+  if(fighting&&!fresh) return false;                                                          // a slip in the middle of a fight
+  BT.sus=(BT.sus|0)+1; return BT.sus>BT_FREE_JUMPS; }
+function btCaughtShow(){ const el=document.getElementById('btCaught'); if(!el) return; el._s=0; document.getElementById('bcBack').textContent='';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); BT.deadT=3.2; SFX.caught(); shakeT=Math.max(shakeT,0.25); }
+function btCaughtHide(){ BT.caught=false; const el=document.getElementById('btCaught'); if(el) el.classList.remove('show'); }
+
 // ---------- the card picker (you're out: pick one, then you're back) ----------
 function btOpenPick(first){ if(BT.picking) return; BT.picking=true; BT.first=first; BT.pickT=BT_PICK;
   const opts=pick3(); const rec=coachPick(opts,true); pad.focus=Math.max(0,opts.indexOf(rec.id));
@@ -3906,8 +3925,12 @@ function btClosePick(){ BT.picking=false; UI.draft.classList.remove('bpick'); if
 
 // ---------- every fight frame ----------
 function btTick(dt){ if(!BT.on) return; BT.t+=dt; const host=btHost();
+  if(!player.dead){ if(player.onGround&&player.pos.y>CFG.killY+2){ BT.ground=BT.ground||V3(); BT.ground.copy(player.pos); } // where you last stood (on the map)
+    if(player.dashT<=0&&Math.hypot(player.vel.x,player.vel.z)>CFG.moveSpeed*1.6) BT.pushT=gameT; } // flying faster than you can run = something shoved you
   // your own way back in
-  if(player.dead&&!BT.picking){ BT.deadT-=dt; if(BT.deadT<=0) btOpenPick(BT.first); }
+  if(player.dead&&BT.caught){ BT.deadT-=dt; const el=document.getElementById('btCaught'), s=Math.max(1,Math.ceil(BT.deadT+0.0001)); if(el&&el._s!==s){ el._s=s; document.getElementById('bcBack').textContent=`Back in ${s}…`; }
+    if(BT.deadT<=0){ BT.caught=false; btCaughtHide(); if(state==='fight'||state==='countdown') btSpawn(player); } }
+  else if(player.dead&&!BT.picking){ BT.deadT-=dt; if(BT.deadT<=0) btOpenPick(BT.first); }
   if(BT.picking){ BT.pickT-=dt; const sl=Math.max(0,Math.ceil(BT.pickT)); if(UI.draftClock._s!==sl){ UI.draftClock._s=sl; UI.draftClock.textContent=sl+'s'; UI.draftClock.classList.toggle('warn',sl<=3); if(sl<=3&&sl>0) SFX.tick(); }
     if(BT.pickT<=0){ const el=[...UI.cards.children].find(c=>c.classList.contains('rec'))||UI.cards.children[0]; if(el) el.click(); } }
   if(!host) return;
@@ -4043,7 +4066,7 @@ function btGoOnline(r,n){ netReset(); NET.room=r; NET.on=true; NET.kind='battle'
   try{ const u=new URL(location.href); if(u.searchParams.get('battle')){ u.searchParams.delete('battle'); history.replaceState(null,'',u.pathname+u.search+u.hash); } }catch(e){} }
 function btStartOffline(note){ if(NET.on) netLeave(); BT.online=false; BT.no=0; btMyName=btMyName||btName(); btBegin(); btMsg(''); if(note) setTimeout(()=>toast(note,'status'),400); }
 function btDrop(why){ const was=BT.on; netLeave(); BT.online=false; if(was&&state!=='menu'){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); btMsg(why,true); },1400); } else btMsg(why,true); }
-function btStop(){ btChampHide(); for(const f of [bot,...ffaPool]) f.lv=null; BT.on=false; BT.online=false; btClosePick(); if(UI.btOver) show(UI.btOver,false); UI.hud.classList.remove('battlemode'); if(UI.ffaBoard) delete UI.ffaBoard.dataset.k; btBoardKey=''; }
+function btStop(){ btChampHide(); btCaughtHide(); for(const f of [bot,...ffaPool]) f.lv=null; BT.on=false; BT.online=false; btClosePick(); if(UI.btOver) show(UI.btOver,false); UI.hud.classList.remove('battlemode'); if(UI.ffaBoard) delete UI.ffaBoard.dataset.k; btBoardKey=''; }
 // the referee job moved (the old host left)
 function btHostChanged(h){ if(!BT.online) return; const me=myPeerId(), old=NET.hostPeer;
   if(h===me){ NET.role='host'; NET.hostPeer=null; if(!BT.on){ btBegin(); btMsg(''); return; } toast('<b>You\'re now running this match</b> (the last host left)','status');
@@ -4136,7 +4159,7 @@ function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) retur
 
 btHook={ cam:btChampCam, get picking(){ return BT.picking; }, lockFree:()=>BT.on&&player.dead, onKill:btOnKill, tick:btTick, over:btOver, hud:btHud, board:btBoard, placeAll:btPlaceAll, play:()=>btPlay(), stop:btStop,
   peers:btPeers, send:btSend, netTick:btNetTick, pauseUI:btPauseUI, menuUI:btMenuUI };
-/*DEBUG-START*/window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
+/*DEBUG-START*/window.__jump=()=>({sus:BT.sus|0,caught:!!BT.caught}); window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
 
 // ================= MENU: Public or Private =================
 // Public = jump straight into a Battle with whoever's online.

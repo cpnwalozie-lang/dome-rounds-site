@@ -177,7 +177,7 @@ function tryFire(f,pressed){
   if(f.isPlayer&&remoteCtl.b){ if(pressed){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } return false; }
   if(f.stunT>0||f.reloading||f.fireCd>0||f.ammo<=0) return false;
   if(f.stats.pact>0){ const cost=10*f.stats.pact; if(f.hp<=cost){ if(f.isPlayer&&pressed) floatText(f.center().add(V3(0,1.3,0)),'NOT ENOUGH HP','status'); return false; } f.hp-=cost; f.hitFlash=0.08; }
-  f.fireCd=f.stats.fireInt; f.ammo--; f.sinceShot=0; /*DEBUG-START*/if(window.__aiTap) window.__aiTap('fire',f);/*DEBUG-END*/
+  f.fireCd=f.stats.fireInt; f.ammo--; f.sinceShot=0; f.lastFireT=gameT; /*DEBUG-START*/if(window.__aiTap) window.__aiTap('fire',f);/*DEBUG-END*/
   firePellets(f);
   if(f.stats.burst>0){ f.burstQueue=f.stats.burst; f.burstT=0.07; }
   if(f.ammo<=0){ f.reloading=true; f.reloadT=f.stats.reload; }
