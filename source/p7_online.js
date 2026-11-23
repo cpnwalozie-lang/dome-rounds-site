@@ -140,7 +140,7 @@ function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
 function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
-  const o={ v:2, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
+  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
@@ -151,6 +151,7 @@ function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='bat
 // ---------- incoming ----------
 const isNum=v=>typeof v==='number'&&isFinite(v);
 function netRx(peer,pr){
+  verSeen(peer,pr);
   const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f) netRxFighter(f,pr);
   netApplyHits(peer,pr.ht);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }

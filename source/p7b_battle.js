@@ -241,7 +241,7 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const o={ v:3, r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
+  const o={ v:3, vr:GAME_VER, r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
@@ -293,7 +293,7 @@ function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return;
     if(!f.dead&&f!==player&&isNum(B.hp&&B.hp[k])&&now-(f.lastLocalHit||0)>400) f.hp=B.hp[k];
     else if(f===player&&!player.dead&&isNum(B.hp&&B.hp[k])&&L===(player.life|0)&&X===0) player.hp=B.hp[k]; }
   if(Array.isArray(B.kf)){ const seen=new Set(BT.kf.map(e=>e[0])); for(const e of B.kf) if(Array.isArray(e)&&!seen.has(e[0])){ BT.kf.push(e); BT.kfSeq=Math.max(BT.kfSeq,e[0]|0); } if(BT.kf.length>12) BT.kf.splice(0,BT.kf.length-12); btFeed(); } }
-function btRx(peer,pr){ const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
+function btRx(peer,pr){ verSeen(peer,pr); const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
   if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }
   netApplyHits(peer,pr.ht);
   if(!btHost()&&peer===NET.hostPeer&&Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const s=BT.seats[b.s]; if(!s||!s.b) continue; const bf=btF(b.s); if(bf.ctl==='net') netRxFighter(bf,b); } }

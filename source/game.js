@@ -3708,7 +3708,7 @@ function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
 function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
-  const o={ v:2, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
+  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
@@ -3719,6 +3719,7 @@ function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='bat
 // ---------- incoming ----------
 const isNum=v=>typeof v==='number'&&isFinite(v);
 function netRx(peer,pr){
+  verSeen(peer,pr);
   const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f) netRxFighter(f,pr);
   netApplyHits(peer,pr.ht);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
@@ -4052,7 +4053,7 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const o={ v:3, r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
+  const o={ v:3, vr:GAME_VER, r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
@@ -4104,7 +4105,7 @@ function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return;
     if(!f.dead&&f!==player&&isNum(B.hp&&B.hp[k])&&now-(f.lastLocalHit||0)>400) f.hp=B.hp[k];
     else if(f===player&&!player.dead&&isNum(B.hp&&B.hp[k])&&L===(player.life|0)&&X===0) player.hp=B.hp[k]; }
   if(Array.isArray(B.kf)){ const seen=new Set(BT.kf.map(e=>e[0])); for(const e of B.kf) if(Array.isArray(e)&&!seen.has(e[0])){ BT.kf.push(e); BT.kfSeq=Math.max(BT.kfSeq,e[0]|0); } if(BT.kf.length>12) BT.kf.splice(0,BT.kf.length-12); btFeed(); } }
-function btRx(peer,pr){ const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
+function btRx(peer,pr){ verSeen(peer,pr); const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
   if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }
   netApplyHits(peer,pr.ht);
   if(!btHost()&&peer===NET.hostPeer&&Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const s=BT.seats[b.s]; if(!s||!s.b) continue; const bf=btF(b.s); if(bf.ctl==='net') netRxFighter(bf,b); } }
@@ -4187,6 +4188,31 @@ setInterval(onlTell,1000);
 setInterval(()=>{ const ws=ONL.ws; if(ws&&ws.readyState===1) try{ ws.send('ping'); }catch(e){} },45000);
 document.addEventListener('visibilitychange',onlTell);
 setTimeout(onlConnect,600);
+
+// ================= Staying up to date =================
+// Online play only works properly when everyone runs the same version (an old copy can still have old bugs, like
+// hits that never count). So: (1) on the live site, check now and then whether a newer version is out and offer a
+// one-tap update; (2) in any online match, every game says which version it is, and if someone's out of date,
+// everyone is told who should refresh. Games older than this check say nothing, so they count as out of date.
+const GAME_VER=((document.querySelector('.stamp')||{}).textContent||'').match(/Version\s+([\d.]+)/)?.[1]||'0';
+const verCmp=(a,b)=>{ const x=String(a||'0').split('.').map(Number), y=String(b||'0').split('.').map(Number); for(let i=0;i<Math.max(x.length,y.length);i++){ const d=(x[i]||0)-(y[i]||0); if(d) return d>0?1:-1; } return 0; };
+const UPD={shown:'',told:{},checking:false};
+function updBar(html,btn){ let el=document.getElementById('updBar'); if(!el){ el=document.createElement('div'); el.id='updBar'; document.body.appendChild(el); }
+  el.innerHTML=`<span>${html}</span>`+(btn?`<button class="btn" type="button">${btn}</button><i title="Hide">✕</i>`:'<i title="Hide">✕</i>');
+  const b=el.querySelector('button'); if(b) b.onclick=()=>{ try{ location.reload(); }catch(e){} };
+  el.querySelector('i').onclick=()=>el.classList.remove('on'); el.classList.add('on'); }
+// (1) a newer version on the site? (only works where version.json sits next to the game, i.e. the live site)
+async function updCheck(){ if(UPD.checking||!/^https?:/.test(location.protocol)) return; UPD.checking=true;
+  try{ const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'}); if(r.ok){ const j=await r.json(); const v=j&&j.v;
+      if(v&&verCmp(v,GAME_VER)>0&&UPD.shown!==v){ UPD.shown=v; updBar(state==='menu'?`<b>Version ${esc(v)} is out</b> (you have ${esc(GAME_VER)}). Update so online matches work properly.`:`<b>Version ${esc(v)} is out.</b> Update after this match so online play works properly.`,'UPDATE NOW'); } } }catch(e){}
+  UPD.checking=false; }
+setTimeout(updCheck,4000); setInterval(()=>{ if(!document.hidden) updCheck(); },180000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) setTimeout(updCheck,800); });
+// (2) someone in this match on a different version?
+function verSeen(peer,pr){ if(!pr||!peer||UPD.told[peer]) return; const theirs=typeof pr.vr==='string'?pr.vr:'', nm=esc(cleanName(pr.nm)||'Someone');
+  const c=theirs?verCmp(theirs,GAME_VER):-1; if(c===0) return; UPD.told[peer]=1;
+  if(c>0) updBar(`<b>Your game is out of date.</b> ${nm} has version ${esc(theirs)}, you have ${esc(GAME_VER)}. Some hits won't count until you update.`,'UPDATE NOW');
+  else toast(`<b>${nm}</b> is on an older version${theirs?` (${esc(theirs)})`:''}. Ask them to refresh the page, or some of their hits won't count.`,'status'); }
 
 }
 let __started=false; function __go(){ if(__started) return; __started=true; try{ __boot(); }catch(e){ console.error(e); const l=document.getElementById('loading'); if(l) l.textContent='Something broke while loading: '+e.message; } }
