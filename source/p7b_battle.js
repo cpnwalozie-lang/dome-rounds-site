@@ -80,7 +80,7 @@ const btTxt=f=>f.team===TEAM.black?'#b4bdd2':f.team===TEAM.player?'#6fe9ff':f.te
 // each of your falls: pushed or blasted off (hit or shoved in the last few seconds) is a normal knockout; slipping off
 // mid-fight is a mistake and still gets a card; going over with nobody around, or straight after spawning, looks
 // deliberate. The first one of those in a match is let go quietly; after that: no card, the "caught" screen, and back in.
-const BT_FREE_JUMPS=1;
+const BT_FREE_JUMPS=0;
 function btJumpedOff(){ const P=player; if(gameT-(P.fellT||-99)>2.5&&P.pos.y>CFG.killY+0.5) return false; // not a fall
   if(gameT-(P.lastHitT||-99)<5||gameT-(BT.pushT||-99)<3) return false;                      // pushed, shot or blasted off
   const at=BT.ground||P.pos, near=fighters.some(e=>e!==P&&!e.dead&&e.active!==false&&Math.hypot(e.pos.x-at.x,e.pos.z-at.z)<14);
