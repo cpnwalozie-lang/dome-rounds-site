@@ -155,8 +155,13 @@ function netRx(peer,pr){
   netApplyHits(peer,pr.ht);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
     if(pr.h&&typeof pr.h==='object') netGuestFollow(pr.h); } }
+// A new round puts everyone back on their stands. Forget where other players were before, and for a moment ignore any
+// update that still has them far from their own stand: their game hasn't reset yet, and showing it made them flash
+// up in the wrong place (sometimes right on your stand) for a split second.
+function netFreshRound(){ if(!NET.on) return; const until=performance.now()+800; for(const f of fighters) if(f.ctl==='net'){ f.rs=null; f.snaps=[]; f.netHold={until,x:f.pos.x,z:f.pos.z}; } }
 function netRxFighter(f,d){
   if(Array.isArray(d.ds)){ f.skin=clamp((d.ds[0]|0),0,DOME_SKINS.length-1); f.skinCol=(typeof d.ds[1]==='string'&&/^#[0-9a-f]{6}$/i.test(d.ds[1]))?d.ds[1]:''; }
+  const H=f.netHold; if(H&&Array.isArray(d.f)&&d.f.length>=9){ if(performance.now()<H.until&&Math.hypot(d.f[0]-H.x,d.f[2]-H.z)>6) d={...d,f:null}; else f.netHold=null; }
   if(Array.isArray(d.f)&&d.f.length>=9&&d.f.every(isNum)){ const a=d.f, now=performance.now(); const ts=isNum(d.ts)?d.ts:now; const key=f.peer||('b'+f.slot); const off=now-ts; NET.clk[key]=NET.clk[key]===undefined?off:Math.min(NET.clk[key]+0.3,off); // smallest delay seen = best clock match (drifts up slowly)
     f.rs={pos:V3(a[0],a[1],a[2]),vel:V3(a[3],a[4],a[5]),yaw:a[6],pitch:a[7],fl:a[8],at:now};
     f.snaps=f.snaps||[]; const L=f.snaps[f.snaps.length-1]; if(!L||ts>L.ts){ f.snaps.push({ts,pos:f.rs.pos,vel:f.rs.vel,yaw:a[6],pitch:a[7],fl:a[8]}); if(f.snaps.length>12) f.snaps.shift(); } f.clkKey=key; }

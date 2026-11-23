@@ -109,11 +109,11 @@ function pollPad(dt){
 function placeAtBases(){
   for(const f of fighters) if(f.ai) f.ai.fresh=true; // bots get their bearings again
   if(matchKind==='battle'&&btHook){ btHook.placeAll(); return; }
-  if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
-  if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
+  if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } netFreshRound(); return; }
+  if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } netFreshRound(); return; }
   const sw=NET.on&&NET.role==='guest'; // the guest spawns at the far base so both screens agree on the world
   player.pos.copy(sw?BASE_POS.bot:BASE_POS.player); player.vel.set(0,0,0); player.yaw=sw?Math.PI/2:-Math.PI/2; player.pitch=0; player.onGround=true;
-  bot.pos.copy(sw?BASE_POS.player:BASE_POS.bot); bot.vel.set(0,0,0); bot.yaw=sw?-Math.PI/2:Math.PI/2; bot.pitch=0; bot.onGround=true; if(NET.on){ NET.rs=null; bot.rs=null; }
+  bot.pos.copy(sw?BASE_POS.player:BASE_POS.bot); bot.vel.set(0,0,0); bot.yaw=sw?-Math.PI/2:Math.PI/2; bot.pitch=0; bot.onGround=true; if(NET.on){ NET.rs=null; netFreshRound(); }
   player.spawn.copy(player.pos); bot.spawn.copy(bot.pos);
 }
 function clearProjectiles(){ for(let i=bullets.length-1;i>=0;i--) removeBullet(i); for(const b of bombs) scene.remove(b.m); bombs.length=0; for(const e of explosions){ scene.remove(e.m); scene.remove(e.m2); } explosions.length=0; clearFields(); clearCardFx(); remoteCtl.b=null; }

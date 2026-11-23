@@ -2767,11 +2767,11 @@ function pollPad(dt){
 function placeAtBases(){
   for(const f of fighters) if(f.ai) f.ai.fresh=true; // bots get their bearings again
   if(matchKind==='battle'&&btHook){ btHook.placeAll(); return; }
-  if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
-  if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } if(NET.on) for(const f of fighters) f.rs=null; return; }
+  if(matchKind==='2v2'){ const k={0:0,1:0}; for(const f of fighters.slice().sort((a,b)=>a.slot-b.slot)){ const base=f.side===0?BASE_POS.player:BASE_POS.bot, off=(k[f.side]++===0?-1:1)*2.3; const x=base.x, z=base.z+off; const g=groundAt(x,z,8,0.3); f.pos.set(x,g===null?base.y:g,z); f.vel.set(0,0,0); f.yaw=f.side===0?-Math.PI/2:Math.PI/2; f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } netFreshRound(); return; }
+  if(matchKind==='ffa'){ const sp=(curMap.spawns||[]); for(const f of fighters){ const s=sp[f.slot%sp.length]||[0,0]; const g=groundAt(s[0],s[1],8,0.3); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos); } netFreshRound(); return; }
   const sw=NET.on&&NET.role==='guest'; // the guest spawns at the far base so both screens agree on the world
   player.pos.copy(sw?BASE_POS.bot:BASE_POS.player); player.vel.set(0,0,0); player.yaw=sw?Math.PI/2:-Math.PI/2; player.pitch=0; player.onGround=true;
-  bot.pos.copy(sw?BASE_POS.player:BASE_POS.bot); bot.vel.set(0,0,0); bot.yaw=sw?-Math.PI/2:Math.PI/2; bot.pitch=0; bot.onGround=true; if(NET.on){ NET.rs=null; bot.rs=null; }
+  bot.pos.copy(sw?BASE_POS.player:BASE_POS.bot); bot.vel.set(0,0,0); bot.yaw=sw?-Math.PI/2:Math.PI/2; bot.pitch=0; bot.onGround=true; if(NET.on){ NET.rs=null; netFreshRound(); }
   player.spawn.copy(player.pos); bot.spawn.copy(bot.pos);
 }
 function clearProjectiles(){ for(let i=bullets.length-1;i>=0;i--) removeBullet(i); for(const b of bombs) scene.remove(b.m); bombs.length=0; for(const e of explosions){ scene.remove(e.m); scene.remove(e.m2); } explosions.length=0; clearFields(); clearCardFx(); remoteCtl.b=null; }
@@ -3723,8 +3723,13 @@ function netRx(peer,pr){
   netApplyHits(peer,pr.ht);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
     if(pr.h&&typeof pr.h==='object') netGuestFollow(pr.h); } }
+// A new round puts everyone back on their stands. Forget where other players were before, and for a moment ignore any
+// update that still has them far from their own stand: their game hasn't reset yet, and showing it made them flash
+// up in the wrong place (sometimes right on your stand) for a split second.
+function netFreshRound(){ if(!NET.on) return; const until=performance.now()+800; for(const f of fighters) if(f.ctl==='net'){ f.rs=null; f.snaps=[]; f.netHold={until,x:f.pos.x,z:f.pos.z}; } }
 function netRxFighter(f,d){
   if(Array.isArray(d.ds)){ f.skin=clamp((d.ds[0]|0),0,DOME_SKINS.length-1); f.skinCol=(typeof d.ds[1]==='string'&&/^#[0-9a-f]{6}$/i.test(d.ds[1]))?d.ds[1]:''; }
+  const H=f.netHold; if(H&&Array.isArray(d.f)&&d.f.length>=9){ if(performance.now()<H.until&&Math.hypot(d.f[0]-H.x,d.f[2]-H.z)>6) d={...d,f:null}; else f.netHold=null; }
   if(Array.isArray(d.f)&&d.f.length>=9&&d.f.every(isNum)){ const a=d.f, now=performance.now(); const ts=isNum(d.ts)?d.ts:now; const key=f.peer||('b'+f.slot); const off=now-ts; NET.clk[key]=NET.clk[key]===undefined?off:Math.min(NET.clk[key]+0.3,off); // smallest delay seen = best clock match (drifts up slowly)
     f.rs={pos:V3(a[0],a[1],a[2]),vel:V3(a[3],a[4],a[5]),yaw:a[6],pitch:a[7],fl:a[8],at:now};
     f.snaps=f.snaps||[]; const L=f.snaps[f.snaps.length-1]; if(!L||ts>L.ts){ f.snaps.push({ts,pos:f.rs.pos,vel:f.rs.vel,yaw:a[6],pitch:a[7],fl:a[8]}); if(f.snaps.length>12) f.snaps.shift(); } f.clkKey=key; }
