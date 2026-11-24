@@ -29,7 +29,8 @@ const TUT_STEPS=[
   {say:()=>[`Next up, the <b>dash</b>. ${TUTK.dash()} to zip whichever way you're moving. It's how you dodge.`,
             `Move with ${TUTK.move()} and dash into the 3 glowing rings.`]},
   {task:'rings', goal:3, text:()=>`Dash into the rings with ${TUTK.dashKey()}`, yay:'ZOOM!'},
-  {say:()=>["Now the fun part: <b>cards</b>. After every round you pick one, and it changes how you fight."]},
+  {say:()=>["Now the fun part: <b>cards</b>. In a real match you pick <b>1 card out of 3</b> after every round, and it changes how you fight.",
+            "This is just practice, so I've chosen for you. Only one card is open each time, and the grey ones are locked."]},
   {card:'buckshot', say:()=>`This is <b>Buckshot</b>. Your blaster fires a spray of 5 bullets instead of 1. ${TUTK.take()} to take it.`},
   {say:()=>["Try it out. Get close and blast the bot!"]},
   {task:'ko', goal:1, bot:9, text:()=>'Knock out the bot with Buckshot', yay:'NICE SPREAD!'},
@@ -92,17 +93,23 @@ function tutTypeEnd(){ const T2=TUT.typing; if(!T2) return; for(const [node,full
 
 // ---------- a card screen with just one card ----------
 function tutCard(id,html){ TUT.card=true; TUT.task=null; exitLock(); state='draft'; draftT=1e9; clearProjectiles(); show(UI.hud,false); tutRingOff(); tutEl('tutNow').classList.remove('on');
-  UI.draftTitle.textContent='NEW CARD!'; UI.draftSub.textContent='Cards are how you get stronger'; UI.draft.classList.add('tutDraft'); UI.cards.innerHTML='';
-  const c=CARDS[id], el=document.createElement('div'); el.className=`card t-${c.type} rec`; el.style.setProperty('--c',c.c); el.style.setProperty('--i',0);
-  el.innerHTML=cardHTML(id,0,player.cards.filter(x=>x===id).length,false);
+  UI.draftTitle.textContent='PICK A CARD'; UI.draftSub.textContent='Practice: only the bright card is open'; UI.draft.classList.add('tutDraft'); UI.cards.innerHTML='';
+  // a real pick shows 3 cards; in practice the other two are greyed out and locked
+  const lesson=['buckshot','thruster','teleport','supernova'], pool=ALL_CARDS.filter(k=>!lesson.includes(k)), grey=[];
+  while(grey.length<2&&pool.length) grey.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  const off=(gid,i)=>{ const g=CARDS[gid], w=document.createElement('div'), d=document.createElement('div'); w.className='tutOffWrap'; w.setAttribute('aria-disabled','true'); w.style.setProperty('--i',i);
+    d.className=`card t-${g.type} tutOff`; d.style.setProperty('--c',g.c); d.style.setProperty('--i',i); d.innerHTML=cardHTML(gid,i,0,false);
+    w.appendChild(d); w.insertAdjacentHTML('beforeend','<div class="tutLock"><span>LOCKED</span></div>'); return w; };
+  const c=CARDS[id], el=document.createElement('div'); el.className=`card t-${c.type} rec`; el.style.setProperty('--c',c.c); el.style.setProperty('--i',1);
+  el.innerHTML=cardHTML(id,1,player.cards.filter(x=>x===id).length,false);
   el.addEventListener('mousemove',ev=>{ const r=el.getBoundingClientRect(); const px=(ev.clientX-r.left)/r.width, py=(ev.clientY-r.top)/r.height; el.style.setProperty('--ry',((px-0.5)*14).toFixed(1)+'deg'); el.style.setProperty('--rx',((0.5-py)*12).toFixed(1)+'deg'); el.style.setProperty('--gx',(px*100).toFixed(0)+'%'); el.style.setProperty('--gy',(py*100).toFixed(0)+'%'); });
   el.addEventListener('mouseenter',()=>SFX.hover());
   el.addEventListener('click',()=>{ if(!TUT.on||!TUT.card||el.classList.contains('picked')) return; el.classList.add('picked'); player.addCard(id); SFX.pick(); toast(`<b class="you">You</b> took <b>${c.name}</b>`,'you');
     setTimeout(()=>{ if(!TUT.on) return; show(UI.draft,false); UI.draft.classList.remove('tutDraft'); TUT.card=false; state='fight';
       show(UI.hud,true,'block'); player.hp=player.maxHp(); player.ammo=player.stats.ammo; player.reloading=false; player.blockCdT=0; updateCardStrips(); tutNext(); },750); });
-  UI.cards.appendChild(el); setTimeout(()=>SFX.deal(),140); show(UI.draft,true);
+  UI.cards.appendChild(off(grey[0],0)); UI.cards.appendChild(el); UI.cards.appendChild(off(grey[1],2)); setTimeout(()=>SFX.deal(),140); show(UI.draft,true);
   const box=tutEl('tutBox'); box.className='info'; show(tutEl('tutCatch'),false); show(tutEl('tutTask'),false); show(tutEl('tutSkip'),true,'block'); tutType(html);
-  tutEl('tutMore').classList.remove('go'); tutEl('tutMore').innerHTML=TOUCH.on?'Tap the card':'Click the card or press <kbd>1</kbd>'; }
+  tutEl('tutMore').classList.remove('go'); tutEl('tutMore').innerHTML=TOUCH.on?'Tap the bright card':'Click the bright card or press <kbd>2</kbd>'; }
 
 // ---------- tasks ----------
 function tutBotAt(d){ TUT.botD=d; if(bot.dead) return; const p=tutBotSpot(d); bot.pos.copy(p); bot.vel.set(0,0,0); bot.spawn&&bot.spawn.copy(p); }

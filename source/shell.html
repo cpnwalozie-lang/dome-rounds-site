@@ -630,6 +630,13 @@
   #hud.tutmode #tips{display:none!important}
   #draft.tutDraft #draftClock,#draft.tutDraft #coach,#draft.tutDraft #statbar,#draft.tutDraft .hintk{display:none!important}
   #draft.tutDraft{justify-content:flex-start;padding-top:4vh}
+  #draft.tutDraft .card{--cw:min(200px,17vw,36vh)}
+  #draft .tutOffWrap{position:relative;flex:none;cursor:not-allowed}
+  #draft .card.tutOff{pointer-events:none;animation:tutGrey .35s ease-out both;animation-delay:calc(var(--i)*.13s + .8s)}
+  @keyframes tutGrey{from{filter:none}to{filter:grayscale(1) brightness(.5)}}
+  #draft .tutLock{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none;animation:tutLockIn .35s ease-out both;animation-delay:calc(var(--i)*.13s + .85s)}
+  #draft .tutLock span{position:relative;z-index:1;font-family:var(--disp);font-size:15px;color:var(--cream);background:var(--ink);border:2px solid #9b8ab8;padding:5px 12px 3px;transform:rotate(-8deg);box-shadow:3px 3px 0 rgba(0,0,0,.4)}
+  @keyframes tutLockIn{from{opacity:0}to{opacity:1}}
   #tutEnd{z-index:41;align-items:center;justify-content:center;flex-direction:column;text-align:center;overflow:hidden;background:radial-gradient(ellipse at 50% 42%,rgba(72,22,120,.85),rgba(15,6,28,.96))}
   #tutEnd>*{position:relative}
   #tutEnd .rays{position:absolute;width:150vmax;height:150vmax;left:50%;top:40%;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(255,210,61,.09) 0 8deg,transparent 8deg 16deg);animation:tutSpin 40s linear infinite;pointer-events:none}
@@ -643,7 +650,8 @@
   @media (max-height:520px){ #tutBox .tutFace{width:70px;height:70px} #tutBox{gap:14px;bottom:10px} #tutBox .tutBub{padding:7px 12px 7px;margin-bottom:8px} #tutText{font-size:14.5px;min-height:0} #tutMore{margin-top:3px} #tutMore.go{font-size:13px;padding:4px 10px 2px}
     #tutTask{top:54px} #tutTaskText{font-size:13px} #tutTask .tutFace{width:28px;height:28px} #tutProg{font-size:15px}
     #tutPop{top:auto;bottom:10px;right:10px;width:min(330px,44vw);gap:10px} #tutPop .tutFace{width:54px;height:54px} #tutPop .tutBub{padding:8px 10px 10px} #tutPop p{font-size:12px;margin-bottom:7px} #tutPop h4{font-size:15px} #tutPop .btn{font-size:13px;padding:5px 12px 4px}
-    #tutSkip{top:max(58px,calc(env(safe-area-inset-top,0px) + 50px));font-size:12px;padding:4px 10px 3px} #draft.tutDraft{padding-right:40vw} #tutBox.info{left:auto;right:max(10px,env(safe-area-inset-right,0px));transform:none;width:40vw;bottom:auto;top:50%;margin-top:-60px} #tutBox.info .tutFace{width:54px;height:54px} #tutEnd .tutFace{width:70px;height:70px} #tutEnd h2{font-size:40px;margin:2px 0} #tutEnd p{font-size:13.5px;margin-bottom:12px} #tutNow{font-size:32px} #draft.tutDraft{padding-top:1vh} }
+    #tutSkip{top:max(58px,calc(env(safe-area-inset-top,0px) + 50px));font-size:12px;padding:4px 10px 3px} #tutBox.info .tutFace{width:54px;height:54px} #tutEnd .tutFace{width:70px;height:70px} #tutEnd h2{font-size:40px;margin:2px 0} #tutEnd p{font-size:13.5px;margin-bottom:12px} #tutNow{font-size:32px} #draft.tutDraft{padding-top:1vh} }
+  @media (max-height:640px){ #draft.tutDraft{padding-right:40vw} #tutBox.info{left:auto;right:max(12px,env(safe-area-inset-right,0px));transform:none;width:38vw;bottom:auto;top:50%;margin-top:-70px} #tutBox.info .tutFace{width:64px;height:64px} }
   @media (prefers-reduced-motion:reduce){ #tutPop,#tutPop .tutFace,#tutEnd .tutFace,#tutEnd .rays,#tutMore,#tutNow.on,#tutEnd .cf{animation:none!important} }
 </style>
 <style>
@@ -888,7 +896,7 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.17.1<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.17.2<br>© 2026 Nitor Digital</div>
   <div id="tutPop"><div class="tutFace"></div><div class="tutBub"><button id="tutPopX" type="button" aria-label="No thanks">×</button><h4>New here?</h4><p>I'm Coach Kip. Give me two minutes and I'll show you how to play.</p><button class="btn" id="tutPopGo" type="button">START TUTORIAL</button></div></div>
   <div class="shade"></div>
   <div class="side">
