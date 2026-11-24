@@ -570,6 +570,78 @@
   .mdome{width:22px;height:11px;border-radius:22px 22px 0 0;background:conic-gradient(from 200deg at 50% 100%,#ff8ad8,#ffe48a,#8affc4,#8ad8ff,#c08aff,#ff8ad8);border:1.5px solid #fff;border-bottom:0;animation:dtHue 4s linear infinite}
   @media (max-height:520px){ .st-panel{gap:1.2vh;width:min(500px,56vw)} .st-panel{width:min(560px,64vw)} .st-grid{gap:4px;grid-template-columns:repeat(8,minmax(0,1fr))} .st-tile{padding:4px 2px 3px;font-size:9px;gap:3px;min-width:0} .st-tile b{font-size:8.5px;overflow:hidden;text-overflow:clip;max-width:100%} .dthumb{width:90%;max-width:58px} .st-head .title{font-size:min(8vh,4.4vw,40px)} .st-head p{display:none} .st-info b{font-size:20px} .sw{width:26px;height:26px} }
   @media (prefers-reduced-motion:reduce){ .dthumb,.dthumb i,.mdome{animation:none!important} .st-panel{transition:none} }
+  /* ---------- tutorial (Coach Kip) ---------- */
+  #tutBtn.hot{border-color:var(--ye)!important;box-shadow:4px 4px 0 var(--ye)!important;color:var(--ye);position:relative}
+  #tutBtn.hot::after{content:'NEW?';position:absolute;top:-12px;right:-12px;background:var(--pink);color:#fff;font-family:var(--disp);font-size:10px;padding:2px 6px 1px;transform:skewX(10deg) rotate(7deg);box-shadow:2px 2px 0 rgba(0,0,0,.4)}
+  .tutFace svg{display:block;width:100%;height:100%}
+  .tutBub{position:relative;background:var(--plum);border:3px solid var(--ye);box-shadow:6px 6px 0 rgba(0,0,0,.5);color:var(--cream)}
+  .tutBub::before{content:'';position:absolute;left:-18px;bottom:22px;border-top:11px solid transparent;border-bottom:11px solid transparent;border-right:16px solid var(--ye)}
+  .tutBub::after{content:'';position:absolute;left:-11px;bottom:26px;border-top:7px solid transparent;border-bottom:7px solid transparent;border-right:10px solid var(--plum)}
+  #tutPop{display:none;position:absolute;right:max(3vw,calc(env(safe-area-inset-right,0px) + 14px));top:10vh;z-index:3;align-items:flex-end;gap:16px;width:min(390px,38vw);animation:tutIn .55s cubic-bezier(.2,1.5,.4,1) .7s both}
+  #tutPop .tutFace{width:86px;height:86px;flex:none;filter:drop-shadow(4px 4px 0 rgba(0,0,0,.45));animation:tutBob 2.6s ease-in-out infinite}
+  #tutPop .tutBub{flex:1;padding:12px 16px 14px}
+  #tutPop h4{font-family:var(--disp);font-weight:400;font-size:20px;color:var(--ye);margin:0 0 3px}
+  #tutPop p{margin:0 0 11px;font-weight:500;font-size:14px;line-height:1.38}
+  #tutPop .btn{font-size:16px;padding:7px 16px 6px;box-shadow:4px 4px 0 var(--pink)}
+  #tutPopX{position:absolute;top:2px;right:4px;background:none;border:0;color:#c9a9ff;font-size:22px;cursor:pointer;padding:2px 7px;line-height:1;font-family:var(--body)}
+  #tutPopX:hover{color:#fff}
+  @keyframes tutIn{from{opacity:0;transform:translateY(18px) scale(.9)}to{opacity:1;transform:none}}
+  @keyframes tutBob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-6px) rotate(3deg)}}
+  #tut{display:none;position:fixed;inset:0;z-index:40;pointer-events:none}
+  #tutCatch{display:none;position:absolute;inset:0;pointer-events:auto;cursor:pointer;background:linear-gradient(0deg,rgba(15,6,28,.6),rgba(15,6,28,0) 50%);touch-action:none}
+  #tutBox{position:absolute;left:50%;bottom:max(20px,calc(env(safe-area-inset-bottom,0px) + 12px));transform:translateX(-50%);width:min(780px,92vw);display:none;align-items:flex-end;gap:18px;pointer-events:none}
+  #tutBox.talk,#tutBox.info{display:flex}
+  #tutBox .tutFace{width:112px;height:112px;flex:none;filter:drop-shadow(5px 5px 0 rgba(0,0,0,.5))}
+  #tutBox .tutFace.bob{animation:tutTalk .55s ease-out}
+  @keyframes tutTalk{0%{transform:none}30%{transform:translateY(-12px) rotate(-7deg)}65%{transform:translateY(0) rotate(4deg)}100%{transform:none}}
+  #tutBox .tutBub{flex:1;padding:11px 18px 11px;margin-bottom:16px}
+  .tutName{font-family:var(--disp);font-size:13px;color:var(--pink);letter-spacing:.04em;margin-bottom:3px}
+  #tutText{font-weight:500;font-size:min(3vh,20px);line-height:1.4;min-height:2.8em}
+  #tutText b{color:var(--ye);font-weight:800}
+  #tut kbd{font-family:var(--disp);font-weight:400;font-size:.78em;background:var(--cream);color:var(--ink);padding:1px 7px 0;border-radius:3px;box-shadow:0 3px 0 #a98fd0;margin:0 2px;display:inline-block;line-height:1.35;vertical-align:1px}
+  #tutMore{margin-top:7px;text-align:right;font-size:12px;color:#c9a9ff;animation:tutBlink 1.3s ease-in-out infinite}
+  #tutMore.go{float:right;font-family:var(--disp);font-size:16px;color:var(--ink);background:var(--ye);padding:5px 14px 3px;transform:skewX(-10deg);box-shadow:4px 4px 0 var(--pink);animation:tutGo 1s ease-in-out infinite}
+  #tutMore.go i{font-family:var(--body);font-weight:700;font-style:normal;font-size:11px;opacity:.65;margin-left:6px}
+  #tutBox.info #tutMore{animation:none;color:var(--ye)}
+  #tutBox.info #tutMore kbd{font-size:.95em}
+  @keyframes tutBlink{50%{opacity:.4}}
+  @keyframes tutGo{50%{transform:skewX(-10deg) scale(1.07)}}
+  #tutSkip{display:none;position:absolute;top:max(72px,calc(env(safe-area-inset-top,0px) + 60px));right:max(16px,calc(env(safe-area-inset-right,0px) + 12px));pointer-events:auto;cursor:pointer;font-size:13px;color:#e4d6ff;background:rgba(20,8,31,.78);border:2px solid var(--edge);padding:6px 13px 5px}
+  #tutSkip:hover{color:#fff;border-color:#c9a9ff}
+  #tutTask{display:none;position:absolute;left:50%;top:86px;transform:translateX(-50%);align-items:center;gap:10px;background:var(--plum);border:2px solid var(--ye);box-shadow:4px 4px 0 rgba(0,0,0,.45);padding:5px 7px 5px 6px;white-space:nowrap;max-width:94vw}
+  #tutTask .tutFace{width:36px;height:36px;flex:none}
+  #tutTaskText{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis}
+  #tutTaskText em{font-style:normal;color:var(--ye)}
+  #tutTaskText b{color:var(--ye)}
+  #tutProg{font-family:var(--disp);font-weight:400;font-size:18px;color:var(--ink);background:var(--ye);padding:2px 9px 0;margin-left:4px;display:inline-block}
+  #tutProg.pop{animation:tutPopN .4s cubic-bezier(.2,1.8,.4,1)}
+  @keyframes tutPopN{0%{transform:scale(1.7)}100%{transform:none}}
+  #tutNow{position:absolute;left:50%;top:60%;transform:translate(-50%,-50%) scale(.6);opacity:0;font-family:var(--disp);font-size:46px;color:var(--ye);text-shadow:4px 4px 0 var(--pink);transition:opacity .08s,transform .12s;white-space:nowrap}
+  #tutNow.on{opacity:1;transform:translate(-50%,-50%) scale(1);animation:tutNowP .35s ease-in-out infinite alternate}
+  @keyframes tutNowP{to{transform:translate(-50%,-50%) scale(1.12)}}
+  #tutNow kbd{font-size:.72em}
+  body.touch #tutNow .kb{display:none} body:not(.touch) #tutNow .tc{display:none}
+  #touchUI .tb.tutPulse{animation:tutTb .9s ease-in-out infinite;border-color:var(--ye)!important}
+  @keyframes tutTb{50%{box-shadow:0 0 0 8px rgba(255,210,61,.45),0 0 28px var(--ye)}}
+  body.tutOn #touchUI #tPowers{display:none!important}
+  #hud.tutmode #tips{display:none!important}
+  #draft.tutDraft #draftClock,#draft.tutDraft #coach,#draft.tutDraft #statbar,#draft.tutDraft .hintk{display:none!important}
+  #draft.tutDraft{justify-content:flex-start;padding-top:4vh}
+  #tutEnd{z-index:41;align-items:center;justify-content:center;flex-direction:column;text-align:center;overflow:hidden;background:radial-gradient(ellipse at 50% 42%,rgba(72,22,120,.85),rgba(15,6,28,.96))}
+  #tutEnd>*{position:relative}
+  #tutEnd .rays{position:absolute;width:150vmax;height:150vmax;left:50%;top:40%;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(255,210,61,.09) 0 8deg,transparent 8deg 16deg);animation:tutSpin 40s linear infinite;pointer-events:none}
+  @keyframes tutSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+  #tutEnd .tutFace{width:120px;height:120px;filter:drop-shadow(5px 5px 0 rgba(0,0,0,.5));animation:tutBob 1.8s ease-in-out infinite}
+  #tutEnd h2{font-family:var(--disp);font-weight:400;font-size:min(10vh,66px);color:var(--ye);text-shadow:5px 5px 0 var(--pink);margin:8px 0 6px;transform:rotate(-3deg);animation:tutIn .6s cubic-bezier(.2,1.6,.4,1) both}
+  #tutEnd p{font-weight:500;font-size:17px;line-height:1.45;max-width:520px;margin:0 auto 24px;color:#eadfff;padding:0 16px}
+  #tutEnd .rowb{justify-content:center}
+  #tutEnd .cf{position:absolute;top:-20px;width:9px;height:14px;pointer-events:none;animation:tutFall linear forwards}
+  @keyframes tutFall{to{transform:translateY(112vh) rotate(720deg)}}
+  @media (max-height:520px){ #tutBox .tutFace{width:70px;height:70px} #tutBox{gap:14px;bottom:10px} #tutBox .tutBub{padding:7px 12px 7px;margin-bottom:8px} #tutText{font-size:14.5px;min-height:0} #tutMore{margin-top:3px} #tutMore.go{font-size:13px;padding:4px 10px 2px}
+    #tutTask{top:54px} #tutTaskText{font-size:13px} #tutTask .tutFace{width:28px;height:28px} #tutProg{font-size:15px}
+    #tutPop{top:auto;bottom:10px;right:10px;width:min(330px,44vw);gap:10px} #tutPop .tutFace{width:54px;height:54px} #tutPop .tutBub{padding:8px 10px 10px} #tutPop p{font-size:12px;margin-bottom:7px} #tutPop h4{font-size:15px} #tutPop .btn{font-size:13px;padding:5px 12px 4px}
+    #tutSkip{top:max(58px,calc(env(safe-area-inset-top,0px) + 50px));font-size:12px;padding:4px 10px 3px} #draft.tutDraft{padding-right:40vw} #tutBox.info{left:auto;right:max(10px,env(safe-area-inset-right,0px));transform:none;width:40vw;bottom:auto;top:50%;margin-top:-60px} #tutBox.info .tutFace{width:54px;height:54px} #tutEnd .tutFace{width:70px;height:70px} #tutEnd h2{font-size:40px;margin:2px 0} #tutEnd p{font-size:13.5px;margin-bottom:12px} #tutNow{font-size:32px} #draft.tutDraft{padding-top:1vh} }
+  @media (prefers-reduced-motion:reduce){ #tutPop,#tutPop .tutFace,#tutEnd .tutFace,#tutEnd .rays,#tutMore,#tutNow.on,#tutEnd .cf{animation:none!important} }
 </style>
 <style>
   /* ================= Clips ================= */
@@ -813,7 +885,8 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.15.3<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.16.0<br>© 2026 Nitor Digital</div>
+  <div id="tutPop"><div class="tutFace"></div><div class="tutBub"><button id="tutPopX" type="button" aria-label="No thanks">×</button><h4>New here?</h4><p>I'm Coach Kip. Give me two minutes and I'll show you how to play.</p><button class="btn" id="tutPopGo" type="button">START TUTORIAL</button></div></div>
   <div class="shade"></div>
   <div class="side">
     <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
@@ -840,7 +913,7 @@
     </div>
     </div>
     <button id="onlineBtn" type="button" hidden></button>
-    <div class="rowb"><button class="btn sec" id="sandboxBtn">TRAINING SANDBOX</button><button class="btn sec studioB" id="studioBtn"><span class="mdome" aria-hidden="true"></span>DOME STUDIO</button><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
+    <div class="rowb"><button class="btn sec" id="tutBtn" type="button">TUTORIAL</button><button class="btn sec" id="sandboxBtn">TRAINING SANDBOX</button><button class="btn sec studioB" id="studioBtn"><span class="mdome" aria-hidden="true"></span>DOME STUDIO</button><button class="btn sec" id="howBtn">HOW TO PLAY &amp; SETTINGS</button><button class="btn sec" id="fsBtn">FULLSCREEN</button></div>
     <div class="panel" id="how">
       <div class="tcontrols"><span>Left thumb</span><span>Put it down anywhere on the left to move</span><span>Right thumb</span><span>Drag on the right side to aim</span><span>FIRE</span><span>Hold to shoot. Keep dragging on it to aim while you fire</span><span>DOME · DASH · JUMP</span><span>Round the fire button, in thumb reach</span><span>CLIP button</span><span>Top left. Saves the last 20 seconds so you can share it</span><span>Turn sideways</span><span>Landscape works best. Aim assist helps on touch</span></div>
       <div class="controls">
@@ -904,6 +977,8 @@
   </div>
 </div>
 
+<div id="tut"><div id="tutCatch"></div><div id="tutTask"><span class="tutFace"></span><span id="tutTaskText"></span><b id="tutProg">0/3</b></div><div id="tutNow">NOW! <span class="kb"><kbd>Q</kbd></span><span class="tc">TAP DOME</span></div><div id="tutBox"><div class="tutFace"></div><div class="tutBub"><div class="tutName">COACH KIP</div><div id="tutText"></div><div id="tutMore"></div></div></div><div id="tutSkip" role="button">Skip tutorial</div></div>
+<div id="tutEnd" class="overlay"><div class="rays"></div><div class="tutFace"></div><h2>YOU'RE READY!</h2><p>Dome, blaster, dash and cards. You've got the lot. Time to try it on real players.</p><div class="rowb"><button class="btn" id="tutEndPlay" type="button">PLAY ONLINE</button><button class="btn sec" id="tutEndMenu" type="button">MENU</button></div></div>
 <div id="draft" class="overlay">
   <div id="draftTitle" class="stroke">PICK A CARD</div>
   <div id="draftClock">60s</div>

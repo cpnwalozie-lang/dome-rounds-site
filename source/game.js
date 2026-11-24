@@ -2689,7 +2689,7 @@ const sandbox={cards:[],bot:'dummy',open:false};
 let paused=false, roundOverT=0, slowMoT=0, countdownT=0, countdownStep=0, roundNum=1, lastWinner=null, matchOverPending=false;
 const score={player:0,bot:0};
 let clipHook=null, clipLists=null, clipSave=null, clipSet=null; /* set by the clip recorder (p6d_clip) */
-let btHook=null; /* set by Battle mode (p7b_battle) */
+let btHook=null; /* set by Battle mode (p7b_battle) */ let tutHook=null; /* set by the tutorial (p7e_tutor) */
 let camHold=false, botHold=false, botPuppet=false, killMarkT=0, shakeT=0, hitMarkerT=0, hurtT=0, crossKick=0, gameT=0, dmgDirT=0, tipsT=0; const aimPoint=V3(), dmgFrom=V3();
 const botLevel=()=> mode==='sandbox' ? (DIFF[sandbox.bot]||DIFF.easy) : matchKind==='battle' ? DIFF.normal : (DIFF[settings.diff]||DIFF.easy);
 
@@ -2728,7 +2728,7 @@ window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Tab'||e.co
   if(e.code==='Space') jumpBuffer=0.15; if(e.code==='ShiftLeft'||e.code==='ShiftRight') wantDash=true;
   if(e.code==='KeyE'||e.code==='KeyQ') pressBlock(); if(e.code==='KeyF'){ firePressed=true; steerLatch=false; }
   if((state==='draft'||(btHook&&btHook.picking))&&['Digit1','Digit2','Digit3'].includes(e.code)){ const c=UI.cards.children[parseInt(e.code.slice(5))-1]; if(c) c.click(); }
-  if(e.code==='Tab'&&mode==='sandbox'&&state==='fight'){ if(sandbox.open) closeSandbox(); else openSandbox(); return; }
+  if(e.code==='Tab'&&mode==='sandbox'&&state==='fight'&&!(tutHook&&tutHook.on())){ if(sandbox.open) closeSandbox(); else openSandbox(); return; }
   if((e.code==='Escape'||e.code==='KeyP')&&(state==='fight'||state==='countdown')&&!sandbox.open){ if(e.code==='KeyP'||mouseFallback||paused) togglePause(); } });
 window.addEventListener('keyup',e=>{ keys[e.code]=false; });
 window.addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; fireHeld=false; });
@@ -2738,8 +2738,8 @@ let lastBtns=0, lastBlockPress=0;
 window.addEventListener('mousedown',e=>{ lastBtns=e.buttons|0; },true); window.addEventListener('mouseup',e=>{ lastBtns=e.buttons|0; },true);
 window.addEventListener('contextmenu',e=>{ e.preventDefault(); if(blockBtn()===2&&performance.now()-lastBlockPress>250&&state==='fight'&&!paused){ pressBlock(); } });
 document.addEventListener('mousemove',e=>{ mouseX=e.clientX/window.innerWidth; { const bm=e.buttons|0, bit=blockBtn()===2?2:1; if((bm&bit)&&!(lastBtns&bit)&&performance.now()-lastBlockPress>250&&(locked||mouseFallback)&&state==='fight'&&!paused) pressBlock(); lastBtns=bm; } if(locked||(mouseFallback&&!paused&&(state==='fight'||state==='countdown'))){ const s=0.0022*settings.sens; look(e.movementX*s,e.movementY*s); } });
-function requestLock(){ if(locked||pad.used||TOUCH.on) return; try{ const p=canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ mouseFallback=true; }); }catch(err){ mouseFallback=true; } }
-document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(locked) mouseFallback=false; document.body.classList.toggle('nolock',!locked&&mouseFallback); if(!locked&&(state==='fight'||state==='countdown')&&!paused&&!pad.used&&!(btHook&&(btHook.picking||btHook.lockFree()))) pause(); });
+function requestLock(){ if(locked||pad.used||TOUCH.on||(tutHook&&tutHook.lockFree())) return; try{ const p=canvas.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ mouseFallback=true; }); }catch(err){ mouseFallback=true; } }
+document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(locked) mouseFallback=false; document.body.classList.toggle('nolock',!locked&&mouseFallback); if(!locked&&(state==='fight'||state==='countdown')&&!paused&&!pad.used&&!(btHook&&(btHook.picking||btHook.lockFree()))&&!(tutHook&&tutHook.lockFree())) pause(); });
 document.addEventListener('pointerlockerror',()=>{ mouseFallback=true; document.body.classList.add('nolock'); });
 document.addEventListener('mouseleave',()=>{ mouseX=0.5; }); window.addEventListener('blur',()=>{ mouseX=0.5; });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden&&(state==='fight'||state==='countdown')&&!paused) pause(); });
@@ -2791,7 +2791,7 @@ function startMatch(){
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
 const menuCam={key:'',a:0};
-function toMenu(){ hideTags(); if(btHook) btHook.stop(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=gmMap(); if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
+function toMenu(){ if(tutHook) tutHook.stop(); hideTags(); if(btHook) btHook.stop(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=gmMap(); if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
 function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
   if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
@@ -3230,7 +3230,7 @@ function update(dt){
   // ---- fight ----
   roundInfo.t+=dt; if(matchKind==='battle'&&btHook) btHook.tick(dt); else if(mode!=='sandbox'){ const left=ROUND_LIMIT-roundInfo.t; if(left<=10&&Math.ceil(left)!==clockTick&&left>0){ clockTick=Math.ceil(left); SFX.tick(); } if(left<=0&&!(NET.on&&NET.role==='guest')){ timeUp(); return; } } if(jumpBuffer>0) jumpBuffer-=dt; if(tipsT>0) tipsT-=dt;
   const sbx=mode==='sandbox';
-  if(sbx){ for(const f of [player,bot]) if(f.dead&&f.respawnT>0){ f.respawnT-=dt; if(f.respawnT<=0) respawn(f); } if(sandbox.bot==='dummy'&&!bot.dead&&bot.hp<bot.maxHp()) bot.hp=Math.min(bot.maxHp(),bot.hp+dt*12); }
+  if(sbx){ for(const f of [player,bot]) if(f.dead&&f.respawnT>0){ f.respawnT-=dt; if(f.respawnT<=0) respawn(f); } if(sandbox.bot==='dummy'&&!bot.dead&&bot.hp<bot.maxHp()) bot.hp=Math.min(bot.maxHp(),bot.hp+dt*12); if(tutHook&&tutHook.on()) tutHook.tick(dt); }
   const steering=!!remoteCtl.b;
   const fwd=player.forward(); const right=V3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
   const wish=V3(); if(!steering&&!player.dead){ if(keys.KeyW) wish.add(fwd); if(keys.KeyS) wish.sub(fwd); if(keys.KeyD) wish.add(right); if(keys.KeyA) wish.sub(right); if(pad.lx||pad.ly){ wish.addScaledVector(fwd,-pad.ly).addScaledVector(right,pad.lx); } if(TOUCH.mx||TOUCH.my){ wish.addScaledVector(fwd,-TOUCH.my).addScaledVector(right,TOUCH.mx); } if(wish.lengthSq()>1) wish.normalize(); }
@@ -3330,7 +3330,7 @@ requestAnimationFrame(frame);
     else if(k==='block'){ if(remoteCtl.b){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } pressBlock(); }
     else if(k==='dash') wantDash=true;
     else if(k==='pause'){ if(state==='fight'||state==='countdown') pause(); }
-    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight') openSandbox(); }
+    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight'&&!(tutHook&&tutHook.on())) openSandbox(); }
     else if(k==='clip'){ if(clipSave) clipSave(); } }
   function release(id){ for(const k in B){ if(B[k]._id===id){ B[k].classList.remove('down'); B[k]._id=null; } } if(st.fire&&st.fire.id===id){ st.fire=null; TOUCH.fire=false; } if(st.stick&&st.stick.id===id) resetStick(); if(st.look&&st.look.id===id) st.look=null; }
   ui.addEventListener('touchstart',e=>{ if(editStart(e)) return; if(!st.active) return; e.preventDefault(); SFX.unlock();
@@ -3842,17 +3842,48 @@ function btUnseat(k,quiet){ const f=btF(k); BT.seats[k]=null;
 // Battle bots all play at Normal (a very good player)
 const btLv=()=>'normal';
 // ---------- spawning ----------
-function btSpot(f){ const sp=curMap.spawns||[[0,0]]; const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false);
-  const sc=sp.map(s=>{ let d=60; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1])); return {s,d:d+Math.random()*5}; }).sort((a,b)=>b.d-a.d);
-  return sc[Math.floor(Math.random()*Math.min(3,sc.length))].s; }
-function btSpawn(f){ if(f===player){ BT.spawnT=gameT; BT.pushT=-99; } const s=btSpot(f); const g=groundAt(s[0],s[1],20,0.3);
+// Each player's own game picks where they come back in, so two games picking at the same moment used to choose the
+// same "best" spot. Now: at the start of a match everyone gets their own spot by seat (spread around the map), and on
+// a respawn every game shares the spot it just used, which nobody else takes for a few seconds.
+const BT_CLAIM=new Map(); // spawn spot -> when someone (on any screen) last came in there (performance.now)
+const BT_MINE=[];         // spots this game used recently: [spot, when]
+function btClaim(i,f){ const now=performance.now(); BT_CLAIM.set(i,now); BT_MINE.push([i,now,f]); while(BT_MINE.length&&now-BT_MINE[0][1]>4000) BT_MINE.shift(); }
+function btStartSpot(f){ const sp=curMap.spawns||[[0,0]]; let c=sp.map((s,i)=>({s,i})).filter(o=>Math.hypot(o.s[0],o.s[1])>12); if(c.length<BT_N) c=sp.map((s,i)=>({s,i}));
+  c.sort((a,b)=>Math.atan2(a.s[1],a.s[0])-Math.atan2(b.s[1],b.s[0])); const n=c.length, rot=(BT.mid*7)%n; return c[(Math.floor((f.slot|0)*n/BT_N)+rot)%n].i; }
+// Respawns: every player has their own "home" side of the map (from their seat), so when several people come back at
+// the same moment they each head for a different safe spot instead of all picking the same one.
+function btSpotIdx(f,start){ const sp=curMap.spawns||[[0,0]]; if(start) return btStartSpot(f);
+  const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false), now=performance.now(), n=sp.length;
+  const ring=sp.map((s,i)=>i).sort((a,b)=>Math.atan2(sp[a][1],sp[a][0])-Math.atan2(sp[b][1],sp[b][0])), pos=[]; ring.forEach((i,r)=>pos[i]=r);
+  const home=x=>Math.floor((((x.slot|0)*0.618034+(BT.mid|0)*0.37)%1)*n);
+  const c=sp.map((s,i)=>{ let d=40; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1]));
+    const cl=BT_CLAIM.get(i); return {i,d:Math.round(d),taken:!!(cl&&now-cl<3500)}; });
+  // everyone (real people) waiting to come back right now, in seat order. Every game works this out the same way and
+  // hands them different spots, so two people coming back at the same moment never land together.
+  const grp=fighters.filter(x=>x===f||(x.dead&&x.active!==false&&BT.seats[x.slot]&&!BT.seats[x.slot].b)).sort((a,b)=>(a.slot|0)-(b.slot|0));
+  let free=c.filter(o=>!o.taken); if(!free.length) free=c.slice(); free.sort((a,b)=>(b.d-a.d)||(a.i-b.i));
+  let pool=free.filter(o=>o.d>=12); if(pool.length<grp.length+1) pool=free.slice(0,Math.max(pool.length,grp.length+1));
+  for(const g of grp){ const h=home(g); let bi=0, bk=1e9; pool.forEach((o,k)=>{ const r=Math.abs(pos[o.i]-h), key=Math.min(r,n-r)*100-o.d; if(key<bk){ bk=key; bi=k; } });
+    const got=pool[bi]; if(g===f) return got.i; if(pool.length>1) pool.splice(bi,1); }
+  return pool[0].i; }
+function btSpot(f,start){ const sp=curMap.spawns||[[0,0]], i=btSpotIdx(f,start); btClaim(i,f); return sp[i]; }
+// two games still picked the same spot at the same moment (their messages crossed): the bot, or the player in the
+// later seat, quietly hops to another free spot. The other player keeps theirs.
+function btClash(from,cl){ const now=performance.now();
+  for(const c of cl){ if(!Array.isArray(c)||c[1]>1500) continue;
+    for(const m of BT_MINE){ const g=m[2]; if(m[0]!==c[0]||now-m[1]>1500||!g||g.dead||g.pos.distanceTo(g.spawn)>4) continue;
+      const gBot=!!(BT.seats[g.slot]&&BT.seats[g.slot].b); if(!gBot&&!(g===player&&from&&(from.slot|0)<(g.slot|0))) continue;
+      m[0]=-1; const sp=curMap.spawns||[[0,0]], s=btSpot(g,false), y=groundAt(s[0],s[1],20,0.3);
+      g.pos.set(s[0],y===null?1:y,s[1]); g.vel.set(0,0,0); g.yaw=Math.atan2(s[0],s[1]); g.spawn.copy(g.pos); g.snaps=[]; aiReset(g);
+      burst(g.center(),g.team.light,12,5,0.12,0.5,0); /*DEBUG-START*/ window.__hops=(window.__hops|0)+1; /*DEBUG-END*/ } } }
+function btSpawn(f,start){ if(f===player){ BT.spawnT=gameT; BT.pushT=-99; } const s=btSpot(f,start); const g=groundAt(s[0],s[1],20,0.3);
   f.resetRound(); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos);
   f.invulnT=BT_SHIELD; f.life=(f.life|0)+1; f.respawnT=0; aiReset(f); f.setMood('normal',0);
   burst(f.center(),f.team.light,16,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.45); }
 // someone else's fighter came back (their own screen spawned them)
 function btRevive(f,life){ f.resetRound(); f.life=life; f.invulnT=BT_SHIELD; f.snaps=[]; if(f.rs) f.pos.copy(f.rs.pos); f.vel.set(0,0,0);
   burst(f.center(),f.team.light,16,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.45); ffaBoardKey=''; }
-function btPlaceAll(){ for(const f of fighters) if(btOwns(f)&&!f.dead) btSpawn(f); }
+function btPlaceAll(){ for(const f of fighters) if(btOwns(f)&&!f.dead) btSpawn(f,true); }
 
 // ---------- match flow ----------
 function btHudOn(){ show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.add('ffamode','battlemode'); show(UI.start,false); show(UI.draft,false); show(UI.matchover,false); show(UI.pause,false); paused=false; document.getElementById('online').classList.remove('open'); }
@@ -3863,7 +3894,7 @@ function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice(
   btNewMatch(1); }
 function btNewMatch(mid){ btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
-  for(const f of fighters) if(btOwns(f)) btSpawn(f);
+  BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
   state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); SFX.music('fight'); ffaBoardKey='';
   if(!BT.introDone){ BT.introDone=true; tipsT=0; setTimeout(()=>{ if(BT.on) toast('<b>First to 10 knockouts wins.</b> Get knocked out and you pick a card','status'); },3300); } }
@@ -4076,7 +4107,7 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const o={ v:3, vr:GAME_VER, r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
+  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
@@ -4128,7 +4159,9 @@ function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return;
     if(!f.dead&&f!==player&&isNum(B.hp&&B.hp[k])&&now-(f.lastLocalHit||0)>400) f.hp=B.hp[k];
     else if(f===player&&!player.dead&&isNum(B.hp&&B.hp[k])&&L===(player.life|0)&&X===0) player.hp=B.hp[k]; }
   if(Array.isArray(B.kf)){ const seen=new Set(BT.kf.map(e=>e[0])); for(const e of B.kf) if(Array.isArray(e)&&!seen.has(e[0])){ BT.kf.push(e); BT.kfSeq=Math.max(BT.kfSeq,e[0]|0); } if(BT.kf.length>12) BT.kf.splice(0,BT.kf.length-12); btFeed(); } }
-function btRx(peer,pr){ verSeen(peer,pr); const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
+function btRx(peer,pr){ verSeen(peer,pr);
+  if(Array.isArray(pr.cl)){ const now=performance.now(); for(const c of pr.cl) if(Array.isArray(c)&&isNum(c[0])&&isNum(c[1])&&c[1]>=0&&c[1]<5000){ const t=now-c[1], o=BT_CLAIM.get(c[0]); if(!o||t>o) BT_CLAIM.set(c[0],t); } } const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
+  if(Array.isArray(pr.cl)&&pr.cl.length) btClash(f,pr.cl);
   if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }
   netApplyHits(peer,pr.ht);
   if(!btHost()&&peer===NET.hostPeer&&Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const s=BT.seats[b.s]; if(!s||!s.b) continue; const bf=btF(b.s); if(bf.ctl==='net') netRxFighter(bf,b); } }
@@ -4159,7 +4192,7 @@ function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) retur
 
 btHook={ cam:btChampCam, get picking(){ return BT.picking; }, lockFree:()=>BT.on&&player.dead, onKill:btOnKill, tick:btTick, over:btOver, hud:btHud, board:btBoard, placeAll:btPlaceAll, play:()=>btPlay(), stop:btStop,
   peers:btPeers, send:btSend, netTick:btNetTick, pauseUI:btPauseUI, menuUI:btMenuUI };
-/*DEBUG-START*/window.__jump=()=>({sus:BT.sus|0,caught:!!BT.caught}); window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
+/*DEBUG-START*/window.__spawnT={btClash,btSpawn,mine:()=>BT_MINE}; window.__jump=()=>({sus:BT.sus|0,caught:!!BT.caught}); window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
 
 // ================= MENU: Public or Private =================
 // Public = jump straight into a Battle with whoever's online.
@@ -4236,6 +4269,184 @@ function verSeen(peer,pr){ if(!pr||!peer||UPD.told[peer]) return; const theirs=t
   const c=theirs?verCmp(theirs,GAME_VER):-1; if(c===0) return; UPD.told[peer]=1;
   if(c>0) updBar(`<b>Your game is out of date.</b> ${nm} has version ${esc(theirs)}, you have ${esc(GAME_VER)}. Some hits won't count until you update.`,'UPDATE NOW');
   else toast(`<b>${nm}</b> is on an older version${theirs?` (${esc(theirs)})`:''}. Ask them to refresh the page, or some of their hits won't count.`,'status'); }
+
+// ================= TUTORIAL: Coach Kip shows new players the ropes =================
+// Runs on top of the training sandbox (Dockside, a dummy bot). Coach Kip talks in chat bubbles you click through,
+// then hands you a small task: bounce shots with the dome, shoot, dash, then pick single cards and see how they stack.
+const TUT={on:false, i:-1, talk:false, lines:[], li:0, typing:null, card:false, task:null, prog:0, ring:null, warnT:0, shotT:0, hintT:0, lastHp:0,
+  wasBlock:false, wasDead:false, wasBlink:false, wasStun:false, wasThr:false, dashAt:-9, flyT:0, botD:10, raf:0, last:0, prev:null, fin:false};
+const TUT_KEY='dr_tut', TUT_LESSONS=7;
+function tutSeen(){ try{ return !!localStorage.getItem(TUT_KEY); }catch(e){ return true; } }
+function tutMark(v){ try{ localStorage.setItem(TUT_KEY,v); }catch(e){} }
+const TUT_FACE=`<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="58" r="33" fill="#ffd23d" stroke="#14081f" stroke-width="4"/><path d="M17 50a33 31 0 0 1 66 0Z" fill="#ff2e88" stroke="#14081f" stroke-width="4" stroke-linejoin="round"/><path d="M50 50h40q5 0 3 6H50Z" fill="#ff2e88" stroke="#14081f" stroke-width="4" stroke-linejoin="round"/><circle cx="50" cy="24" r="4.5" fill="#fff1d6" stroke="#14081f" stroke-width="3"/><ellipse cx="38" cy="63" rx="8" ry="9.5" fill="#fff" stroke="#14081f" stroke-width="3"/><ellipse cx="62" cy="63" rx="8" ry="9.5" fill="#fff" stroke="#14081f" stroke-width="3"/><circle class="tp" cx="40" cy="65" r="4.2" fill="#14081f"/><circle class="tp" cx="64" cy="65" r="4.2" fill="#14081f"/><path d="M39 79q11 9 22 0" fill="none" stroke="#14081f" stroke-width="4" stroke-linecap="round"/><path d="M27 86q-4 8 4 11" fill="none" stroke="#35e9ff" stroke-width="3" stroke-linecap="round"/><rect x="27" y="92" width="12" height="7" rx="3" fill="#35e9ff" stroke="#14081f" stroke-width="2.5"/></svg>`;
+const TUTK={
+  dome:()=>TOUCH.on?'tap the <b>DOME</b> button':'hit <kbd>Q</kbd> or <kbd>right-click</kbd>',
+  domeKey:()=>TOUCH.on?'<b>DOME</b>':'<kbd>Q</kbd> / <kbd>RMB</kbd>',
+  shoot:()=>TOUCH.on?'hold the <b>fire</b> button':'<kbd>left-click</kbd>',
+  shootKey:()=>TOUCH.on?'<b>FIRE</b>':'<kbd>LMB</kbd>',
+  aim:()=>TOUCH.on?'Drag on the right side to aim':'Aim with the mouse',
+  dash:()=>TOUCH.on?'Tap <b>DASH</b>':'Hit <kbd>Shift</kbd>',
+  dashKey:()=>TOUCH.on?'<b>DASH</b>':'<kbd>Shift</kbd>',
+  move:()=>TOUCH.on?'left thumb':'<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>',
+  take:()=>TOUCH.on?'Tap it':'Click it'
+};
+const TUT_STEPS=[
+  {say:()=>["Hey, I'm <b>Coach Kip</b>! Give me two minutes and you'll be ready to play.",
+            "First, the move that wins fights: your <b>dome</b>. It bounces shots straight back at whoever fired them.",
+            `That bot's about to shoot at you. When the shot gets close, ${TUTK.dome()} to pop your dome.`]},
+  {task:'dome', goal:3, bot:13, text:()=>`Bounce the shots back with ${TUTK.domeKey()}`, yay:'3 FOR 3!'},
+  {say:()=>["Great reflexes! Now let's hit back.",
+            `${TUTK.aim()} and ${TUTK.shoot()} to shoot your blaster. Knock that bot out!`]},
+  {task:'ko', goal:1, bot:11, text:()=>`Knock out the bot with ${TUTK.shootKey()}`, yay:'BOOM!'},
+  {say:()=>[`Next up, the <b>dash</b>. ${TUTK.dash()} to zip whichever way you're moving. It's how you dodge.`,
+            `Move with ${TUTK.move()} and dash into the 3 glowing rings.`]},
+  {task:'rings', goal:3, text:()=>`Dash into the rings with ${TUTK.dashKey()}`, yay:'ZOOM!'},
+  {say:()=>["Now the fun part: <b>cards</b>. After every round you pick one, and it changes how you fight."]},
+  {card:'buckshot', say:()=>`This is <b>Buckshot</b>. Your blaster fires a spray of 5 bullets instead of 1. ${TUTK.take()} to take it.`},
+  {say:()=>["Try it out. Get close and blast the bot!"]},
+  {task:'ko', goal:1, bot:9, text:()=>'Knock out the bot with Buckshot', yay:'NICE SPREAD!'},
+  {card:'thruster', say:()=>`Here's another. <b>Thruster</b> sticks a little rocket on whatever you hit and shoves them away. ${TUTK.take()} to take it.`},
+  {say:()=>["Here's the cool bit: cards <b>stack and combine</b>. Buckshot gives you 5 bullets, Thruster puts a rocket on each one. So now you fire 5 rockets at once!",
+            "And if you get the same card twice, it gets even stronger. Go on, send that bot flying."]},
+  {task:'fly', goal:1, bot:9, text:()=>'Hit the bot with your rockets', yay:'BYE BYE, BOT!'},
+  {card:'teleport', say:()=>`Cards can change your dome too. <b>Teleport</b>: when you pop your dome, you blink forward, right through walls. ${TUTK.take()} to take it.`},
+  {say:()=>[`Give it a go. ${TUTK.dome()[0].toUpperCase()+TUTK.dome().slice(1)} to blink.`]},
+  {task:'blink', goal:2, bot:12, text:()=>`Blink twice with ${TUTK.domeKey()}`, yay:'SLICK!'},
+  {card:'supernova', say:()=>`Last one. <b>Supernova</b> turns your dome into a black hole. It drags enemies in, then blows up and stuns them. ${TUTK.take()} to take it.`},
+  {say:()=>["Now stack them: Teleport gets you in close, and the black hole opens right where you land.",
+            "Face the bot, blink in and catch it in a black hole!"]},
+  {task:'nova', goal:1, bot:12, text:()=>`Catch the bot in a black hole with ${TUTK.domeKey()}`, yay:'SUPERNOVA!'},
+  {say:()=>["That's everything: dome, blaster, dash and cards. In real matches you pick from 3 cards, so mix them up and find your own combo.",
+            "Now go win some rounds!"]},
+  {finish:true}
+];
+const tutEl=id=>document.getElementById(id);
+
+// ---------- start, stop ----------
+function tutStart(){ SFX.unlock(); if(NET.on) netLeave(); if(TUT.on) tutStop();
+  TUT.prev={cards:sandbox.cards.slice(), bot:sandbox.bot}; sandbox.cards=[]; sandbox.bot='dummy';
+  const keepMap=settings.map; settings.map='dock'; TUT.on=true; TUT.talk=true; startSandbox(); settings.map=keepMap; exitLock();
+  document.body.classList.add('tutOn'); UI.hud.classList.add('tutmode'); tipsT=0; UI.roundPill.textContent='TUTORIAL';
+  TUT.i=-1; TUT.task=null; TUT.fin=false; tutBotAt(13); show(tutEl('tut'),true,'block'); show(tutEl('tutPop'),false);
+  cancelAnimationFrame(TUT.raf); TUT.last=performance.now(); TUT.raf=requestAnimationFrame(tutLoop); tutNext(); }
+function tutStop(){ if(!TUT.on&&!TUT.fin) return; TUT.on=false; TUT.fin=false; TUT.talk=false; TUT.card=false; TUT.task=null; TUT.typing=null; cancelAnimationFrame(TUT.raf);
+  tutRingOff(); show(tutEl('tut'),false); show(tutEl('tutEnd'),false); tutEl('tutNow').classList.remove('on'); UI.draft.classList.remove('tutDraft'); show(UI.draft,false);
+  document.body.classList.remove('tutOn'); UI.hud.classList.remove('tutmode'); tutTouchPulse(null);
+  if(TUT.prev){ sandbox.cards=TUT.prev.cards; sandbox.bot=TUT.prev.bot; TUT.prev=null; } setTimeout(tutMenuSync,0); }
+tutHook={ on:()=>TUT.on, lockFree:()=>TUT.on&&(TUT.talk||TUT.card||TUT.fin), stop:tutStop, tick:dt=>tutTick(dt) };
+
+// ---------- the script ----------
+function tutNext(){ TUT.i++; const st=TUT_STEPS[TUT.i]; if(!st) return tutFinish();
+  const n=TUT_STEPS.slice(0,TUT.i+1).filter(s=>s.task).length; UI.roundSub.textContent=`STEP ${Math.min(TUT_LESSONS,Math.max(1,n+(st.task?0:1)))} OF ${TUT_LESSONS}`;
+  if(st.say&&!st.card){ TUT.lines=st.say(); TUT.li=0; tutTalk(); }
+  else if(st.card) tutCard(st.card,st.say());
+  else if(st.task) tutTaskStart(st);
+  else if(st.finish) tutFinish(); }
+function tutNextIsTask(){ const s=TUT_STEPS[TUT.i+1]; return !!(s&&s.task); }
+function tutTalk(){ TUT.talk=true; TUT.task=null; exitLock(); tutEl('tutNow').classList.remove('on'); tutTouchPulse(null);
+  const box=tutEl('tutBox'); box.className='talk'; show(tutEl('tutCatch'),true,'block'); show(tutEl('tutTask'),false); show(tutEl('tutSkip'),true,'block'); tutLine(); }
+function tutLine(){ const last=TUT.li>=TUT.lines.length-1; tutType(TUT.lines[TUT.li]); SFX.hover();
+  const more=tutEl('tutMore'); more.classList.toggle('go',last&&tutNextIsTask());
+  more.innerHTML= last&&tutNextIsTask()? (TOUCH.on?"LET'S GO! <i>Tap</i>":"LET'S GO! <i>Click or Space</i>") : (TOUCH.on?'Tap to continue':'Click or Space to continue');
+  const f=tutEl('tutBox').querySelector('.tutFace'); f.classList.remove('bob'); void f.offsetWidth; f.classList.add('bob'); }
+function tutAdvance(){ if(!TUT.on||!TUT.talk) return; if(TUT.typing){ tutTypeEnd(); return; }
+  if(TUT.li<TUT.lines.length-1){ TUT.li++; tutLine(); return; }
+  TUT.talk=false; show(tutEl('tutCatch'),false); tutEl('tutBox').className=''; show(tutEl('tutSkip'),false);
+  const goTask=tutNextIsTask(); tutNext(); if(goTask){ SFX.go(); requestLock(); } }
+
+// typewriter that keeps the bold words and key caps
+function tutType(html){ const el=tutEl('tutText'); el.innerHTML=html; const nodes=[]; const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT); while(w.nextNode()) nodes.push([w.currentNode,w.currentNode.data]);
+  for(const n of nodes) n[0].data=''; TUT.typing={nodes,i:0,n:0,acc:0}; }
+function tutTypeTick(dt){ const T2=TUT.typing; if(!T2) return; T2.acc+=dt*70;
+  while(T2.acc>=1&&T2.i<T2.nodes.length){ const [node,full]=T2.nodes[T2.i]; T2.n++; node.data=full.slice(0,T2.n); T2.acc--; if(T2.n>=full.length){ T2.i++; T2.n=0; } }
+  if(T2.i>=T2.nodes.length) TUT.typing=null; }
+function tutTypeEnd(){ const T2=TUT.typing; if(!T2) return; for(const [node,full] of T2.nodes) node.data=full; TUT.typing=null; }
+
+// ---------- a card screen with just one card ----------
+function tutCard(id,html){ TUT.card=true; TUT.task=null; exitLock(); state='draft'; draftT=1e9; clearProjectiles(); show(UI.hud,false); tutRingOff(); tutEl('tutNow').classList.remove('on');
+  UI.draftTitle.textContent='NEW CARD!'; UI.draftSub.textContent='Cards are how you get stronger'; UI.draft.classList.add('tutDraft'); UI.cards.innerHTML='';
+  const c=CARDS[id], el=document.createElement('div'); el.className=`card t-${c.type} rec`; el.style.setProperty('--c',c.c); el.style.setProperty('--i',0);
+  el.innerHTML=cardHTML(id,0,player.cards.filter(x=>x===id).length,false);
+  el.addEventListener('mousemove',ev=>{ const r=el.getBoundingClientRect(); const px=(ev.clientX-r.left)/r.width, py=(ev.clientY-r.top)/r.height; el.style.setProperty('--ry',((px-0.5)*14).toFixed(1)+'deg'); el.style.setProperty('--rx',((0.5-py)*12).toFixed(1)+'deg'); el.style.setProperty('--gx',(px*100).toFixed(0)+'%'); el.style.setProperty('--gy',(py*100).toFixed(0)+'%'); });
+  el.addEventListener('mouseenter',()=>SFX.hover());
+  el.addEventListener('click',()=>{ if(!TUT.on||!TUT.card||el.classList.contains('picked')) return; el.classList.add('picked'); player.addCard(id); SFX.pick(); toast(`<b class="you">You</b> took <b>${c.name}</b>`,'you');
+    setTimeout(()=>{ if(!TUT.on) return; show(UI.draft,false); UI.draft.classList.remove('tutDraft'); TUT.card=false; state='fight';
+      show(UI.hud,true,'block'); player.hp=player.maxHp(); player.ammo=player.stats.ammo; player.reloading=false; player.blockCdT=0; updateCardStrips(); tutNext(); },750); });
+  UI.cards.appendChild(el); setTimeout(()=>SFX.deal(),140); show(UI.draft,true);
+  const box=tutEl('tutBox'); box.className='info'; show(tutEl('tutCatch'),false); show(tutEl('tutTask'),false); show(tutEl('tutSkip'),true,'block'); tutType(html);
+  tutEl('tutMore').classList.remove('go'); tutEl('tutMore').innerHTML=TOUCH.on?'Tap the card':'Click the card or press <kbd>1</kbd>'; }
+
+// ---------- tasks ----------
+function tutBotAt(d){ TUT.botD=d; if(bot.dead) return; const p=tutBotSpot(d); bot.pos.copy(p); bot.vel.set(0,0,0); bot.spawn&&bot.spawn.copy(p); }
+function tutBotSpot(d){ const x=BASE_POS.player.x+d, g=groundAt(x,0,4,0.3); return V3(x,g===null?BASE_POS.player.y:g,0); }
+function tutTaskStart(st){ TUT.task=st; TUT.prog=0; TUT.hintT=0; TUT.flyT=0; TUT.shotT=1.4; TUT.warnT=0; TUT.lastHp=player.hp;
+  TUT.wasBlock=player.blockActive; TUT.wasDead=bot.dead; TUT.wasBlink=false; TUT.wasStun=bot.stunT>0; TUT.wasThr=false;
+  if(st.bot) tutBotAt(st.bot); bot.hp=bot.maxHp(); bot.thrusters&&(bot.thrusters.length=0); player.hp=player.maxHp(); player.ammo=player.stats.ammo; player.reloading=false; player.blockCdT=0; player.dashCdT=0;
+  show(tutEl('tutTask'),true,'flex'); tutEl('tutBox').className=''; tutTaskText(); if(st.task==='rings') tutRingNext();
+  if(st.task==='dome') tutTouchPulse('tBlock'); else if(st.task==='rings') tutTouchPulse('tDash'); else if(st.task==='blink'||st.task==='nova') tutTouchPulse('tBlock'); else tutTouchPulse(null); }
+function tutTaskText(hint){ const st=TUT.task; if(!st) return; tutEl('tutTaskText').innerHTML=hint?`<em>${hint}</em>`:st.text(); tutEl('tutProg').textContent=`${TUT.prog}/${st.goal}`; }
+function tutHint(h){ TUT.hintT=2.4; tutTaskText(h); }
+function tutGain(){ const st=TUT.task; if(!st) return; TUT.prog++; SFX.coin(); const p=tutEl('tutProg'); p.classList.remove('pop'); void p.offsetWidth; p.classList.add('pop'); tutTaskText();
+  if(TUT.prog>=st.goal){ TUT.task=null; tutRingOff(); tutEl('tutNow').classList.remove('on'); tutTouchPulse(null); SFX.levelup(); showBanner(st.yay,'#ffd23d');
+    burst(player.center().add(V3(0,1,0)),0xffd23d,26,7,0.12,0.8,0.5); setTimeout(()=>{ if(TUT.on&&!TUT.talk&&!TUT.card) tutNext(); },1500); } }
+function tutTouchPulse(id){ for(const x of ['tBlock','tDash','tFire']){ const e=tutEl(x); if(e) e.classList.toggle('tutPulse',x===id); } }
+function tutTick(dt){ if(!TUT.on) return;
+  if(player.hp<player.maxHp()&&!player.dead) player.hp=Math.min(player.maxHp(),player.hp+dt*25); // you can't really lose in here
+  if(TUT.wasDead&&!bot.dead){ tutBotAt(TUT.botD); } // the dummy came back: put it where this lesson wants it
+  const st=TUT.task; if(TUT.hintT>0){ TUT.hintT-=dt; if(TUT.hintT<=0) tutTaskText(); }
+  if(!st||TUT.talk||TUT.card){ TUT.wasDead=bot.dead; return; }
+  const k=st.task;
+  if(k==='dome'){ player.blockCdT=Math.min(player.blockCdT,0.8);
+    let near=1e9, live=false; for(const b of bullets){ if(b.owner===bot&&b.tut){ live=true; near=Math.min(near,b.pos.distanceTo(player.center())); }
+      if(b.tut&&b.owner===player&&!b.tutC){ b.tutC=true; b.dmg=34; tutGain(); if(!TUT.task) break; } }
+    tutEl('tutNow').classList.toggle('on',near<10&&!player.blockActive);
+    if(player.blockActive&&!TUT.wasBlock&&live&&near>12.5) tutHint('Too early! Wait till the shot is close');
+    if(player.hp<TUT.lastHp-1) tutHint('Ouch! Pop it a little sooner');
+    if(TUT.task&&!live&&!bot.dead){ TUT.shotT-=dt; if(TUT.shotT<0.75&&TUT.warnT<=0){ TUT.warnT=1; bot.setMood('angry',1); floatText(bot.center().add(V3(0,1.3,0)),'HERE IT COMES','status'); }
+      if(TUT.shotT<=0){ TUT.shotT=1.9; TUT.warnT=0; const o=bot.muzzlePos?bot.muzzlePos():bot.center(); bot.botAim=V3().subVectors(player.center(),o).normalize(); bot.ammo=Math.max(1,bot.ammo); bot.reloading=false; bot.fireCd=0;
+        const n0=bullets.length; if(tryFire(bot,true)) for(let i=n0;i<bullets.length;i++){ const b=bullets[i]; if(b.owner!==bot) continue; b.tut=true; b.vel.multiplyScalar(15/Math.max(1,b.vel.length())); b.dmg=8; b.life=2.6; } } } }
+  else if(k==='ko'){ if(bot.dead&&!TUT.wasDead) tutGain(); }
+  else if(k==='rings'){ player.dashCdT=Math.min(player.dashCdT,0.5); if(player.dashT>0) TUT.dashAt=gameT; const R=TUT.ring;
+    if(R){ R.g.rotation.y+=dt*1.6; R.t+=dt; const s=1+Math.sin(R.t*5)*0.06; R.g.scale.set(s,1,s); const dx=player.pos.x-R.p.x, dz=player.pos.z-R.p.z, inside=Math.hypot(dx,dz)<1.9&&Math.abs(player.pos.y-R.p.y)<2.2;
+      if(inside&&gameT-TUT.dashAt<0.35){ burst(R.p.clone().add(V3(0,1,0)),0xffd23d,22,6,0.12,0.6,0.4); shockRing(R.p.clone().add(V3(0,0.1,0)),0xffd23d,3,0.4); tutRingOff(); tutGain(); if(TUT.task) tutRingNext(); }
+      else if(inside&&!R.told){ R.told=true; tutHint(`Dash into it! ${TUTK.dashKey()}`); } else if(!inside) R.told=false; } }
+  else if(k==='fly'){ const thr=!!(bot.thrusters&&bot.thrusters.length); if(thr&&!TUT.wasThr&&TUT.flyT<=0) TUT.flyT=0.01; TUT.wasThr=thr; if(TUT.flyT>0){ TUT.flyT+=dt; if(TUT.flyT>1.2||bot.dead){ TUT.flyT=0; tutGain(); } } }
+  else if(k==='blink'){ player.blockCdT=Math.min(player.blockCdT,0.7); const bl=(player.blinkPending||0)>0; if(bl&&!TUT.wasBlink) tutGain(); TUT.wasBlink=bl; }
+  else if(k==='nova'){ player.blockCdT=Math.min(player.blockCdT,0.9); const sn=bot.stunT>0; if(sn&&!TUT.wasStun) tutGain(); TUT.wasStun=sn;
+    if(player.blockActive&&!TUT.wasBlock&&!bot.dead&&player.pos.distanceTo(bot.pos)>17) tutHint('Too far! Face the bot and get closer first'); }
+  TUT.wasBlock=player.blockActive; TUT.lastHp=player.hp; TUT.wasDead=bot.dead; }
+
+// glowing rings for the dash lesson
+function tutRingNext(){ tutRingOff(); const base=player.yaw;
+  for(const a of [0.7,-0.7,1.3,-1.3,0.2,-0.2,2.2,-2.2,Math.PI]){ for(const d of [7,6,8,5]){ const dir=V3(-Math.sin(base+a),0,-Math.cos(base+a)), x=player.pos.x+dir.x*d, z=player.pos.z+dir.z*d;
+    const g=groundAt(x,z,player.pos.y+3,0.5); if(g===null||Math.abs(g-player.pos.y)>1.2) continue; const p=V3(x,g,z); if(!hasLOS(player.center(),V3(x,g+0.9,z))) continue;
+    const grp=new T.Group(); grp.position.copy(p);
+    const ring=new T.Mesh(new T.TorusGeometry(1.35,0.13,10,40),new T.MeshBasicMaterial({color:col(0xffd23d)})); ring.rotation.x=Math.PI/2; ring.position.y=0.08; grp.add(ring);
+    const beam=new T.Mesh(new T.CylinderGeometry(1.25,1.25,3.2,28,1,true),new T.MeshBasicMaterial({color:col(0xffd23d),transparent:true,opacity:0.22,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending})); beam.position.y=1.6; grp.add(beam);
+    scene.add(grp); TUT.ring={g:grp,p,t:0,told:false}; shockRing(p.clone().add(V3(0,0.1,0)),0xffd23d,2.2,0.35); return; } } }
+function tutRingOff(){ const R=TUT.ring; if(!R) return; scene.remove(R.g); R.g.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); }); TUT.ring=null; }
+
+// ---------- the end ----------
+function tutFinish(){ TUT.task=null; TUT.talk=false; TUT.fin=true; tutMark('done'); exitLock(); tutRingOff(); show(tutEl('tut'),false); state='picked'; show(UI.hud,false);
+  const e=tutEl('tutEnd'); e.querySelectorAll('.cf').forEach(c=>c.remove()); const cols=['#ffd23d','#ff2e88','#35e9ff','#5dff9b','#fff1d6'];
+  for(let i=0;i<44;i++){ const c=document.createElement('i'); c.className='cf'; c.style.left=(Math.random()*100)+'vw'; c.style.background=cols[i%cols.length]; c.style.animationDuration=(2.4+Math.random()*2.6)+'s'; c.style.animationDelay=(Math.random()*1.4)+'s'; e.appendChild(c); }
+  show(e,true); SFX.champion&&SFX.champion();
+  let k=0; const fw=()=>{ if(!TUT.fin||k++>5) return; SFX.firework&&SFX.firework(); setTimeout(fw,420); }; setTimeout(fw,500); }
+function tutLoop(now){ if(!TUT.on) return; TUT.raf=requestAnimationFrame(tutLoop); const dt=Math.min(0.05,(now-TUT.last)/1000); TUT.last=now; tutTypeTick(dt); }
+
+// ---------- menu bits ----------
+function tutMenuSync(){ const seen=tutSeen(); const pop=tutEl('tutPop'); if(pop) show(pop,!seen&&state==='menu','flex'); const b=tutEl('tutBtn'); if(b) b.classList.toggle('hot',!seen); }
+document.querySelectorAll('.tutFace').forEach(e=>e.innerHTML=TUT_FACE);
+tutEl('tutBtn').addEventListener('click',tutStart);
+tutEl('tutPopGo').addEventListener('click',tutStart);
+tutEl('tutPopX').addEventListener('click',e=>{ e.stopPropagation(); tutMark('skip'); SFX.hover(); tutMenuSync(); });
+tutEl('tutCatch').addEventListener('pointerdown',e=>{ e.preventDefault(); tutAdvance(); });
+tutEl('tutSkip').addEventListener('click',e=>{ e.stopPropagation(); tutMark('skip'); toMenu(); });
+tutEl('tutEndPlay').addEventListener('click',()=>{ toMenu(); setTimeout(()=>tutEl('publicBtn').click(),60); });
+tutEl('tutEndMenu').addEventListener('click',()=>toMenu());
+window.addEventListener('keydown',e=>{ if(!TUT.on||!TUT.talk||paused) return; if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); e.stopPropagation(); if(!e.repeat) tutAdvance(); } },true);
+setInterval(tutMenuSync,1000); tutMenuSync();
+/*DEBUG-START*/window.__tut={TUT,TUT_STEPS,tutStart,tutStop,tutAdvance,tutNext,tutGain,ring:()=>TUT.ring,botSpot:d=>tutBotSpot(d)};/*DEBUG-END*/
 
 }
 let __started=false; function __go(){ if(__started) return; __started=true; try{ __boot(); }catch(e){ console.error(e); const l=document.getElementById('loading'); if(l) l.textContent='Something broke while loading: '+e.message; } }

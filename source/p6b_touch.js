@@ -50,7 +50,7 @@
     else if(k==='block'){ if(remoteCtl.b){ remoteCtl.b.remote=false; remoteCtl.b=null; steerLatch=true; } pressBlock(); }
     else if(k==='dash') wantDash=true;
     else if(k==='pause'){ if(state==='fight'||state==='countdown') pause(); }
-    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight') openSandbox(); }
+    else if(k==='powers'){ if(mode==='sandbox'&&state==='fight'&&!(tutHook&&tutHook.on())) openSandbox(); }
     else if(k==='clip'){ if(clipSave) clipSave(); } }
   function release(id){ for(const k in B){ if(B[k]._id===id){ B[k].classList.remove('down'); B[k]._id=null; } } if(st.fire&&st.fire.id===id){ st.fire=null; TOUCH.fire=false; } if(st.stick&&st.stick.id===id) resetStick(); if(st.look&&st.look.id===id) st.look=null; }
   ui.addEventListener('touchstart',e=>{ if(editStart(e)) return; if(!st.active) return; e.preventDefault(); SFX.unlock();

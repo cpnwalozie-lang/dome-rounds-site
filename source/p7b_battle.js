@@ -29,17 +29,48 @@ function btUnseat(k,quiet){ const f=btF(k); BT.seats[k]=null;
 // Battle bots all play at Normal (a very good player)
 const btLv=()=>'normal';
 // ---------- spawning ----------
-function btSpot(f){ const sp=curMap.spawns||[[0,0]]; const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false);
-  const sc=sp.map(s=>{ let d=60; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1])); return {s,d:d+Math.random()*5}; }).sort((a,b)=>b.d-a.d);
-  return sc[Math.floor(Math.random()*Math.min(3,sc.length))].s; }
-function btSpawn(f){ if(f===player){ BT.spawnT=gameT; BT.pushT=-99; } const s=btSpot(f); const g=groundAt(s[0],s[1],20,0.3);
+// Each player's own game picks where they come back in, so two games picking at the same moment used to choose the
+// same "best" spot. Now: at the start of a match everyone gets their own spot by seat (spread around the map), and on
+// a respawn every game shares the spot it just used, which nobody else takes for a few seconds.
+const BT_CLAIM=new Map(); // spawn spot -> when someone (on any screen) last came in there (performance.now)
+const BT_MINE=[];         // spots this game used recently: [spot, when]
+function btClaim(i,f){ const now=performance.now(); BT_CLAIM.set(i,now); BT_MINE.push([i,now,f]); while(BT_MINE.length&&now-BT_MINE[0][1]>4000) BT_MINE.shift(); }
+function btStartSpot(f){ const sp=curMap.spawns||[[0,0]]; let c=sp.map((s,i)=>({s,i})).filter(o=>Math.hypot(o.s[0],o.s[1])>12); if(c.length<BT_N) c=sp.map((s,i)=>({s,i}));
+  c.sort((a,b)=>Math.atan2(a.s[1],a.s[0])-Math.atan2(b.s[1],b.s[0])); const n=c.length, rot=(BT.mid*7)%n; return c[(Math.floor((f.slot|0)*n/BT_N)+rot)%n].i; }
+// Respawns: every player has their own "home" side of the map (from their seat), so when several people come back at
+// the same moment they each head for a different safe spot instead of all picking the same one.
+function btSpotIdx(f,start){ const sp=curMap.spawns||[[0,0]]; if(start) return btStartSpot(f);
+  const others=fighters.filter(x=>x!==f&&!x.dead&&x.active!==false), now=performance.now(), n=sp.length;
+  const ring=sp.map((s,i)=>i).sort((a,b)=>Math.atan2(sp[a][1],sp[a][0])-Math.atan2(sp[b][1],sp[b][0])), pos=[]; ring.forEach((i,r)=>pos[i]=r);
+  const home=x=>Math.floor((((x.slot|0)*0.618034+(BT.mid|0)*0.37)%1)*n);
+  const c=sp.map((s,i)=>{ let d=40; for(const o of others) d=Math.min(d,Math.hypot(o.pos.x-s[0],o.pos.z-s[1]));
+    const cl=BT_CLAIM.get(i); return {i,d:Math.round(d),taken:!!(cl&&now-cl<3500)}; });
+  // everyone (real people) waiting to come back right now, in seat order. Every game works this out the same way and
+  // hands them different spots, so two people coming back at the same moment never land together.
+  const grp=fighters.filter(x=>x===f||(x.dead&&x.active!==false&&BT.seats[x.slot]&&!BT.seats[x.slot].b)).sort((a,b)=>(a.slot|0)-(b.slot|0));
+  let free=c.filter(o=>!o.taken); if(!free.length) free=c.slice(); free.sort((a,b)=>(b.d-a.d)||(a.i-b.i));
+  let pool=free.filter(o=>o.d>=12); if(pool.length<grp.length+1) pool=free.slice(0,Math.max(pool.length,grp.length+1));
+  for(const g of grp){ const h=home(g); let bi=0, bk=1e9; pool.forEach((o,k)=>{ const r=Math.abs(pos[o.i]-h), key=Math.min(r,n-r)*100-o.d; if(key<bk){ bk=key; bi=k; } });
+    const got=pool[bi]; if(g===f) return got.i; if(pool.length>1) pool.splice(bi,1); }
+  return pool[0].i; }
+function btSpot(f,start){ const sp=curMap.spawns||[[0,0]], i=btSpotIdx(f,start); btClaim(i,f); return sp[i]; }
+// two games still picked the same spot at the same moment (their messages crossed): the bot, or the player in the
+// later seat, quietly hops to another free spot. The other player keeps theirs.
+function btClash(from,cl){ const now=performance.now();
+  for(const c of cl){ if(!Array.isArray(c)||c[1]>1500) continue;
+    for(const m of BT_MINE){ const g=m[2]; if(m[0]!==c[0]||now-m[1]>1500||!g||g.dead||g.pos.distanceTo(g.spawn)>4) continue;
+      const gBot=!!(BT.seats[g.slot]&&BT.seats[g.slot].b); if(!gBot&&!(g===player&&from&&(from.slot|0)<(g.slot|0))) continue;
+      m[0]=-1; const sp=curMap.spawns||[[0,0]], s=btSpot(g,false), y=groundAt(s[0],s[1],20,0.3);
+      g.pos.set(s[0],y===null?1:y,s[1]); g.vel.set(0,0,0); g.yaw=Math.atan2(s[0],s[1]); g.spawn.copy(g.pos); g.snaps=[]; aiReset(g);
+      burst(g.center(),g.team.light,12,5,0.12,0.5,0); /*DEBUG-START*/ window.__hops=(window.__hops|0)+1; /*DEBUG-END*/ } } }
+function btSpawn(f,start){ if(f===player){ BT.spawnT=gameT; BT.pushT=-99; } const s=btSpot(f,start); const g=groundAt(s[0],s[1],20,0.3);
   f.resetRound(); f.pos.set(s[0],g===null?1:g,s[1]); f.vel.set(0,0,0); f.yaw=Math.atan2(s[0],s[1]); f.pitch=0; f.onGround=true; f.spawn.copy(f.pos);
   f.invulnT=BT_SHIELD; f.life=(f.life|0)+1; f.respawnT=0; aiReset(f); f.setMood('normal',0);
   burst(f.center(),f.team.light,16,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.45); }
 // someone else's fighter came back (their own screen spawned them)
 function btRevive(f,life){ f.resetRound(); f.life=life; f.invulnT=BT_SHIELD; f.snaps=[]; if(f.rs) f.pos.copy(f.rs.pos); f.vel.set(0,0,0);
   burst(f.center(),f.team.light,16,6,0.12,0.6,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2.4,0.45); ffaBoardKey=''; }
-function btPlaceAll(){ for(const f of fighters) if(btOwns(f)&&!f.dead) btSpawn(f); }
+function btPlaceAll(){ for(const f of fighters) if(btOwns(f)&&!f.dead) btSpawn(f,true); }
 
 // ---------- match flow ----------
 function btHudOn(){ show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.add('ffamode','battlemode'); show(UI.start,false); show(UI.draft,false); show(UI.matchover,false); show(UI.pause,false); paused=false; document.getElementById('online').classList.remove('open'); }
@@ -50,7 +81,7 @@ function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice(
   btNewMatch(1); }
 function btNewMatch(mid){ btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
-  for(const f of fighters) if(btOwns(f)) btSpawn(f);
+  BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
   state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); SFX.music('fight'); ffaBoardKey='';
   if(!BT.introDone){ BT.introDone=true; tipsT=0; setTimeout(()=>{ if(BT.on) toast('<b>First to 10 knockouts wins.</b> Get knocked out and you pick a card','status'); },3300); } }
@@ -263,7 +294,7 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const o={ v:3, vr:GAME_VER, r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
+  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
@@ -315,7 +346,9 @@ function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return;
     if(!f.dead&&f!==player&&isNum(B.hp&&B.hp[k])&&now-(f.lastLocalHit||0)>400) f.hp=B.hp[k];
     else if(f===player&&!player.dead&&isNum(B.hp&&B.hp[k])&&L===(player.life|0)&&X===0) player.hp=B.hp[k]; }
   if(Array.isArray(B.kf)){ const seen=new Set(BT.kf.map(e=>e[0])); for(const e of B.kf) if(Array.isArray(e)&&!seen.has(e[0])){ BT.kf.push(e); BT.kfSeq=Math.max(BT.kfSeq,e[0]|0); } if(BT.kf.length>12) BT.kf.splice(0,BT.kf.length-12); btFeed(); } }
-function btRx(peer,pr){ verSeen(peer,pr); const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
+function btRx(peer,pr){ verSeen(peer,pr);
+  if(Array.isArray(pr.cl)){ const now=performance.now(); for(const c of pr.cl) if(Array.isArray(c)&&isNum(c[0])&&isNum(c[1])&&c[1]>=0&&c[1]<5000){ const t=now-c[1], o=BT_CLAIM.get(c[0]); if(!o||t>o) BT_CLAIM.set(c[0],t); } } const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
+  if(Array.isArray(pr.cl)&&pr.cl.length) btClash(f,pr.cl);
   if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }
   netApplyHits(peer,pr.ht);
   if(!btHost()&&peer===NET.hostPeer&&Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const s=BT.seats[b.s]; if(!s||!s.b) continue; const bf=btF(b.s); if(bf.ctl==='net') netRxFighter(bf,b); } }
@@ -346,4 +379,4 @@ function btPauseUI(){ const el=document.getElementById('btPause'); if(!el) retur
 
 btHook={ cam:btChampCam, get picking(){ return BT.picking; }, lockFree:()=>BT.on&&player.dead, onKill:btOnKill, tick:btTick, over:btOver, hud:btHud, board:btBoard, placeAll:btPlaceAll, play:()=>btPlay(), stop:btStop,
   peers:btPeers, send:btSend, netTick:btNetTick, pauseUI:btPauseUI, menuUI:btMenuUI };
-/*DEBUG-START*/window.__jump=()=>({sus:BT.sus|0,caught:!!BT.caught}); window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
+/*DEBUG-START*/window.__spawnT={btClash,btSpawn,mine:()=>BT_MINE}; window.__jump=()=>({sus:BT.sus|0,caught:!!BT.caught}); window.__DIFF=DIFF; window.__los=(a,b)=>hasLOS(a,b); window.__blocker=(a,b)=>{ const d=V3().subVectors(b,a); const out=[]; for(const bx of boxes){ if(bx.filler) continue; let t0=0,t1=1,ok=true; for(const ax of ["x","y","z"]){ const inv=1/(d[ax]||1e-9); let tn=(bx.min[ax]-a[ax])*inv, tf=(bx.max[ax]-a[ax])*inv; if(tn>tf){const q=tn;tn=tf;tf=q;} t0=Math.max(t0,tn); t1=Math.min(t1,tf); if(t0>t1){ok=false;break;} } if(ok) out.push({t:+t0.toFixed(2),min:bx.min.toArray().map(v=>+v.toFixed(1)),max:bx.max.toArray().map(v=>+v.toFixed(1)),k:Object.keys(bx).filter(k=>!["min","max"].includes(k)).join(",")}); } return out; }; window.__sees=(b,p)=>aiSees(b,b.ai,aiProf(b),p,b.center()); window.__bt={BT,btState,msgSize:()=>JSON.stringify({B:btState(),bots:fighters.filter(f=>f.ctl==="ai").map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:0,lf:f.life|0}))}).length,btPlay,btStartOffline,btF,btEnd,btOpenPick,btSeat,btLeft,state:()=>({on:BT.on,online:BT.online,me:BT.me,no:BT.no,ph:BT.ph,mid:BT.mid,t:Math.round(BT.t),role:NET.role,picking:BT.picking,st:state,seats:BT.seats.map(s=>s?(s.b?'bot:':'')+s.n:null),k:fighters.map(f=>f.slot+':'+(f.score|0)+'/'+(f.deaths|0)+(f.dead?'x':'')+(f.ctl[0])),cards:player.cards.length,life:player.life})};/*DEBUG-END*/
