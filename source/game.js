@@ -40,8 +40,14 @@ const INK = 0x0b1026;
 // ================= SETTINGS =================
 const STUDIO={ open:false };
 const GPU_WEAK=(()=>{ try{ const c=document.createElement('canvas'), g=c.getContext('webgl'); const e=g&&g.getExtension('WEBGL_debug_renderer_info'); const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):''; try{ const lc=g&&g.getExtension('WEBGL_lose_context'); if(lc) lc.loseContext(); }catch(_){} return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic/i.test(r); }catch(e){ return false; } })(); // built-in laptop graphics // Dome Studio (cosmetic dome styles)
-const TOUCH={ on:(()=>{ try{ return matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0&&!matchMedia('(any-pointer: fine)').matches; }catch(e){ return false; } })(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
-const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false, clips:true, with:'bots' };
+// Windows, Mac, Linux and Chromebook laptops start on mouse and keyboard even with a touch screen (some of them tell
+// the browser they have no mouse at all). Phones and tablets start on touch. A real touch or real mouse use switches.
+function isDesktopOS(){ try{ const ua=navigator.userAgent||'', d=navigator.userAgentData; if(/Android|iPhone|iPad|iPod/i.test(ua)) return false; if(d&&d.mobile===true) return false;
+  if(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1) return false; /* an iPad asking for the desktop site */
+  return /Windows NT|Macintosh|CrOS|X11|Linux x86_64|Linux i686/.test(ua)||!!(d&&/Windows|macOS|Linux|Chrome ?OS/i.test(d.platform||'')); }catch(e){ return false; } }
+function touchAuto(){ try{ return !isDesktopOS()&&matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints>0&&!matchMedia('(any-pointer: fine)').matches; }catch(e){ return false; } }
+const TOUCH={ on:touchAuto(), mx:0, my:0, fire:false }; // phone/tablet controls (filled in by the touch module)
+const settings = { sens:1, vol:0.8, music:0.5, invertY:false, swap:false, quality:'auto', diff:'easy', map:'dock', assist:true, gm:'1v1', ffaBots:'3', name:'', domeSkin:0, domeCol:'', fps:false, clips:true, with:'bots', controls:'auto' };
 const DIFF={ easy:{name:'Easy',err:0.2,fire:[0.2,0.45],rest:[1.3,2.4],block:0.25,dodge:0.1,react:0.3,dmg:0.6,speed:0.8}, normal:{name:'Normal',err:0.085,fire:[0.3,0.7],rest:[0.8,1.6],block:0.6,dodge:0.3,react:0.15,dmg:0.85,speed:0.95}, hard:{name:'Hard',err:0.04,fire:[0.5,1.0],rest:[0.4,0.9],block:0.9,dodge:0.5,react:0.08,dmg:1,speed:1} };
 try{ const s=JSON.parse(localStorage.getItem('domeRoundsSettings4')||'null'); if(s&&typeof s==='object'){ for(const k in settings) if(typeof s[k]===typeof settings[k]) settings[k]=s[k]; } }catch(e){}
 function saveSettings(){ try{ localStorage.setItem('domeRoundsSettings4',JSON.stringify(settings)); }catch(e){} }
@@ -3313,12 +3319,15 @@ requestAnimationFrame(frame);
       lay.p[k]=[cx/W,cy/H]; applyLay(); if(!moved) break; } }
   const editEnd=e=>{ if(!editing) return false; if(grab){ for(const t of e.changedTouches) if(t.identifier===grab.id){ grab.el.classList.remove('grab'); unOverlap(grab.k,grab.el); grab=null; saveLay(); } } return true; }; // buttons never end up on top of each other
   const st={ stick:null, look:null, fire:null, active:false, shown:false };
-  const enable=()=>{ if(TOUCH.on) return; TOUCH.on=true; document.body.classList.add('touch'); onTouchMode(); };
+  const pref=()=>settings.controls||'auto';
+  const enable=force=>{ if(TOUCH.on||(pref()==='mouse'&&force!==true)) return; TOUCH.on=true; document.body.classList.add('touch'); onTouchMode(); };
+  if(pref()==='mouse') TOUCH.on=false; else if(pref()==='touch') TOUCH.on=true;
   function onTouchMode(){ document.body.classList.add('touch'); const s=document.getElementById('steer'); if(s) s.textContent='STEERING YOUR SHOT · drag to steer · tap FIRE to let go'; }
   if(TOUCH.on) onTouchMode();
   window.addEventListener('touchstart',enable,{capture:true,passive:true});
-  const toMouse=()=>{ if(!TOUCH.on||editing) return; TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); };
-  const hasMouse=()=>{ try{ return matchMedia('(any-pointer: fine)').matches; }catch(e){ return true; } };
+  const toMouse=force=>{ if(!TOUCH.on||editing||(pref()==='touch'&&force!==true)) return; TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); };
+  const hasMouse=()=>{ try{ return isDesktopOS()||matchMedia('(any-pointer: fine)').matches; }catch(e){ return true; } };
+  document.querySelectorAll('[data-k="controls"]').forEach(el=>el.addEventListener('change',()=>{ const p=el.value; if(p==='mouse') toMouse(true); else if(p==='touch') enable(true); else if(touchAuto()) enable(true); else toMouse(true); }));
   window.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse'&&hasMouse()) toMouse(); },{capture:true,passive:true});
   { let mv=0; window.addEventListener('pointermove',e=>{ if(e.pointerType!=='mouse'||!TOUCH.on||!hasMouse()) { mv=0; return; } mv+=Math.abs(e.movementX||0)+Math.abs(e.movementY||0); if(mv>60){ mv=0; toMouse(); } },{capture:true,passive:true}); } // a real mouse or trackpad moving means mouse controls
   const unit=()=>parseFloat(getComputedStyle(ui).getPropertyValue('--u'))||64;

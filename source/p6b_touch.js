@@ -33,12 +33,15 @@
       lay.p[k]=[cx/W,cy/H]; applyLay(); if(!moved) break; } }
   const editEnd=e=>{ if(!editing) return false; if(grab){ for(const t of e.changedTouches) if(t.identifier===grab.id){ grab.el.classList.remove('grab'); unOverlap(grab.k,grab.el); grab=null; saveLay(); } } return true; }; // buttons never end up on top of each other
   const st={ stick:null, look:null, fire:null, active:false, shown:false };
-  const enable=()=>{ if(TOUCH.on) return; TOUCH.on=true; document.body.classList.add('touch'); onTouchMode(); };
+  const pref=()=>settings.controls||'auto';
+  const enable=force=>{ if(TOUCH.on||(pref()==='mouse'&&force!==true)) return; TOUCH.on=true; document.body.classList.add('touch'); onTouchMode(); };
+  if(pref()==='mouse') TOUCH.on=false; else if(pref()==='touch') TOUCH.on=true;
   function onTouchMode(){ document.body.classList.add('touch'); const s=document.getElementById('steer'); if(s) s.textContent='STEERING YOUR SHOT · drag to steer · tap FIRE to let go'; }
   if(TOUCH.on) onTouchMode();
   window.addEventListener('touchstart',enable,{capture:true,passive:true});
-  const toMouse=()=>{ if(!TOUCH.on||editing) return; TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); };
-  const hasMouse=()=>{ try{ return matchMedia('(any-pointer: fine)').matches; }catch(e){ return true; } };
+  const toMouse=force=>{ if(!TOUCH.on||editing||(pref()==='touch'&&force!==true)) return; TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); };
+  const hasMouse=()=>{ try{ return isDesktopOS()||matchMedia('(any-pointer: fine)').matches; }catch(e){ return true; } };
+  document.querySelectorAll('[data-k="controls"]').forEach(el=>el.addEventListener('change',()=>{ const p=el.value; if(p==='mouse') toMouse(true); else if(p==='touch') enable(true); else if(touchAuto()) enable(true); else toMouse(true); }));
   window.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse'&&hasMouse()) toMouse(); },{capture:true,passive:true});
   { let mv=0; window.addEventListener('pointermove',e=>{ if(e.pointerType!=='mouse'||!TOUCH.on||!hasMouse()) { mv=0; return; } mv+=Math.abs(e.movementX||0)+Math.abs(e.movementY||0); if(mv>60){ mv=0; toMouse(); } },{capture:true,passive:true}); } // a real mouse or trackpad moving means mouse controls
   const unit=()=>parseFloat(getComputedStyle(ui).getPropertyValue('--u'))||64;
