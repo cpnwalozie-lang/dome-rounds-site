@@ -86,7 +86,7 @@ const CLIP=(()=>{
           cx.font=`${Math.round(13*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=4*u; const r='ROUND '+roundNum; cx.strokeText(r,W/2,m+30*u); cx.fillStyle='#ffd23d'; cx.fillText(r,W/2,m+30*u); } } 
       else if(matchKind==='battle'){ const s=`${player.score|0} / 10 KOs`; cx.font=`${Math.round(24*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.textAlign='center'; cx.textBaseline='top'; cx.lineWidth=5*u; cx.strokeStyle='#14081f'; cx.fillStyle='#ffd23d'; cx.strokeText(s,W/2,m); cx.fillText(s,W/2,m); } }
     cx.textAlign='left'; cx.textBaseline='alphabetic'; cx.globalAlpha=0.92; cx.font=`${Math.round(26*u)}px "Bungee","Lilita One",Impact,sans-serif`; cx.lineWidth=5*u; cx.strokeStyle='#14081f';
-    const y=H-m-20*u; cx.strokeText('DOME ROUNDS',m,y); cx.fillStyle='#fff'; cx.fillText('DOME ROUNDS',m,y);
+    const y=H-m-20*u; cx.strokeText('DOMES',m,y); cx.fillStyle='#fff'; cx.fillText('DOMES',m,y);
     cx.font=`700 ${Math.round(16*u)}px system-ui,"Segoe UI",sans-serif`; cx.lineWidth=4*u; cx.strokeText('dome-rounds.pages.dev',m+1*u,y+20*u); cx.fillStyle='#35e9ff'; cx.fillText('dome-rounds.pages.dev',m+1*u,y+20*u);
     cx.restore(); }
 
@@ -133,7 +133,7 @@ const CLIP=(()=>{
       vs.forEach((c,i)=>{ const d=new Uint8Array(c.byteLength); c.copyTo(d); mux.addVideoChunkRaw(d,c.type,ts[i],i+1<ts.length?ts[i+1]-ts[i]:Math.round(D),i===0?{decoderConfig:decCfg}:undefined); });
       if(au) as.forEach((c,i)=>{ const d=new Uint8Array(c.byteLength); c.copyTo(d); const nx=as[i+1]; mux.addAudioChunkRaw(d,c.type,c.timestamp-t0,nx?nx.timestamp-c.timestamp:(c.duration||2e4),i===0?{decoderConfig:aDecCfg}:undefined); });
       mux.finalize(); const blob=new Blob([target.buffer],{type:'video/mp4'});
-      const d=new Date(), p=v=>String(v).padStart(2,'0'); const name=`dome-rounds-clip-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.mp4`;
+      const d=new Date(), p=v=>String(v).padStart(2,'0'); const name=`domes-clip-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.mp4`;
       clips.unshift({url:URL.createObjectURL(blob),blob,name,dur}); while(clips.length>6) URL.revokeObjectURL(clips.pop().url);
       renderLists();
       if(!TOUCH.on){ download(clips[0]); toast('<b>CLIP SAVED</b> · last '+Math.min(LEN,Math.round(dur))+'s, check your downloads','you'); }
@@ -145,7 +145,7 @@ const CLIP=(()=>{
     try{ const cl=window.claude; if(cl&&typeof cl.use==='function'){ const d=await cl.use('downloads'); if(d){ /* inside the Claude preview the page saves through its downloads permission */
           try{ await d.save({filename:c.name,data:c.blob}); }catch(e){ if(e&&e.name==='TypeError') await d.save({filename:c.name,data:await c.blob.arrayBuffer()}); } return; } } }catch(e){ return; }
     const a=document.createElement('a'); a.href=c.url; a.download=c.name; document.body.appendChild(a); a.click(); a.remove(); }
-  async function share(c){ try{ const f=new File([c.blob],c.name,{type:'video/mp4'}); if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'Dome Rounds clip',text:'dome-rounds.pages.dev'}); return; } }catch(e){ if(e&&e.name==='AbortError') return; } download(c); }
+  async function share(c){ try{ const f=new File([c.blob],c.name,{type:'video/mp4'}); if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'Domes clip',text:'dome-rounds.pages.dev'}); return; } }catch(e){ if(e&&e.name==='AbortError') return; } download(c); }
   function shutter(){ if(!flashEl) return; flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go'); }
 
   // ---- clip lists (pause menu + match over screen) ----

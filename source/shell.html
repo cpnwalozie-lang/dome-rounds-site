@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Dome Rounds</title>
+<title>Domes</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314081f'/%3E%3Cpath d='M12 40 A20 20 0 0 1 52 40 Z' fill='none' stroke='%2335e9ff' stroke-width='5' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='34' r='5' fill='%23ff2e88'/%3E%3C/svg%3E">
-<meta name="description" content="Dome Rounds: a 1v1 arena shooter where you stack power cards between rounds. By Nitor Digital.">
+<meta name="description" content="Domes: a 3D arena shooter where you block with your dome and stack power cards. By Nitor Digital.">
 <script>window.__t0=performance.now();</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="theme-color" content="#14081f">
@@ -308,7 +308,8 @@
   .shade{width:100%;background:linear-gradient(102deg,rgba(20,8,31,.97) 0,rgba(30,12,58,.94) 54%,var(--pink) 54%,var(--pink) 54.5%,rgba(255,46,136,.3) 54.5%,rgba(255,46,136,0) 60%)}
   .shade.full{background:linear-gradient(102deg,rgba(20,8,31,.97) 0,rgba(30,12,58,.94) 54%,var(--pink) 54%,var(--pink) 54.5%,rgba(20,8,31,.62) 54.5%,rgba(20,8,31,.5) 100%)}
   .logo{transform:rotate(-3deg);margin-left:0;padding:0 0 6px}
-  .logo h1{font-family:var(--neon);font-weight:400;font-size:min(11vh,7.4vw,94px);line-height:1.02;letter-spacing:.01em;text-transform:uppercase}
+  .logo h1{font-family:var(--neon);font-weight:400;font-size:min(16vh,10.5vw,136px);line-height:1.02;letter-spacing:.01em;text-transform:uppercase;white-space:nowrap}
+  .logo h1 span{display:inline}
   .logo h1 .a{color:#fff6fb;text-shadow:0 0 5px #fff,0 0 16px var(--pink),0 0 40px var(--pink),0 0 80px rgba(255,46,136,.55)}
   .logo h1 .b{color:#f2feff;text-shadow:0 0 5px #fff,0 0 16px var(--cy),0 0 40px var(--cy);animation:flick 6s linear infinite}
   @keyframes flick{0%,90%,93%,96%,100%{opacity:1}91.5%,94.5%{opacity:.5}}
@@ -453,7 +454,9 @@
   body.touch #botPanel,body.touch #ffaBoard{right:calc(env(safe-area-inset-right,0px) + 10px);top:calc(env(safe-area-inset-top,0px) + 8px);transform:scale(.82);transform-origin:top right}
   body.touch .topbar{transform:translateX(-50%) scale(.8);transform-origin:top center;top:6px}
   body.touch .pips{gap:3px} body.touch .pips>*{width:15px!important;height:15px!important;min-width:0!important}
-  body.touch #toasts{top:auto;bottom:auto;top:46%;right:auto;left:50%;transform:translateX(-50%);align-items:center}
+  body.touch #toasts{top:calc(var(--st,0px) + 84px);bottom:auto;right:auto;left:calc(env(safe-area-inset-left,0px) + 66px);transform:none;align-items:flex-start;max-width:44vw;gap:4px}
+  body.touch .toast{font-size:11.5px;padding:3px 10px 4px}
+  body.touch #toasts .toast:nth-last-child(n+4){display:none}
   body.touch #steer{bottom:auto;top:20%}
   body.touch #specMsg{top:26%}
   #rotate{display:none;position:fixed;inset:0;z-index:10001;background:#14081f;align-items:center;justify-content:center;text-align:center;padding:24px}
@@ -465,7 +468,7 @@
   /* short screens (phones on their side, small windows): compact menus that scroll */
   @media (max-height:520px){
     .side{gap:1.4vh;padding:2.4vh 0 3vh max(4vw,calc(env(safe-area-inset-left,0px) + 12px));width:min(600px,64vw);justify-content:flex-start}
-    .logo h1{font-size:min(13vh,7vw,70px)}
+    .logo h1{font-size:min(18vh,9.5vw,88px)} .logo{margin-top:12px}
     .logo .tag3d{font-size:13px}
     .tagline{display:none}
     .btn{font-size:21px;padding:7px 26px 6px}
@@ -684,7 +687,7 @@
   .fb-row.bt{gap:7px} .fb-row .fb-rk{font-family:var(--disp);font-size:14px;color:#c9c2e8;min-width:14px;text-align:center}
   .fb-row .fb-k{margin-left:auto;font-family:var(--disp);font-size:18px;line-height:1} .fb-row .fb-k small{font-size:11px;opacity:.6}
   #hud.battlemode #ffaBoard{width:min(28vw,250px)}
-  #hud.battlemode #toasts{top:226px} body.touch #hud.battlemode #toasts{top:46%} #hud.battlemode .fb-row{padding:3px 9px} #hud.battlemode .fb-row.out{opacity:.55}
+  #hud.battlemode #toasts{top:226px} body.touch #hud.battlemode #toasts{top:calc(env(safe-area-inset-top,0px) + 84px)} #hud.battlemode .fb-row{padding:3px 9px} #hud.battlemode .fb-row.out{opacity:.55}
   #draft.bpick{background:radial-gradient(ellipse at 50% 55%,rgba(48,18,92,.42),rgba(15,6,28,.7))}
   .btOverP{min-width:min(440px,86vw)}
   #btRows{display:flex;flex-direction:column;gap:4px}
@@ -878,18 +881,18 @@
   </div>
 </div>
 <div id="tEdit"><div class="te-bar"><b>Drag to move</b><label>Size <input type="range" id="tSize" min="0.8" max="1.5" step="0.05"></label><button class="btn sec" id="tReset" type="button">RESET</button><button class="btn" id="tDone" type="button">DONE</button></div></div>
-<div id="rotate"><div><svg viewBox="0 0 64 64" width="84" height="84"><rect x="20" y="8" width="24" height="44" rx="5" fill="none" stroke="currentColor" stroke-width="4"/><path d="M50 40a18 18 0 0 1-12 14" fill="none" stroke="#ff2e88" stroke-width="4" stroke-linecap="round"/><path d="M33 56l6-2-1-6" fill="none" stroke="#ff2e88" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Turn your phone sideways</b><p>Dome Rounds plays in landscape.</p></div></div>
+<div id="rotate"><div><svg viewBox="0 0 64 64" width="84" height="84"><rect x="20" y="8" width="24" height="44" rx="5" fill="none" stroke="currentColor" stroke-width="4"/><path d="M50 40a18 18 0 0 1-12 14" fill="none" stroke="#ff2e88" stroke-width="4" stroke-linecap="round"/><path d="M33 56l6-2-1-6" fill="none" stroke="#ff2e88" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Turn your phone sideways</b><p>Domes plays in landscape.</p></div></div>
 <div class="layer">
   <div id="banner" class="banner"><div class="sp" id="bannerSplat"></div><span id="bannerText" class="stroke"></span></div>
   <div id="countdown"><div class="sp" id="cdSplat"></div><span id="cdText" class="stroke"></span></div>
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.16.0<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.17.0<br>© 2026 Nitor Digital</div>
   <div id="tutPop"><div class="tutFace"></div><div class="tutBub"><button id="tutPopX" type="button" aria-label="No thanks">×</button><h4>New here?</h4><p>I'm Coach Kip. Give me two minutes and I'll show you how to play.</p><button class="btn" id="tutPopGo" type="button">START TUTORIAL</button></div></div>
   <div class="shade"></div>
   <div class="side">
-    <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke"><span class="a">DOME</span><span class="b">ROUNDS</span></h1><div class="tag3d">3D</div></div>
+    <div class="logo"><div class="sp" id="logoSplat"></div><h1 class="stroke" aria-label="Domes"><span class="a">DOME</span><span class="b">S</span></h1><div class="tag3d">3D</div></div>
     <div class="tagline">Lose a round, grab a card, <b>stack the chaos</b>. Blast with energy shots, block with your dome, and outlast the bot.</div>
     <div id="onlineNow" class="onlNow"><i></i><span></span></div>
     <div class="rowb pickRow"><button class="btn bigPick" id="publicBtn" type="button"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg><span><b>PUBLIC MATCH</b><small>Battle online · up to 10 players</small></span></button><button class="btn sec bigPick" id="privateBtn" type="button"><svg viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.5v11h-13V10Zm3 0h4V8a2 2 0 0 0-4 0Z" fill="currentColor"/></svg><span><b>PRIVATE MATCH</b><small>Just you and bots, or friends</small></span></button></div>

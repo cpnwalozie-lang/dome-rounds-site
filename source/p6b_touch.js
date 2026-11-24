@@ -37,7 +37,10 @@
   function onTouchMode(){ document.body.classList.add('touch'); const s=document.getElementById('steer'); if(s) s.textContent='STEERING YOUR SHOT · drag to steer · tap FIRE to let go'; }
   if(TOUCH.on) onTouchMode();
   window.addEventListener('touchstart',enable,{capture:true,passive:true});
-  window.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse'&&TOUCH.on&&!matchMedia('(pointer: coarse)').matches&&!editing){ TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); } },{capture:true,passive:true});
+  const toMouse=()=>{ if(!TOUCH.on||editing) return; TOUCH.on=false; TOUCH.mx=TOUCH.my=0; TOUCH.fire=false; document.body.classList.remove('touch'); releaseAll(); };
+  const hasMouse=()=>{ try{ return matchMedia('(any-pointer: fine)').matches; }catch(e){ return true; } };
+  window.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse'&&hasMouse()) toMouse(); },{capture:true,passive:true});
+  { let mv=0; window.addEventListener('pointermove',e=>{ if(e.pointerType!=='mouse'||!TOUCH.on||!hasMouse()) { mv=0; return; } mv+=Math.abs(e.movementX||0)+Math.abs(e.movementY||0); if(mv>60){ mv=0; toMouse(); } },{capture:true,passive:true}); } // a real mouse or trackpad moving means mouse controls
   const unit=()=>parseFloat(getComputedStyle(ui).getPropertyValue('--u'))||64;
   const R=()=>unit()*0.95;
   function placeStick(x,y){ stick.style.left=x+'px'; stick.style.top=y+'px'; }

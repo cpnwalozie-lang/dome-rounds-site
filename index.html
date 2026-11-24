@@ -3,30 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dome Rounds: free 3D card-stacking arena shooter you play in your browser</title>
-<meta name="description" content="Dome Rounds is a free 3D arena shooter. Blast, block with your dome, lose a round, grab a power-up card and stack the chaos. 56 cards, five maps, bots, online 1v1, 2v2 and 4-player free-for-all with room codes. Play in your browser.">
+<title>Domes: free 3D card-stacking arena shooter you play in your browser</title>
+<meta name="description" content="Domes is a free 3D arena shooter. Blast, block with your dome, lose a round, grab a power-up card and stack the chaos. 56 cards, five maps, bots, online 1v1, 2v2 and 4-player free-for-all with room codes. Play in your browser.">
 <link rel="canonical" href="https://dome-rounds.pages.dev/">
 <meta name="theme-color" content="#14081f">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Dome Rounds">
-<meta property="og:title" content="Dome Rounds: lose a round, grab a card, stack the chaos">
+<meta property="og:site_name" content="Domes">
+<meta property="og:title" content="Domes: lose a round, grab a card, stack the chaos">
 <meta property="og:description" content="A free 3D arena shooter with 56 stacking power-up cards, online 1v1 and 4-player free-for-all. Play it in your browser.">
 <meta property="og:url" content="https://dome-rounds.pages.dev/">
-<meta property="og:image" content="https://dome-rounds.pages.dev/media/og.jpg">
+<meta property="og:image" content="https://dome-rounds.pages.dev/media/og-domes.jpg">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta property="og:video" content="https://dome-rounds.pages.dev/media/trailer.mp4">
+<meta property="og:video" content="https://dome-rounds.pages.dev/media/trailer-domes.mp4">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Dome Rounds">
+<meta name="twitter:title" content="Domes">
 <meta name="twitter:description" content="Lose a round, grab a card, stack the chaos. Free 3D arena shooter in your browser.">
-<meta name="twitter:image" content="https://dome-rounds.pages.dev/media/og.jpg">
+<meta name="twitter:image" content="https://dome-rounds.pages.dev/media/og-domes.jpg">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"VideoGame","name":"Dome Rounds","url":"https://dome-rounds.pages.dev/","image":"https://dome-rounds.pages.dev/media/og.jpg",
+{"@context":"https://schema.org","@type":"VideoGame","name":"Domes","url":"https://dome-rounds.pages.dev/","image":"https://dome-rounds.pages.dev/media/og-domes.jpg",
 "description":"A free 3D third-person arena shooter. Lose a round, pick a power-up card, and stack effects. 56 cards, five maps, bots, online 1v1, 2v2 and 4-player free-for-all with room codes.",
 "genre":["Arena shooter","Action","Card game"],"gamePlatform":"Web browser","applicationCategory":"Game","operatingSystem":"Any","playMode":["SinglePlayer","MultiPlayer"],"numberOfPlayers":{"@type":"QuantitativeValue","minValue":1,"maxValue":2},
 "author":{"@type":"Organization","name":"Nitor Digital"},"publisher":{"@type":"Organization","name":"Nitor Digital"},
 "offers":{"@type":"Offer","price":"0","priceCurrency":"GBP","availability":"https://schema.org/InStock"},
-"trailer":{"@type":"VideoObject","name":"Dome Rounds trailer","description":"Dome Rounds gameplay trailer","thumbnailUrl":"https://dome-rounds.pages.dev/media/trailer-poster.jpg","contentUrl":"https://dome-rounds.pages.dev/media/trailer.mp4","uploadDate":"2026-11-13","duration":"PT56S"}}
+"trailer":{"@type":"VideoObject","name":"Domes trailer","description":"Domes gameplay trailer","thumbnailUrl":"https://dome-rounds.pages.dev/media/trailer-poster-domes.jpg","contentUrl":"https://dome-rounds.pages.dev/media/trailer-domes.mp4","uploadDate":"2026-11-13","duration":"PT56S"}}
 </script>
 <style>
 @font-face{font-family:'Bungee';src:url(fonts/Bungee-400.woff2) format('woff2');font-display:swap}
@@ -44,7 +44,7 @@ a{color:var(--cy)}
 /* ---------- top bar ---------- */
 .bar{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:18px 28px}
 .mark{display:flex;align-items:center;gap:10px;color:var(--cream);text-decoration:none;font-family:var(--disp);font-size:15px;letter-spacing:.02em}
-.mark span{color:var(--cy)}
+.mark span{color:var(--cy)}.mark b{font-weight:400}
 .bar nav{display:flex;gap:22px;align-items:center}
 .bar nav a{color:var(--cream);text-decoration:none;font-weight:700;font-size:15px;opacity:.86}
 .bar nav a:hover{opacity:1;color:var(--ye)}
@@ -63,8 +63,8 @@ a{color:var(--cy)}
 .hero video,.hero .poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
 .hero::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(20,8,31,.92) 0%,rgba(20,8,31,.72) 38%,rgba(20,8,31,.08) 72%),linear-gradient(0deg,var(--ink) 0%,rgba(20,8,31,0) 34%)}
 .hero .in{padding:140px 0 9vh}
-.logo{font-family:'Monoton',var(--disp);font-weight:400;line-height:.95;margin:0 0 22px;font-size:clamp(58px,10.5vw,150px);letter-spacing:.01em}
-.logo span{display:block}
+.logo{font-family:'Monoton',var(--disp);font-weight:400;line-height:.95;margin:0 0 22px;font-size:clamp(64px,11.5vw,170px);letter-spacing:.01em}
+.logo{white-space:nowrap}.logo span{display:inline}
 .logo .a{color:#fff6fb;text-shadow:0 0 6px #fff,0 0 22px var(--pink),0 0 54px var(--pink),0 0 100px rgba(255,46,136,.55)}
 .logo .b{color:#f2feff;text-shadow:0 0 6px #fff,0 0 22px var(--cy),0 0 54px var(--cy),0 0 100px rgba(53,233,255,.5)}
 .logo .b{animation:ignite 1.6s .3s both}
@@ -166,15 +166,15 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 </head>
 <body>
 <header class="bar">
-  <a class="mark" href="#top" aria-label="Dome Rounds home"><img src="favicon.svg" width="30" height="30" alt="">DOME <span>ROUNDS</span></a>
+  <a class="mark" href="#top" aria-label="Domes home"><img src="favicon.svg" width="30" height="30" alt=""><b>DOME<span>S</span></b></a>
   <nav aria-label="Main"><a href="#cards">Cards</a><a href="#online">Online</a><a href="#trailer">Trailer</a><a class="navplay" href="play/">Play</a></nav>
 </header>
 <main id="top">
-  <section class="hero" aria-label="Dome Rounds">
+  <section class="hero" aria-label="Domes">
     <img class="poster" src="media/hero-poster.jpg" alt="">
     <video id="heroVid" muted loop playsinline preload="metadata" poster="media/hero-poster.jpg" aria-hidden="true"><source src="media/hero-loop.mp4" type="video/mp4"></video>
     <div class="wrap in">
-      <h1 class="logo"><span class="a">DOME</span><span class="b">ROUNDS</span></h1>
+      <h1 class="logo" aria-label="Domes"><span class="a">DOME</span><span class="b">S</span></h1>
       <p class="pitch">A 3D arena shooter where losing a round gets you a power-up card, and <b>every card stacks</b>.</p>
       <div class="ctas">
         <a class="play" href="play/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8Z" fill="currentColor"/></svg><span>Play free</span></a>
@@ -190,7 +190,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
       <p class="lede">You and your rival start with a basic blaster and a dome. Every round makes you both stronger in different ways.</p>
       <ol>
         <li><span class="n" aria-hidden="true">1</span><figure><img src="media/shots/dockside.jpg" alt="A blue fighter firing an energy shot across the Dockside arena" loading="lazy"></figure><h3>Fight</h3><p>Blast energy shots, pop your dome to block, dash and jump around the arena.</p></li>
-        <li><span class="n" aria-hidden="true">2</span><figure><img src="media/shots/draft.jpg" alt="The card pick screen showing three power-up cards" loading="lazy"></figure><h3>Pick a card</h3><p>After each knockout you get three cards and one minute. Take the one your build needs.</p></li>
+        <li><span class="n" aria-hidden="true">2</span><figure><img src="media/shots/draft-domes.jpg" alt="The card pick screen showing three power-up cards" loading="lazy"></figure><h3>Pick a card</h3><p>After each knockout you get three cards and one minute. Take the one your build needs.</p></li>
         <li><span class="n" aria-hidden="true">3</span><figure><img src="media/shots/thrusters.jpg" alt="An orange fighter covered in rockets from a Thruster and Barrage combo" loading="lazy"></figure><h3>Stack it</h3><p>Every card stacks with everything. Five rockets on one shot? Sure. Frozen black holes? Why not.</p></li>
       </ol>
       <p class="after">First to five rounds wins.</p>
@@ -218,7 +218,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
       <h2 class="slam" id="h-fx">It gets loud</h2>
       <p class="lede">Every card has its own effect, and they all show up in the fight.</p>
       <div class="fx-grid">
-        <figure><img src="media/shots/supernova.jpg" alt="A black hole with a glowing pink disk pulling a fighter in" loading="lazy"><figcaption><span class="chip" style="--c:#ff4fd8">Supernova</span><span>Opens a black hole, then blows it up.</span></figcaption></figure>
+        <figure><img src="media/shots/supernova-domes.jpg" alt="A black hole with a glowing pink disk pulling a fighter in" loading="lazy"><figcaption><span class="chip" style="--c:#ff4fd8">Supernova</span><span>Opens a black hole, then blows it up.</span></figcaption></figure>
         <figure><img src="media/shots/frozen.jpg" alt="A fighter frozen inside a spiky ice shell" loading="lazy"><figcaption><span class="chip" style="--c:#6fd3ff">Cold Bullets</span><span>Freeze them solid.</span></figcaption></figure>
         <figure><img src="media/shots/lifesteal.jpg" alt="A red worm of blood drops linking two fighters" loading="lazy"><figcaption><span class="chip" style="--c:#ff6b9d">Lifestealer</span><span>A blood worm pumps their HP into you.</span></figcaption></figure>
       </div>
@@ -263,7 +263,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
   <section class="trailer" id="trailer" aria-labelledby="h-trailer">
     <div class="wrap">
       <h2 class="slam" id="h-trailer">Watch the trailer</h2>
-      <video controls preload="none" poster="media/trailer-poster.jpg" aria-label="Dome Rounds trailer"><source src="media/trailer.mp4" type="video/mp4"></video>
+      <video controls preload="none" poster="media/trailer-poster-domes.jpg" aria-label="Domes trailer"><source src="media/trailer-domes.mp4" type="video/mp4"></video>
     </div>
   </section>
 

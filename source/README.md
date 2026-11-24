@@ -1,4 +1,4 @@
-# Dome Rounds source
+# Domes source
 
 Everything needed to rebuild the game. The live site serves `../play/index.html`, which `build.py` writes.
 
