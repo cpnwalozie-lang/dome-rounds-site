@@ -2405,7 +2405,7 @@ function reflectBullet(b,e){ const src=b.owner; b.owner=e; b.reflected=(b.reflec
   b.vel.copy(d).multiplyScalar(sp); b.pos.copy(c).addScaledVector(n,e.domeR()+b.r*(b.k||1)+0.08); b.life=Math.max(b.life,2.6); b.bounced=false; b.age=0;
   e.domeHitDir.copy(n); e.domeHitAge=0; burst(b.pos,0xffffff,8,5,0.08,0.35,0); flashAt(b.pos,e.team.light,2.6,0.2); shockRing(b.pos.clone(),0xffffff,1.1,0.25,0.1,n); SFX.blocked();
   if(e.isPlayer){ floatText(b.pos.clone(),'REFLECTED!','status'); matchStats.blocked++; } else roundInfo.botBlocked++; }
-function tryBlock(f,quiet){ if(f.dead||state!=='fight'||f.blockActive||f.stunT>0) return false; if(f.silenceT>0){ if(f.isPlayer&&!quiet) floatText(f.center().add(V3(0,1.3,0)),'SILENCED','status'); return false; } if(f.blockCdT>0) return false; doBlock(f,false); if(f.isPlayer||(NET.on&&f.ctl==='ai'&&NET.role==='host')) netRecordBlock(f); return true; }
+function tryBlock(f,quiet){ if(f.dead||state!=='fight'||f.blockActive||f.stunT>0) return false; if(f===player&&secretNoDome(quiet)) return false; if(f.silenceT>0){ if(f.isPlayer&&!quiet) floatText(f.center().add(V3(0,1.3,0)),'SILENCED','status'); return false; } if(f.blockCdT>0) return false; doBlock(f,false); if(f.isPlayer||(NET.on&&f.ctl==='ai'&&NET.role==='host')) netRecordBlock(f); return true; }
 function findBlinkSpot(f,dist){ const base=f.forward(); for(const ang of [0,0.3,-0.3,0.6,-0.6,1.0,-1.0]){ const dir=V3(base.x*Math.cos(ang)-base.z*Math.sin(ang),0,base.x*Math.sin(ang)+base.z*Math.cos(ang)); for(let d=dist; d>=1.5; d-=0.5){ const x=f.pos.x+dir.x*d, z=f.pos.z+dir.z*d; const g=groundAt(x,z,f.pos.y+4,0.25); if(g===null) continue; const test={pos:V3(x,g,z),vel:V3(),radius:f.radius,height:f.height}; resolveWalls(test); if(Math.hypot(test.pos.x-x,test.pos.z-z)>1.4) continue; const g2=groundAt(test.pos.x,test.pos.z,g+0.3,0.2); if(g2===null) continue; test.pos.y=g2; return test.pos; } } return null; }
 function doBlock(f,isEcho,afterBlink){
   const s=f.stats;
@@ -4520,7 +4520,8 @@ function secTake(){ if(SEC.on) return; SEC.on=true; SEC.had=true; SEC.claim=0; S
   const frac=player.hp/Math.max(1,player.maxHp()); player.setCards(SECRET_CARDS); player.hp=Math.max(1,Math.round(player.maxHp()*frac)); player.ammo=player.stats.ammo; player.reloading=false;
   updateCardStrips(); updateHUD(); showBanner('SECRET FOUND!','#ffd23d'); SFX.levelup(); setTimeout(()=>SFX.coin(),180);
   burst(player.center().add(V3(0,1,0)),0xffd23d,40,9,0.14,0.9,0.6); shockRing(V3(player.pos.x,player.pos.y+0.1,player.pos.z),0xffd23d,6,0.5);
-  toast(`<b class="you">You</b> got ${SECRET_CARDS.length} blaster cards! No picks until you're knocked out`,'you'); }
+  player.blockActive=false; player.blockT=0;
+  toast(`<b class="you">You</b> got ${SECRET_CARDS.length} blaster cards! No dome and no picks until you're knocked out`,'you'); }
 function secDrop(){ if(!SEC.on) return; SEC.on=false; const dead=player.dead; player.setCards(SEC.saved||[]); SEC.saved=null; if(dead) player.hp=0; else player.hp=Math.min(player.hp,player.maxHp());
   if(secRef()&&SEC.holder===secKey()) secRelease(); updateCardStrips(); }
 function secretDied(){ if(!SEC_READY) return; if(SEC.on){ secDrop(); toast('<b class="you">You</b> lost the secret','you'); } }
@@ -4532,6 +4533,8 @@ function secretDraft(){ if(!SEC_READY||!SEC.on||state!=='draft') return; // no c
   state='picked'; draftT=1e9; if(NET.on){ netAfterPick(); UI.draftSub.textContent='No pick for you this round. Waiting for the others to pick…'; return; }
   UI.draftSub.textContent='No pick for you this round. Next round coming up…';
   setTimeout(()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); },1800); }
+// no dome while you hold the secret
+function secretNoDome(quiet){ if(!SEC_READY||!SEC.on) return false; const now=performance.now(); if(!quiet&&now-SEC.told>1500){ SEC.told=now; floatText(player.center().add(V3(0,1.3,0)),'NO DOME','status'); } return true; }
 function secretBlocksCards(){ if(!SEC_READY||!SEC.on) return false; toast("You can't change cards while you hold the secret",'status'); return true; }
 
 // ---- every frame ----

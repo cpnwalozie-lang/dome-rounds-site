@@ -46,7 +46,8 @@ function secTake(){ if(SEC.on) return; SEC.on=true; SEC.had=true; SEC.claim=0; S
   const frac=player.hp/Math.max(1,player.maxHp()); player.setCards(SECRET_CARDS); player.hp=Math.max(1,Math.round(player.maxHp()*frac)); player.ammo=player.stats.ammo; player.reloading=false;
   updateCardStrips(); updateHUD(); showBanner('SECRET FOUND!','#ffd23d'); SFX.levelup(); setTimeout(()=>SFX.coin(),180);
   burst(player.center().add(V3(0,1,0)),0xffd23d,40,9,0.14,0.9,0.6); shockRing(V3(player.pos.x,player.pos.y+0.1,player.pos.z),0xffd23d,6,0.5);
-  toast(`<b class="you">You</b> got ${SECRET_CARDS.length} blaster cards! No picks until you're knocked out`,'you'); }
+  player.blockActive=false; player.blockT=0;
+  toast(`<b class="you">You</b> got ${SECRET_CARDS.length} blaster cards! No dome and no picks until you're knocked out`,'you'); }
 function secDrop(){ if(!SEC.on) return; SEC.on=false; const dead=player.dead; player.setCards(SEC.saved||[]); SEC.saved=null; if(dead) player.hp=0; else player.hp=Math.min(player.hp,player.maxHp());
   if(secRef()&&SEC.holder===secKey()) secRelease(); updateCardStrips(); }
 function secretDied(){ if(!SEC_READY) return; if(SEC.on){ secDrop(); toast('<b class="you">You</b> lost the secret','you'); } }
@@ -58,6 +59,8 @@ function secretDraft(){ if(!SEC_READY||!SEC.on||state!=='draft') return; // no c
   state='picked'; draftT=1e9; if(NET.on){ netAfterPick(); UI.draftSub.textContent='No pick for you this round. Waiting for the others to pick…'; return; }
   UI.draftSub.textContent='No pick for you this round. Next round coming up…';
   setTimeout(()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); },1800); }
+// no dome while you hold the secret
+function secretNoDome(quiet){ if(!SEC_READY||!SEC.on) return false; const now=performance.now(); if(!quiet&&now-SEC.told>1500){ SEC.told=now; floatText(player.center().add(V3(0,1.3,0)),'NO DOME','status'); } return true; }
 function secretBlocksCards(){ if(!SEC_READY||!SEC.on) return false; toast("You can't change cards while you hold the secret",'status'); return true; }
 
 // ---- every frame ----
