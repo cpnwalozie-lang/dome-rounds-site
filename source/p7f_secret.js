@@ -1,6 +1,6 @@
 // ================= THE SECRET: shoot the centre piece on Skyfort or the Neon maps =================
 // Hit the floating crystal (Skyfort) or the wireframe orb (Neon City, Neon Crossroads) and you get a stack of blaster
-// cards. It can only be found once per match: after that, shooting it does nothing at all. While you hold it you can't
+// cards (not in Neon City 1v1 or 2v2). It can only be found once per match: after that, shooting it does nothing at all. While you hold it you can't
 // pick cards; get knocked out and you lose it, your own cards come back, and picking works as normal again.
 // (In the training sandbox you can take it as often as you like.)
 // Online, whoever runs the match (the host) decides who gets it, so two people can't both win it.
@@ -10,7 +10,9 @@ const SEC={ on:false, saved:null, had:false, claim:0, holder:'', used:new Set(),
 var SEC_READY=true;
 const secKey=()=>NET.on?myPeerId():'me';
 function secRef(){ if(!NET.on) return true; if(matchKind==='battle') return btHost(); return NET.role==='host'; }
-function secObj(){ return curMap&&curMap.secret||null; }
+// Neon City has no secret in 1v1 or 2v2 (it stays in free-for-all, Neon Crossroads, Skyfort and the training sandbox)
+function secOff(){ return curMapId==='neon'&&mode!=='sandbox'&&(matchKind==='1v1'||matchKind==='2v2'); }
+function secObj(){ if(secOff()) return null; return curMap&&curMap.secret||null; }
 function secLive(){ return !!secObj()&&state==='fight'&&!(tutHook&&tutHook.on())&&!(matchKind==='battle'&&BT.ph==='over'); }
 function secName(k){ if(k===secKey()) return 'You'; const f=fighters.find(x=>x.peer===k); return f?f.name:'Someone'; }
 function secFighter(k){ if(!k) return null; if(k===secKey()) return player; return fighters.find(x=>x.peer===k)||null; }
@@ -51,11 +53,11 @@ function secretDied(){ if(!SEC_READY) return; if(SEC.on){ secDrop(); toast('<b c
 function secretReset(){ if(!SEC_READY) return; if(SEC.on) secDrop(); SEC.had=false; SEC.claim=0; SEC.holder=''; SEC.used=new Set(); SEC.since=0; }
 
 // ---- no picks while you hold it ----
-function secretDraft(){ if(!SEC_READY||!SEC.on||state!=='draft') return;
-  UI.draft.classList.add('secDraft'); UI.draftTitle.textContent='NO PICK THIS ROUND'; UI.draftSub.textContent='You hold the secret. Get knocked out and you lose it, then you can pick again.'; UI.coach.innerHTML='<b>COACH:</b> nice find! The secret is all yours until someone knocks you out.';
-  for(const el of [...UI.cards.children]){ const w=document.createElement('div'); w.className='tutOffWrap'; w.style.setProperty('--i',el.style.getPropertyValue('--i')||0); UI.cards.replaceChild(w,el); el.classList.add('tutOff'); w.appendChild(el); w.insertAdjacentHTML('beforeend','<div class="tutLock"><span>SECRET<br>HOLDER</span></div>'); }
-  state='picked'; draftT=1e9; if(NET.on){ netAfterPick(); UI.draftSub.textContent='You hold the secret, so no pick for you. Waiting for the others…'; return; }
-  setTimeout(()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); },2600); }
+function secretDraft(){ if(!SEC_READY||!SEC.on||state!=='draft') return; // no cards to look at, just a short wait
+  UI.draft.classList.add('secDraft'); UI.cards.innerHTML=''; UI.draftTitle.textContent='YOU HOLD THE SECRET';
+  state='picked'; draftT=1e9; if(NET.on){ netAfterPick(); UI.draftSub.textContent='No pick for you this round. Waiting for the others to pick…'; return; }
+  UI.draftSub.textContent='No pick for you this round. Next round coming up…';
+  setTimeout(()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); },1800); }
 function secretBlocksCards(){ if(!SEC_READY||!SEC.on) return false; toast("You can't change cards while you hold the secret",'status'); return true; }
 
 // ---- every frame ----
@@ -70,4 +72,4 @@ function secretTick(dt){ if(!SEC_READY) return; const S=secObj(), now=performanc
   if(!SEC.halo){ SEC.halo=new T.Mesh(new T.TorusGeometry(0.5,0.07,8,28),new T.MeshBasicMaterial({color:col(0xffd23d)})); SEC.halo.rotation.x=Math.PI/2; SEC.glow=sprite(0xffd23d,2.2,0.45); scene.add(SEC.halo); scene.add(SEC.glow); }
   SEC.halo.visible=SEC.glow.visible=show2;
   if(show2){ const top=hf.center().y+1.0*(hf.mesh.scale.y||1); SEC.halo.position.set(hf.pos.x,top+Math.sin(gameT*3)*0.05,hf.pos.z); SEC.halo.rotation.z+=dt*2; SEC.glow.position.copy(SEC.halo.position); SEC.glow.material.opacity=0.4+Math.sin(gameT*4)*0.15; } }
-/*DEBUG-START*/window.__sec={SEC,SECRET_CARDS,secretShot,secTake,secDrop,secretReset,secObj,secKey,wp:()=>SEC.wp.toArray(), shoot:()=>{ const o=player.center(); spawnBullet(player,o,V3().subVectors(SEC.wp,o).normalize()); }, kill:f=>{ NET.allowKill=true; try{ killFighter(f||player,null); } finally{ NET.allowKill=false; } }, draft:()=>startDraft(), openSbx:()=>openSandbox(), fire:()=>{ player.fireCd=0; player.ammo=Math.max(1,player.ammo); player.reloading=false; const n0=bullets.length; tryFire(player,true); return bullets.length-n0; }, nb:()=>bullets.length};/*DEBUG-END*/
+/*DEBUG-START*/window.__sec={SEC,SECRET_CARDS,where:()=>[curMapId,matchKind,mode],secretShot,secTake,secDrop,secretReset,secObj,secKey,wp:()=>SEC.wp.toArray(), shoot:()=>{ const o=player.center(); spawnBullet(player,o,V3().subVectors(SEC.wp,o).normalize()); }, kill:f=>{ NET.allowKill=true; try{ killFighter(f||player,null); } finally{ NET.allowKill=false; } }, draft:()=>startDraft(), openSbx:()=>openSandbox(), fire:()=>{ player.fireCd=0; player.ammo=Math.max(1,player.ammo); player.reloading=false; const n0=bullets.length; tryFire(player,true); return bullets.length-n0; }, nb:()=>bullets.length};/*DEBUG-END*/
