@@ -1,7 +1,8 @@
 // ================= THE SECRET: shoot the centre piece on Skyfort or the Neon maps =================
 // Hit the floating crystal (Skyfort) or the wireframe orb (Neon City, Neon Crossroads) and you get a stack of blaster
-// cards. One holder at a time, and each player only gets it once per match. While you hold it you can't pick cards;
-// get knocked out and you lose it, your own cards come back, and picking works as normal again.
+// cards. It can only be found once per match: after that, shooting it does nothing at all. While you hold it you can't
+// pick cards; get knocked out and you lose it, your own cards come back, and picking works as normal again.
+// (In the training sandbox you can take it as often as you like.)
 // Online, whoever runs the match (the host) decides who gets it, so two people can't both win it.
 const SECRET_CARDS=['barrage','bigbullets','buckshot','burst','spray','combine','carefulplanning','windup','fastball','quickshot','steadyshot','quickreload',
   'scavenger','poison','parasite','explosive','timeddetonation','coldbullets','dazzle','grow','thruster','arcshot','demonicpact'];
@@ -15,29 +16,26 @@ function secName(k){ if(k===secKey()) return 'You'; const f=fighters.find(x=>x.p
 function secFighter(k){ if(!k) return null; if(k===secKey()) return player; return fighters.find(x=>x.peer===k)||null; }
 
 // your bullet touched the centre piece (checked from your own screen, like every other hit)
-function secretTouch(pos,r){ if(!SEC_READY) return false; const S=secObj(); if(!S||!secLive()) return false; return pos.distanceTo(SEC.wp)<S.r+r; }
-function secretShot(){ const now=performance.now();
-  flashAt(SEC.wp.clone(),0xffd23d,7,0.3); burst(SEC.wp.clone(),0xffd23d,14,6,0.1,0.5,0.2);
-  if(SEC.on||SEC.claim) return;
-  const me=secKey();
-  if(SEC.holder&&SEC.holder!==me){ if(now-SEC.told>2500){ SEC.told=now; toast(`<b>${esc(secName(SEC.holder))}</b> already has the secret`,'status'); } return; }
-  if(mode!=='sandbox'&&(SEC.had||SEC.used.has(me))){ if(now-SEC.told>2500){ SEC.told=now; toast('You already had the secret this match','status'); } return; }
-  if(secRef()){ secGrant(me); return; }
-  SEC.claim=now; } // ask the host; it answers in the match state it sends out
+// once it's been found this match (or someone has it, or you've just asked for it) your bullets fly straight through
+function secAvail(){ return !SEC.on&&!SEC.claim&&!SEC.holder&&(mode==='sandbox'||SEC.used.size===0); }
+function secretTouch(pos,r){ if(!SEC_READY) return false; const S=secObj(); if(!S||!secLive()||!secAvail()) return false; return pos.distanceTo(SEC.wp)<S.r+r; }
+function secretShot(){ if(!secAvail()) return; flashAt(SEC.wp.clone(),0xffd23d,7,0.3); burst(SEC.wp.clone(),0xffd23d,14,6,0.1,0.5,0.2);
+  if(secRef()){ secGrant(secKey()); return; }
+  SEC.claim=performance.now(); } // ask the host; it answers in the match state it sends out
 
 // ---- the referee side (offline: you; online: the host) ----
 function secGrant(k){ SEC.holder=k; SEC.since=performance.now(); if(!(mode==='sandbox')) SEC.used.add(k); secAnnounce(k); if(k===secKey()) secTake(); }
 function secRelease(){ SEC.holder=''; }
 function secretSeen(k,sx){ if(!SEC_READY||!secRef()||!secObj()) return; const now=performance.now();
-  if(sx===1&&!SEC.holder&&!SEC.used.has(k)&&secLive()){ const f=secFighter(k); if(f&&!f.dead) secGrant(k); }
+  if(sx===1&&!SEC.holder&&SEC.used.size===0&&secLive()){ const f=secFighter(k); if(f&&!f.dead) secGrant(k); }
   else if(SEC.holder===k&&sx!==2&&now-SEC.since>2500) secRelease(); }
 function secretState(){ if(!SEC_READY) return null; return { h:SEC.holder, u:[...SEC.used].slice(0,12) }; }
 function secretMine(){ if(!SEC_READY) return 0; return SEC.on?2:SEC.claim?1:0; }
 
 // ---- everyone: follow what the host says ----
 function secretApply(sx){ if(!SEC_READY||!sx||typeof sx!=='object') return; const me=secKey(), h=typeof sx.h==='string'?sx.h.slice(0,64):'';
-  if(Array.isArray(sx.u)){ SEC.used=new Set(sx.u.filter(x=>typeof x==='string').slice(0,12)); }
-  if(h!==SEC.holder){ const was=SEC.holder; SEC.holder=h; if(h&&h!==me) secAnnounce(h); if(SEC.claim&&h&&h!==me){ SEC.claim=0; toast(`Too slow! <b>${esc(secName(h))}</b> got the secret`,'status'); } if(was===me&&SEC.on&&performance.now()-SEC.gotAt>3000) secDrop(); }
+  if(Array.isArray(sx.u)){ SEC.used=new Set(sx.u.filter(x=>typeof x==='string').slice(0,12)); if(SEC.used.size&&!h&&SEC.claim) SEC.claim=0; }
+  if(h!==SEC.holder){ const was=SEC.holder; SEC.holder=h; if(h&&h!==me) secAnnounce(h); if(SEC.claim&&h&&h!==me) SEC.claim=0; if(was===me&&SEC.on&&performance.now()-SEC.gotAt>3000) secDrop(); }
   if(h===me&&!SEC.on&&!SEC.had&&!player.dead&&state==='fight') secTake(); }
 function secAnnounce(k){ if(k===secKey()) return; toast(`<b>${esc(secName(k))}</b> found the secret!`,'status'); SFX.coin(); }
 
