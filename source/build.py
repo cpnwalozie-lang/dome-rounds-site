@@ -3,7 +3,7 @@
 
 shell = open('shell.html').read()
 three = open('vendor/three.min.js').read() + '\n' + open('vendor/post.js').read() + '\n' + open('vendor/GLTFLoader.js').read() + '\n' + open('vendor/mp4-muxer.min.js').read()
-parts = ['p1_core.js','p2_art.js','p3_gfx.js','p3b_maps.js','p3c_bake.js','p3d_baked.js','p3e_detail_data.js','p3f_detail.js','p3g_kenney_data.js','p3h_kenney.js','p3i_look.js','p3j_maps2.js','p3k_skyfort.js','p4_fighter.js','p5_fx.js','p5b_cardfx.js','p6_game.js','p6b_touch.js','p6c_studio.js','p6d_clip.js','p7_online.js','p7b_battle.js','p7c_menu.js','p7d_version.js','p7e_tutor.js']
+parts = ['p1_core.js','p2_art.js','p3_gfx.js','p3b_maps.js','p3c_bake.js','p3d_baked.js','p3e_detail_data.js','p3f_detail.js','p3g_kenney_data.js','p3h_kenney.js','p3i_look.js','p3j_maps2.js','p3k_skyfort.js','p4_fighter.js','p5_fx.js','p5b_cardfx.js','p6_game.js','p6b_touch.js','p6c_studio.js','p6d_clip.js','p7_online.js','p7b_battle.js','p7c_menu.js','p7d_version.js','p7e_tutor.js','p7f_secret.js']
 game = "(function(){\n'use strict';\nfunction __boot(){\n" + "\n".join(open(p).read() for p in parts) + "\n}\nlet __started=false; function __go(){ if(__started) return; __started=true; try{ __boot(); }catch(e){ console.error(e); const l=document.getElementById('loading'); if(l) l.textContent='Something broke while loading: '+e.message; } }\ntry{ Promise.race([document.fonts.load('40px \"Lilita One\"'), new Promise(r=>setTimeout(r,1500))]).then(__go,__go); }catch(e){ __go(); }\nsetTimeout(__go,2000);\n})();"
 open('game.js','w').write(game)
 PEER = '<script>\n' + open('vendor/peerjs.min.js').read() + '\n</script>\n'

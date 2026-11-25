@@ -59,7 +59,7 @@ function buildSkyfort(){
   for(const s of [-1,1]){ for(const [a,b] of [[-KS,-2.25],[2.25,KS]]){ block(a,b,KH,KH+0.95,s>0?KS-0.5:-KS,s>0?KS:-KS+0.5,{cap:true,shadow:false}); block(s>0?KS-0.5:-KS,s>0?KS:-KS+0.5,KH,KH+0.95,a,b,{cap:true,shadow:false}); } }
   // the beacon: stepped base, a tall shaft, and a floating crystal
   block(-1.3,1.3,KH,KH+1.0,-1.3,1.3,{cap:true}); block(-0.75,0.75,KH+1.0,KH+6.2,-0.75,0.75,{cap:true,shadow:false});
-  const crystal=new T.Mesh(new T.OctahedronGeometry(1.05,0),MS.crystal); crystal.scale.set(1,1.5,1); crystal.position.set(0,KH+8.1,0); W.add(crystal);
+  const crystal=new T.Mesh(new T.OctahedronGeometry(1.05,0),MS.crystal); crystal.scale.set(1,1.5,1); crystal.position.set(0,KH+8.1,0); W.add(crystal); secretMark(crystal,1.6);
   const cg=sprite(0x35e9ff,9,0.75); cg.position.copy(crystal.position); W.add(cg);
   const ring=new T.Mesh(new T.TorusGeometry(1.8,0.08,6,32),MS.gold); ring.position.copy(crystal.position); ring.rotation.x=Math.PI/2; W.add(ring);
   animated.push(t=>{ crystal.rotation.y=t*0.8; crystal.position.y=KH+8.1+Math.sin(t*1.3)*0.25; ring.rotation.z=t*0.5; ring.position.y=crystal.position.y; cg.position.y=crystal.position.y; cg.material.opacity=0.6+Math.sin(t*2.1)*0.15; });

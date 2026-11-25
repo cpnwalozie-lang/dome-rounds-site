@@ -140,20 +140,21 @@ function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
 function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
-  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
+  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()), sx:secretMine(), pk:NET.pk|0 };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
       const col=fn=>Array.from({length:n},(_,k)=>{ const f=by(k); return f?fn(f):0; });
-      o.h={ m:NET.mid, ph:state, rn:roundNum, sc:col(f=>f.score), hp:col(f=>Math.max(0,Math.round(f.hp))), dd:col(f=>f.dead?1:0), w:lastWinner?lastWinner.slot:-1, t:Math.round(roundInfo.t*10)/10, mo:matchOverPending?1:0 };
+      o.h={ m:NET.mid, ph:state, rn:roundNum, sc:col(f=>f.score), hp:col(f=>Math.max(0,Math.round(f.hp))), dd:col(f=>f.dead?1:0), w:lastWinner?lastWinner.slot:-1, t:Math.round(roundInfo.t*10)/10, mo:matchOverPending?1:0, sx:secretState() };
       o.bots=fighters.filter(f=>f.ctl==='ai').map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:o.ts})); } }
   r.presence(o).catch(()=>{}); }
 // ---------- incoming ----------
 const isNum=v=>typeof v==='number'&&isFinite(v);
 function netRx(peer,pr){
   verSeen(peer,pr);
-  const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f) netRxFighter(f,pr);
+  const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f){ netRxFighter(f,pr); if(isNum(pr.pk)) f.nrPk=pr.pk; }
   netApplyHits(peer,pr.ht);
+  if(NET.role==='host') secretSeen(peer,pr.sx);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
     if(pr.h&&typeof pr.h==='object') netGuestFollow(pr.h); } }
 // A new round puts everyone back on their stands. Forget where other players were before, and for a moment ignore any
@@ -173,8 +174,9 @@ function netRemoteFire(f,s){ if(state!=='fight'||f.dead) return; f.botAim=V3(s[4
 function netGuestFollow(h){
   const ph=h.ph, rn=h.rn|0;
   if(isNum(h.m)&&h.m!==NET.rMid&&(ph==='countdown'||ph==='fight')&&rn===1){ NET.rMid=h.m; netStartLocal(); return; }
+  secretApply(h.sx);
   if(!NET.started) return;
-  if(ph==='countdown'&&rn===roundNum&&(state==='picked'||state==='draft')&&player.cards.length===(rn-1)){ show(UI.draft,false); beginRound(); }
+  if(ph==='countdown'&&rn===roundNum&&(state==='picked'||state==='draft')&&(NET.pk|0)===(rn-1)){ show(UI.draft,false); beginRound(); }
   const by=k=>fighters.find(f=>f.slot===k);
   if((state==='fight'||state==='roundover')&&Array.isArray(h.hp)){ const now=performance.now(); h.hp.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&!f.dead&&now-(f.lastLocalHit||0)>400) f.hp=v; }); }
   if(state==='fight'&&isNum(h.t)) roundInfo.t=Math.max(roundInfo.t,h.t);
@@ -185,14 +187,14 @@ function netGuestFollow(h){
 // ---------- match flow ----------
 function netHostStart(){ if(NET.seats.length<seatsNeeded()) return; NET.mid++; NET.started=true; netBuildRoster(); lobbyRender(); startMatch(); }
 function netStartLocal(){ NET.started=true; netBuildRoster(); startMatch(); }
-function netAfterPick(){ UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
+function netAfterPick(){ NET.pk=(NET.pk|0)+1; UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
 function netTick(dt){ if(!NET.on) return;
   if(NET.kind==='battle'){ if(btHook) btHook.netTick(dt); return; }
   netSend(); const now=performance.now();
   if(NET.role==='guest'){ if(NET.hostPeer&&now-NET.lastRx>15000){ netDrop('Lost connection to the host.'); return; } if(!NET.hostPeer&&now-NET.joinT>7000){ olMsg('No room found with code '+NET.code+'. Check the code and try again.',true); netLeave(); return; } }
   if(NET.role==='host'&&NET.started){ for(const st of NET.seats.slice()) if(st.p&&!st.b&&st.p!==myPeerId()&&now-(NET.rx[st.p]||now)>15000) seatLeft(st); if(!NET.on) return; }
   if(NET.role==='host'&&NET.started){ for(const f of fighters.slice()) if(f.leaving&&state!=='fight'&&state!=='roundover'){ fighters.splice(fighters.indexOf(f),1); f.setActive(false); ffaBoardKey=''; } }
-  if(NET.role==='host'&&NET.started&&state==='picked'&&fighters.every(f=>f.ctl!=='net'||f.leaving||f.cards.length===player.cards.length)){ show(UI.draft,false); beginRound(); }
+  if(NET.role==='host'&&NET.started&&state==='picked'&&fighters.every(f=>f.ctl!=='net'||f.leaving||(isNum(f.nrPk)?f.nrPk:f.cards.length)===(NET.pk|0))){ show(UI.draft,false); beginRound(); }
 }
 const NET_DELAY=100; // show other players 0.1 s in the past, between two real updates: smooth, no guessing
 function netApplyRemote(f,dt){ const s=f.rs; if(!s) return; const S=f.snaps||[];

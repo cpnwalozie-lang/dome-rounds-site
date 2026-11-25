@@ -249,7 +249,7 @@ function updateBombs(dt){
     if(k>=1){ scene.remove(w.mesh); w.m.dispose(); empShards.splice(i,1); } }
 }
 function killFighter(f,source){
-  if(f.dead||state!=='fight') return; if(NET.on&&NET.role==='guest'&&!NET.allowKill) return; f.dead=true; f.hp=0; f.blockActive=false; f.blockT=0; f.sawT=0; f.echoT=-1; f.echoCount=0; f.blinkPending=0; f.dazzleN=0; f.tetherV=null; f.burstQueue=0; f.mesh.visible=false; f.dome.visible=false; f.dome2.visible=false; f.domeRing.visible=false; f.sawRing.visible=false;
+  if(f.dead||state!=='fight') return; if(NET.on&&NET.role==='guest'&&!NET.allowKill) return; f.dead=true; if(f===player) secretDied(); f.hp=0; f.blockActive=false; f.blockT=0; f.sawT=0; f.echoT=-1; f.echoCount=0; f.blinkPending=0; f.dazzleN=0; f.tetherV=null; f.burstQueue=0; f.mesh.visible=false; f.dome.visible=false; f.dome2.visible=false; f.domeRing.visible=false; f.sawRing.visible=false;
   const c=f.center(), tc=f.team;
   burst(c,tc.body,34,12,0.16,1.0,0.5); burst(c,0xffffff,16,8,0.1,0.6,0.2); flashAt(c,tc.light,11,0.4); SFX.ko();
   for(let i=0;i<26;i++){ const d=V3(rand(-1,1),rand(-0.2,1),rand(-1,1)).normalize(); spawnShard(c.clone(),d.multiplyScalar(rand(4,11)),i%2?tc.body:tc.light,rand(0.25,0.55),rand(0.6,1.1),0.7); }

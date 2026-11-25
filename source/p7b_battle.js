@@ -79,7 +79,7 @@ function btArena(){ if(curMapId!=='skyfort') applyMap('skyfort'); matchKind='bat
 function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true,lv:btLv()});
   btNewMatch(1); }
-function btNewMatch(mid){ btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
+function btNewMatch(mid){ secretReset(); btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
   BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
@@ -294,17 +294,17 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
+  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0, sx:secretMine() };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
 function btState(){ const A=fn=>BT.seats.map((s,k)=>s?fn(btF(k)):0);
   return { m:BT.mid, ph:BT.ph, t:Math.round(BT.t*10)/10, w:BT.w, ot:Math.round(BT.overT*10)/10, st:BT.seats.map(s=>s?[s.b?'':s.p,s.n,s.b?1:0,s.lv||'']:0),
-    k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6) }; }
+    k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6), sx:secretState() }; }
 
 // ---------- what we receive ----------
 function btPeers(ch){ const others=ch.peers.filter(p=>!p.sameTab&&p.presence&&p.presence.v===3); const now=performance.now(); for(const p of others) NET.rx[p.peer]=now;
-  if(btHost()){ if(BT.on) btHostSeats(others); } else btFollow(others);
+  if(btHost()){ if(BT.on){ btHostSeats(others); for(const p of others) secretSeen(p.peer,p.presence.sx); } } else btFollow(others);
   if(!BT.on) return; for(const p of others) btRx(p.peer,p.presence); }
 // host: give each new person a spot (a free one, or the bot with the fewest knockouts), and free up the spots of anyone who left
 function btHostSeats(others){ const ids=new Set(others.map(p=>p.peer)), me=myPeerId();
@@ -323,7 +323,7 @@ function btFollow(others){ const h=others.find(p=>p.peer===NET.hostPeer&&p.prese
   if(!BT.on){ if(mine<0) return; btJoin(mine,B); return; }
   if(mine<0){ btDrop('You were removed from the match.'); return; }
   btApplySeats(B); btApplyState(B); }
-function btJoin(k,B){ btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|0; BT.t=+B.t||0; BT.ph=B.ph==='over'?'fight':B.ph||'fight';
+function btJoin(k,B){ secretReset(); btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|0; BT.t=+B.t||0; BT.ph=B.ph==='over'?'fight':B.ph||'fight';
   btApplySeats(B,true); player.life=(Array.isArray(B.l)&&B.l[k])|0; BT.joinLife=player.life; btHide(player);
   for(let j=0;j<BT_N;j++){ if(j===k||!BT.seats[j]) continue; const f=btF(j); f.life=(B.l&&B.l[j])|0; if(B.x&&B.x[j]===0) btRevive(f,f.life); }
   state='fight'; resetInputs(); btHudOn(); updateHUD(); SFX.music('fight'); btMsg(''); BT.kfShown=Math.max(0,...(B.kf||[]).map(e=>Array.isArray(e)?e[0]|0:0)); BT.deadT=0.2; BT.first=true;
@@ -334,7 +334,7 @@ function btApplySeats(B,first){ for(let k=0;k<BT_N;k++){ const a=B.st[k]; const 
     if(k===BT.me){ if(!cur){ BT.seats[k]={p:myPeerId(),n:btMyName,b:false}; btSeat(k,BT.seats[k]); } continue; }
     if(!cur||cur.b!==want.b||(!want.b&&cur.p!==want.p)){ if(cur) btUnseat(k,first); btSeat(k,want); }
     else { if(cur.n!==want.n){ cur.n=want.n; btF(k).name=want.n; ffaBoardKey=''; } if(cur.b&&cur.lv!==want.lv){ cur.lv=want.lv; btF(k).lv=DIFF[want.lv]; } } } }
-function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return; }
+function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return; } secretApply(B.sx);
   if(isNum(B.t)) BT.t=B.t; if(isNum(B.w)) BT.w=B.w;
   if(B.ph==='over'){ BT.overT=isNum(B.ot)?B.ot:BT.overT; if(BT.ph!=='over'){ BT.ph='over'; btEnterOver(); } } else if(B.ph==='fight'&&BT.ph==='count') BT.ph='fight';
   const now=performance.now();

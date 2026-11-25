@@ -950,7 +950,7 @@ function buildNeon(layout){ const ffa=layout==='ffa';
   addRamp(-2,2,5,7.5,'z',false,0,1); addRamp(-2,2,-7.5,-5,'z',true,0,1); addRamp(6,8.5,-1.8,1.8,'x',false,0,1); addRamp(-8.5,-6,-1.8,1.8,'x',true,0,1);
   solid(-2.2,2.2,1,6.2,-2.2,2.2,NM.metal,0);
   { const ads=[['DOMES','3D ARENA',MG],['NOVA','COLA',CY],['ZAP!','ARCADE',YE],['BYTE','BAR 24H',GR]]; ads.forEach((a,i)=>{ const ry=i*Math.PI/2; const m=new T.Mesh(new T.PlaneGeometry(4,4.4),new T.MeshBasicMaterial({map:neonSignTex(a[0],a[2],512,560,a[1])})); m.position.set(Math.sin(ry)*2.23,3.7,Math.cos(ry)*2.23); m.rotation.y=ry; W.add(m); animated.push(t=>{ m.material.color.setScalar(0.85+Math.sin(t*2+i)*0.1+(Math.sin(t*31+i*5)>0.97?-0.4:0)); }); });
-    edgeGlow(-2.25,2.25,6.22,-2.25,2.25,CY); const ring=new T.Mesh(new T.TorusGeometry(2.6,0.07,8,48),neon(MG)); ring.rotation.x=Math.PI/2; ring.position.y=10.4; W.add(ring); const ring2=new T.Mesh(new T.TorusGeometry(1.8,0.05,8,40),neon(CY)); ring2.position.y=10.4; W.add(ring2); const orb=new T.Mesh(new T.IcosahedronGeometry(0.6,1),new T.MeshBasicMaterial({color:col(0xffffff),wireframe:true})); orb.position.y=10.4; W.add(orb); const gl=sprite(MG,7,0.5); gl.position.y=7.2; W.add(gl);
+    edgeGlow(-2.25,2.25,6.22,-2.25,2.25,CY); const ring=new T.Mesh(new T.TorusGeometry(2.6,0.07,8,48),neon(MG)); ring.rotation.x=Math.PI/2; ring.position.y=10.4; W.add(ring); const ring2=new T.Mesh(new T.TorusGeometry(1.8,0.05,8,40),neon(CY)); ring2.position.y=10.4; W.add(ring2); const orb=new T.Mesh(new T.IcosahedronGeometry(0.6,1),new T.MeshBasicMaterial({color:col(0xffffff),wireframe:true})); orb.position.y=10.4; W.add(orb); secretMark(orb,1.05); const gl=sprite(MG,7,0.5); gl.position.y=7.2; W.add(gl);
     animated.push((t)=>{ ring.rotation.z=t*0.7; ring2.rotation.y=t*1.3; ring2.rotation.x=t*0.9; orb.rotation.y=-t; orb.position.y=10.4+Math.sin(t*1.5)*0.15; });
     const pl=new T.PointLight(0xff3fd0,1.3,34,2); pl.position.set(0,7,0); W.add(pl); }
   block(4.4,5.8,1,2.3,3.4,4.8,NM.crateC,CY,0); block(-5.8,-4.4,1,2.3,-4.8,-3.4,NM.crateM,MG,0);
@@ -1011,7 +1011,7 @@ function buildNeon(layout){ const ffa=layout==='ffa';
   solid(-1.8,1.8,1,5.6,-1.8,1.8,NM.metal,0);
   { const ads=[['DOMES','3D ARENA',MG],['FREE','FOR ALL',CY],['KO','ZONE',YE],['NOVA','COLA',GR]]; ads.forEach((a,i)=>{ const ry=i*Math.PI/2; const m=new T.Mesh(new T.PlaneGeometry(3.3,3.6),new T.MeshBasicMaterial({map:neonSignTex(a[0],a[2],512,560,a[1])})); m.position.set(Math.sin(ry)*1.83,3.35,Math.cos(ry)*1.83); m.rotation.y=ry; W.add(m); animated.push(t=>{ m.material.color.setScalar(0.85+Math.sin(t*2+i)*0.1); }); });
     edgeGlow(-1.85,1.85,5.62,-1.85,1.85,CY); const ring=new T.Mesh(new T.TorusGeometry(2.4,0.07,8,48),neon(MG)); ring.rotation.x=Math.PI/2; ring.position.y=9.6; W.add(ring); const ring2=new T.Mesh(new T.TorusGeometry(1.6,0.05,8,40),neon(CY)); ring2.position.y=9.6; W.add(ring2);
-    const orb=new T.Mesh(new T.IcosahedronGeometry(0.55,1),new T.MeshBasicMaterial({color:col(0xffffff),wireframe:true})); orb.position.y=9.6; W.add(orb);
+    const orb=new T.Mesh(new T.IcosahedronGeometry(0.55,1),new T.MeshBasicMaterial({color:col(0xffffff),wireframe:true})); orb.position.y=9.6; W.add(orb); secretMark(orb,1.0);
     animated.push((t)=>{ ring.rotation.z=t*0.7; ring2.rotation.y=t*1.3; ring2.rotation.x=t*0.9; orb.rotation.y=-t; orb.position.y=9.6+Math.sin(t*1.5)*0.15; });
     const pl=new T.PointLight(0xff3fd0,1.3,34,2); pl.position.set(0,7,0); W.add(pl); }
   block(4.2,5.6,1,2.3,-2.2,-0.8,NM.crateC,CY,0); block(-5.6,-4.2,1,2.3,0.8,2.2,NM.crateM,MG,0); block(-2.2,-0.8,1,2.3,4.2,5.6,NM.crateY,YE,0); block(0.8,2.2,1,2.3,-5.6,-4.2,NM.crateY,YE,0);
@@ -1056,7 +1056,8 @@ const MAPS={
     env:{ fog:[0x170c30,45,300], hemi:[0xb0b6ff,0x3c2262,0.95], sun:[0xd0c8ff,0.62,[16,36,-18]], bloom:[0.4,0.45,0.8] } },
 };
 let curMap=null, curMapId='';
-function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Group(); g.userData.isMap=true; scene.add(g); W=g; /*DEBUG-START*/if(window.__tagAdd){ const a0=g.add; g.add=function(...a){ const st=new Error().stack.split('\n').slice(1).map(x=>x.trim()); const k=st.findIndex(x=>/^at (buildArena|buildScenery|buildNeon|Object\.build)/.test(x)); for(const o of a) o.userData.src=k>0?st[k]:'x'+Math.random(); return a0.apply(this,a); }; }/*DEBUG-END*/ boxes=[]; ramps=[]; animated=[]; HX=m.native[0]; HZ=m.native[1]; m.build(); const S=m.scale;
+let SECRET_MARK=null; function secretMark(obj,r){ SECRET_MARK={obj,r}; } // the centre piece you can shoot for the secret (p7f_secret)
+function ensureMap(id){ const m=MAPS[id]; if(m.group) return m; const g=new T.Group(); g.userData.isMap=true; scene.add(g); W=g; /*DEBUG-START*/if(window.__tagAdd){ const a0=g.add; g.add=function(...a){ const st=new Error().stack.split('\n').slice(1).map(x=>x.trim()); const k=st.findIndex(x=>/^at (buildArena|buildScenery|buildNeon|Object\.build)/.test(x)); for(const o of a) o.userData.src=k>0?st[k]:'x'+Math.random(); return a0.apply(this,a); }; }/*DEBUG-END*/ boxes=[]; ramps=[]; animated=[]; HX=m.native[0]; HZ=m.native[1]; SECRET_MARK=null; m.build(); m.secret=SECRET_MARK; SECRET_MARK=null; const S=m.scale;
   if(S!==1){ g.scale.set(S,1,S); for(const b of boxes){ b.min.x*=S; b.max.x*=S; b.min.z*=S; b.max.z*=S; } for(const r of ramps){ r.minX*=S; r.maxX*=S; r.minZ*=S; r.maxZ*=S; } if(g.userData.waterMat) g.userData.waterMat.uniforms.dock.value.set(HX*S,HZ*S); }
   m.sealed=sealGaps(0.5); m.group=g; m.boxes=boxes; m.ramps=ramps; m.animated=animated; m.HX=HX*S; m.HZ=HZ*S; W=scene; return m; }
 function setMap(id){ if(!MAPS[id]) id='dock'; const m=ensureMap(id); for(const k in MAPS) if(MAPS[k].group) MAPS[k].group.visible=(k===id); boxes=m.boxes; ramps=m.ramps; animated=m.animated; HX=m.HX; HZ=m.HZ; curMap=m; curMapId=id; CFG.killY=m.killY;
@@ -1722,7 +1723,7 @@ function buildSkyfort(){
   for(const s of [-1,1]){ for(const [a,b] of [[-KS,-2.25],[2.25,KS]]){ block(a,b,KH,KH+0.95,s>0?KS-0.5:-KS,s>0?KS:-KS+0.5,{cap:true,shadow:false}); block(s>0?KS-0.5:-KS,s>0?KS:-KS+0.5,KH,KH+0.95,a,b,{cap:true,shadow:false}); } }
   // the beacon: stepped base, a tall shaft, and a floating crystal
   block(-1.3,1.3,KH,KH+1.0,-1.3,1.3,{cap:true}); block(-0.75,0.75,KH+1.0,KH+6.2,-0.75,0.75,{cap:true,shadow:false});
-  const crystal=new T.Mesh(new T.OctahedronGeometry(1.05,0),MS.crystal); crystal.scale.set(1,1.5,1); crystal.position.set(0,KH+8.1,0); W.add(crystal);
+  const crystal=new T.Mesh(new T.OctahedronGeometry(1.05,0),MS.crystal); crystal.scale.set(1,1.5,1); crystal.position.set(0,KH+8.1,0); W.add(crystal); secretMark(crystal,1.6);
   const cg=sprite(0x35e9ff,9,0.75); cg.position.copy(crystal.position); W.add(cg);
   const ring=new T.Mesh(new T.TorusGeometry(1.8,0.08,6,32),MS.gold); ring.position.copy(crystal.position); ring.rotation.x=Math.PI/2; W.add(ring);
   animated.push(t=>{ crystal.rotation.y=t*0.8; crystal.position.y=KH+8.1+Math.sin(t*1.3)*0.25; ring.rotation.z=t*0.5; ring.position.y=crystal.position.y; cg.position.y=crystal.position.y; cg.material.opacity=0.6+Math.sin(t*2.1)*0.15; });
@@ -2443,7 +2444,7 @@ function updateBombs(dt){
     if(k>=1){ scene.remove(w.mesh); w.m.dispose(); empShards.splice(i,1); } }
 }
 function killFighter(f,source){
-  if(f.dead||state!=='fight') return; if(NET.on&&NET.role==='guest'&&!NET.allowKill) return; f.dead=true; f.hp=0; f.blockActive=false; f.blockT=0; f.sawT=0; f.echoT=-1; f.echoCount=0; f.blinkPending=0; f.dazzleN=0; f.tetherV=null; f.burstQueue=0; f.mesh.visible=false; f.dome.visible=false; f.dome2.visible=false; f.domeRing.visible=false; f.sawRing.visible=false;
+  if(f.dead||state!=='fight') return; if(NET.on&&NET.role==='guest'&&!NET.allowKill) return; f.dead=true; if(f===player) secretDied(); f.hp=0; f.blockActive=false; f.blockT=0; f.sawT=0; f.echoT=-1; f.echoCount=0; f.blinkPending=0; f.dazzleN=0; f.tetherV=null; f.burstQueue=0; f.mesh.visible=false; f.dome.visible=false; f.dome2.visible=false; f.domeRing.visible=false; f.sawRing.visible=false;
   const c=f.center(), tc=f.team;
   burst(c,tc.body,34,12,0.16,1.0,0.5); burst(c,0xffffff,16,8,0.1,0.6,0.2); flashAt(c,tc.light,11,0.4); SFX.ko();
   for(let i=0;i<26;i++){ const d=V3(rand(-1,1),rand(-0.2,1),rand(-1,1)).normalize(); spawnShard(c.clone(),d.multiplyScalar(rand(4,11)),i%2?tc.body:tc.light,rand(0.25,0.55),rand(0.6,1.1),0.7); }
@@ -2788,7 +2789,7 @@ function beginRound(){ bakeHook(scene);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; roundInfo.botHpFrac=1;
   clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind!=='1v1'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
 }
-function startMatch(){
+function startMatch(){ secretReset(); NET.pk=0; for(const f of fighters) f.nrPk=undefined;
   mode='match'; sandbox.open=false; show(UI.sandbox,false); if(!NET.on){ if(settings.gm==='ffa') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); }
   { const mp=matchKind==='ffa'?'ffa':((NET.on&&NET.role==='guest'&&NET.hostMap)?NET.hostMap:settings.map); if(curMapId!==mp) applyMap(mp); } document.getElementById('online').classList.remove('open');
   score.player=0; score.bot=0; roundNum=1; for(const f of fighters){ f.setCards([]); f.score=0; } matchOverPending=false; lastWinner=null; ffaBoardKey='';
@@ -2797,7 +2798,7 @@ function startMatch(){
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
 const menuCam={key:'',a:0};
-function toMenu(){ if(tutHook) tutHook.stop(); hideTags(); if(btHook) btHook.stop(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=gmMap(); if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
+function toMenu(){ secretReset(); if(tutHook) tutHook.stop(); hideTags(); if(btHook) btHook.stop(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=gmMap(); if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
 function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
   if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
@@ -2841,12 +2842,12 @@ UI.sbxClear.addEventListener('click',()=>{ sandbox.cards=[]; renderSandbox(); })
 UI.sbxQuit.addEventListener('click',()=>toMenu());
 UI.sandboxBtn.addEventListener('click',()=>{ SFX.unlock(); if(NET.on) netLeave(); openSandbox(); });
 UI.sbxGo.addEventListener('click',()=>{ SFX.unlock(); if(mode==='sandbox'&&state==='fight'&&!sandbox.remap) closeSandbox(); else startSandbox(); });
-function openSandbox(){ sandbox.open=true; if(state==='fight') paused=true; exitLock(); show(UI.pause,false); show(UI.start,false); renderSandbox(); syncSettingsUI(); UI.sbxGo.textContent=(mode==='sandbox'&&state==='fight')?'BACK TO TRAINING':'START TRAINING'; show(UI.sandbox,true,'block'); }
+function openSandbox(){ if(state==='fight'&&secretBlocksCards()) return; sandbox.open=true; if(state==='fight') paused=true; exitLock(); show(UI.pause,false); show(UI.start,false); renderSandbox(); syncSettingsUI(); UI.sbxGo.textContent=(mode==='sandbox'&&state==='fight')?'BACK TO TRAINING':'START TRAINING'; show(UI.sandbox,true,'block'); }
 function sandboxBotSpot(){ const sx=BASE_POS.player.x+9; const g=groundAt(sx,0,3,0.3); return V3(sx,g===null?0:g,0); }
 function setupSandboxBot(){ bot.setCards([]); bot.resetRound(); aiReset(bot); if(sandbox.bot==='none'){ bot.dead=true; bot.mesh.visible=false; bot.respawnT=0; } else if(sandbox.bot==='dummy'){ bot.pos.copy(sandboxBotSpot()); bot.yaw=Math.PI/2; } else { bot.pos.copy(BASE_POS.bot); bot.yaw=Math.PI/2; } bot.vel.set(0,0,0); show(UI.botPanel,sandbox.bot!=='none'); }
 function applySandboxLoadout(){ const hpFrac=1; player.setCards(sandbox.cards); player.hp=player.maxHp()*hpFrac; player.ammo=player.stats.ammo; player.reloading=false; player.blockCdT=0; updateCardStrips(); }
 function closeSandbox(){ sandbox.open=false; paused=false; show(UI.sandbox,false); applySandboxLoadout(); if(sandbox.botWas!==sandbox.bot){ sandbox.botWas=sandbox.bot; setupSandboxBot(); } requestLock(); last=performance.now(); toast('Loadout updated. '+(TOUCH.on?'Tap the cards button':'<b>TAB</b>')+' to change it again.','you'); }
-function startSandbox(){
+function startSandbox(){ secretReset();
   roster1v1(); UI.hud.classList.remove('ffamode'); mode='sandbox'; sandbox.open=false; sandbox.remap=false; paused=false; if(curMapId!==settings.map) applyMap(settings.map);
   show(UI.sandbox,false); show(UI.start,false); show(UI.matchover,false); show(UI.draft,false); show(UI.pause,false); show(UI.countdown,false);
   for(const k in matchStats) matchStats[k]=0; score.player=0; score.bot=0; roundNum=1; clearProjectiles(); resetInputs();
@@ -2896,7 +2897,7 @@ function renderStatbar(previewId){ const cur=statRows(player.stats); const nxt=p
 function cardHTML(id,i,owned,coach){ const c=CARDS[id];
   return `${coach?'<div class="coachtag">★ COACH PICK</div>':''}<div class="card-in"><div class="face back"><div class="backlogo">DOMES</div></div><div class="face front"><i class="br tl"></i><i class="br tr"></i><i class="br bl"></i><i class="br brr"></i><div class="ctitle">${c.name}</div><div class="cmeta"><span class="ctype">${typeIcon(c.type)}${TYPE_LABEL[c.type]}</span></div><div class="art">${ART.svg(id)}<div class="glare"></div></div><div class="cdesc">${c.tag}</div><div class="lines">${c.lines.map(l=>`<div><b class="${l[2]?'good':'bad'}">${l[0]}</b> ${l[1]}</div>`).join('')}</div><div class="cfoot"><span class="ckey">${i+1}</span>${owned?`<span class="owned">STACK ×${owned+1}</span>`:'<span class="new">NEW</span>'}</div></div></div>`; }
 function startDraft(){
-  state='draft'; clearProjectiles(); for(const f of fighters) f.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner'; SFX.music('draft');
+  UI.draft.classList.remove('secDraft'); state='draft'; clearProjectiles(); for(const f of fighters) f.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner'; SFX.music('draft');
   const ffa=matchKind!=='1v1'; // FFA and 2v2: everyone picks every round
   const playerLost = matchKind==='2v2'? !(lastWinner&&lastWinner.side===player.side) : ffa? lastWinner!==player : lastWinner===bot; for(const f of fighters) f.setMood(f===lastWinner?'happy':'worried',999);
   if(ffa){ for(const f of fighters) if(f.ctl==='ai'&&(!NET.on||NET.role==='host')) botPick(f); }
@@ -2914,7 +2915,7 @@ function startDraft(){
     el.addEventListener('mouseleave',()=>{ el.style.setProperty('--ry','0deg'); el.style.setProperty('--rx','0deg'); UI.statbar._id=null; renderStatbar(null); });
     el.addEventListener('click',()=>{ if(state!=='draft'||el.classList.contains('picked')) return; el.classList.add('picked'); for(const o of UI.cards.children) if(o!==el) o.classList.add('gone'); player.addCard(id); SFX.pick(); toast(`<b class="you">You</b> took <b>${c.name}</b>`,'you'); if(playerLost&&!NET.on&&!ffa) botPick(); state='picked'; if(NET.on){ netAfterPick(); return; } const go=()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); }; if(testMode) go(); else setTimeout(go,650); });
     UI.cards.appendChild(el); setTimeout(()=>SFX.deal(),120+i*130); });
-  UI.statbar._id=null; show(UI.draft,true); updateCardStrips();
+  UI.statbar._id=null; show(UI.draft,true); updateCardStrips(); secretDraft();
 }
 function endMatch(){
   state='matchover'; exitLock(); SFX.music('menu');
@@ -3159,6 +3160,7 @@ function updateBullets(dt){
     const steps=Math.max(1,Math.ceil(speed*dt/0.35)); const sdt=dt/steps; let done=false; const br=b.r*b.k;
     for(let s=0;s<steps&&!done;s++){
       b.pos.addScaledVector(b.vel,sdt); b.dist+=speed*sdt;
+      if(b.owner===player&&secretTouch(b.pos,br)){ secretShot(); removeBullet(i); done=true; break; } // the centre-piece secret (p7f_secret)
       let refl=false;
       for(const e of fighters){ if(e.side===b.owner.side||e.dead||e.active===false) continue;
         if(e.blockActive&&b.pos.distanceTo(e.domeC())<e.domeR()+br&&b.pos.y>e.pos.y-0.3){ for(let k=0;k<5;k++) spawnShard(b.pos.clone(),V3(rand(-1,1),rand(0,1),rand(-1,1)).multiplyScalar(4),e.team.light,0.2,0.35,0.6); reflectBullet(b,e); refl=true; break; }
@@ -3210,6 +3212,7 @@ function fxUpdate(dt){ updateCardFx(dt); updateParticles(dt); updateExplosions(d
 function update(dt){
   netTick(dt);
   if(paused) return;
+  secretTick(dt);
   gameT+=dt; const t=gameT;
   for(const fn of animated) fn(t,dt);
   const vis=()=>{ for(const f of fighters) if(f.active!==false) f.updateVisual(dt,t); };
@@ -3721,20 +3724,21 @@ function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
 function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
-  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()) };
+  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()), sx:secretMine(), pk:NET.pk|0 };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
       const col=fn=>Array.from({length:n},(_,k)=>{ const f=by(k); return f?fn(f):0; });
-      o.h={ m:NET.mid, ph:state, rn:roundNum, sc:col(f=>f.score), hp:col(f=>Math.max(0,Math.round(f.hp))), dd:col(f=>f.dead?1:0), w:lastWinner?lastWinner.slot:-1, t:Math.round(roundInfo.t*10)/10, mo:matchOverPending?1:0 };
+      o.h={ m:NET.mid, ph:state, rn:roundNum, sc:col(f=>f.score), hp:col(f=>Math.max(0,Math.round(f.hp))), dd:col(f=>f.dead?1:0), w:lastWinner?lastWinner.slot:-1, t:Math.round(roundInfo.t*10)/10, mo:matchOverPending?1:0, sx:secretState() };
       o.bots=fighters.filter(f=>f.ctl==='ai').map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:o.ts})); } }
   r.presence(o).catch(()=>{}); }
 // ---------- incoming ----------
 const isNum=v=>typeof v==='number'&&isFinite(v);
 function netRx(peer,pr){
   verSeen(peer,pr);
-  const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f) netRxFighter(f,pr);
+  const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f){ netRxFighter(f,pr); if(isNum(pr.pk)) f.nrPk=pr.pk; }
   netApplyHits(peer,pr.ht);
+  if(NET.role==='host') secretSeen(peer,pr.sx);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
     if(pr.h&&typeof pr.h==='object') netGuestFollow(pr.h); } }
 // A new round puts everyone back on their stands. Forget where other players were before, and for a moment ignore any
@@ -3754,8 +3758,9 @@ function netRemoteFire(f,s){ if(state!=='fight'||f.dead) return; f.botAim=V3(s[4
 function netGuestFollow(h){
   const ph=h.ph, rn=h.rn|0;
   if(isNum(h.m)&&h.m!==NET.rMid&&(ph==='countdown'||ph==='fight')&&rn===1){ NET.rMid=h.m; netStartLocal(); return; }
+  secretApply(h.sx);
   if(!NET.started) return;
-  if(ph==='countdown'&&rn===roundNum&&(state==='picked'||state==='draft')&&player.cards.length===(rn-1)){ show(UI.draft,false); beginRound(); }
+  if(ph==='countdown'&&rn===roundNum&&(state==='picked'||state==='draft')&&(NET.pk|0)===(rn-1)){ show(UI.draft,false); beginRound(); }
   const by=k=>fighters.find(f=>f.slot===k);
   if((state==='fight'||state==='roundover')&&Array.isArray(h.hp)){ const now=performance.now(); h.hp.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&!f.dead&&now-(f.lastLocalHit||0)>400) f.hp=v; }); }
   if(state==='fight'&&isNum(h.t)) roundInfo.t=Math.max(roundInfo.t,h.t);
@@ -3766,14 +3771,14 @@ function netGuestFollow(h){
 // ---------- match flow ----------
 function netHostStart(){ if(NET.seats.length<seatsNeeded()) return; NET.mid++; NET.started=true; netBuildRoster(); lobbyRender(); startMatch(); }
 function netStartLocal(){ NET.started=true; netBuildRoster(); startMatch(); }
-function netAfterPick(){ UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
+function netAfterPick(){ NET.pk=(NET.pk|0)+1; UI.draftSub.textContent=NET.kind!=='1v1'?'Locked in. Waiting for everyone to pick…':'Locked in. Waiting for your rival to pick…'; }
 function netTick(dt){ if(!NET.on) return;
   if(NET.kind==='battle'){ if(btHook) btHook.netTick(dt); return; }
   netSend(); const now=performance.now();
   if(NET.role==='guest'){ if(NET.hostPeer&&now-NET.lastRx>15000){ netDrop('Lost connection to the host.'); return; } if(!NET.hostPeer&&now-NET.joinT>7000){ olMsg('No room found with code '+NET.code+'. Check the code and try again.',true); netLeave(); return; } }
   if(NET.role==='host'&&NET.started){ for(const st of NET.seats.slice()) if(st.p&&!st.b&&st.p!==myPeerId()&&now-(NET.rx[st.p]||now)>15000) seatLeft(st); if(!NET.on) return; }
   if(NET.role==='host'&&NET.started){ for(const f of fighters.slice()) if(f.leaving&&state!=='fight'&&state!=='roundover'){ fighters.splice(fighters.indexOf(f),1); f.setActive(false); ffaBoardKey=''; } }
-  if(NET.role==='host'&&NET.started&&state==='picked'&&fighters.every(f=>f.ctl!=='net'||f.leaving||f.cards.length===player.cards.length)){ show(UI.draft,false); beginRound(); }
+  if(NET.role==='host'&&NET.started&&state==='picked'&&fighters.every(f=>f.ctl!=='net'||f.leaving||(isNum(f.nrPk)?f.nrPk:f.cards.length)===(NET.pk|0))){ show(UI.draft,false); beginRound(); }
 }
 const NET_DELAY=100; // show other players 0.1 s in the past, between two real updates: smooth, no guessing
 function netApplyRemote(f,dt){ const s=f.rs; if(!s) return; const S=f.snaps||[];
@@ -3904,7 +3909,7 @@ function btArena(){ if(curMapId!=='skyfort') applyMap('skyfort'); matchKind='bat
 function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true,lv:btLv()});
   btNewMatch(1); }
-function btNewMatch(mid){ btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
+function btNewMatch(mid){ secretReset(); btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
   BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
@@ -4119,17 +4124,17 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0 };
+  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0, sx:secretMine() };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
 function btState(){ const A=fn=>BT.seats.map((s,k)=>s?fn(btF(k)):0);
   return { m:BT.mid, ph:BT.ph, t:Math.round(BT.t*10)/10, w:BT.w, ot:Math.round(BT.overT*10)/10, st:BT.seats.map(s=>s?[s.b?'':s.p,s.n,s.b?1:0,s.lv||'']:0),
-    k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6) }; }
+    k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6), sx:secretState() }; }
 
 // ---------- what we receive ----------
 function btPeers(ch){ const others=ch.peers.filter(p=>!p.sameTab&&p.presence&&p.presence.v===3); const now=performance.now(); for(const p of others) NET.rx[p.peer]=now;
-  if(btHost()){ if(BT.on) btHostSeats(others); } else btFollow(others);
+  if(btHost()){ if(BT.on){ btHostSeats(others); for(const p of others) secretSeen(p.peer,p.presence.sx); } } else btFollow(others);
   if(!BT.on) return; for(const p of others) btRx(p.peer,p.presence); }
 // host: give each new person a spot (a free one, or the bot with the fewest knockouts), and free up the spots of anyone who left
 function btHostSeats(others){ const ids=new Set(others.map(p=>p.peer)), me=myPeerId();
@@ -4148,7 +4153,7 @@ function btFollow(others){ const h=others.find(p=>p.peer===NET.hostPeer&&p.prese
   if(!BT.on){ if(mine<0) return; btJoin(mine,B); return; }
   if(mine<0){ btDrop('You were removed from the match.'); return; }
   btApplySeats(B); btApplyState(B); }
-function btJoin(k,B){ btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|0; BT.t=+B.t||0; BT.ph=B.ph==='over'?'fight':B.ph||'fight';
+function btJoin(k,B){ secretReset(); btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|0; BT.t=+B.t||0; BT.ph=B.ph==='over'?'fight':B.ph||'fight';
   btApplySeats(B,true); player.life=(Array.isArray(B.l)&&B.l[k])|0; BT.joinLife=player.life; btHide(player);
   for(let j=0;j<BT_N;j++){ if(j===k||!BT.seats[j]) continue; const f=btF(j); f.life=(B.l&&B.l[j])|0; if(B.x&&B.x[j]===0) btRevive(f,f.life); }
   state='fight'; resetInputs(); btHudOn(); updateHUD(); SFX.music('fight'); btMsg(''); BT.kfShown=Math.max(0,...(B.kf||[]).map(e=>Array.isArray(e)?e[0]|0:0)); BT.deadT=0.2; BT.first=true;
@@ -4159,7 +4164,7 @@ function btApplySeats(B,first){ for(let k=0;k<BT_N;k++){ const a=B.st[k]; const 
     if(k===BT.me){ if(!cur){ BT.seats[k]={p:myPeerId(),n:btMyName,b:false}; btSeat(k,BT.seats[k]); } continue; }
     if(!cur||cur.b!==want.b||(!want.b&&cur.p!==want.p)){ if(cur) btUnseat(k,first); btSeat(k,want); }
     else { if(cur.n!==want.n){ cur.n=want.n; btF(k).name=want.n; ffaBoardKey=''; } if(cur.b&&cur.lv!==want.lv){ cur.lv=want.lv; btF(k).lv=DIFF[want.lv]; } } } }
-function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return; }
+function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return; } secretApply(B.sx);
   if(isNum(B.t)) BT.t=B.t; if(isNum(B.w)) BT.w=B.w;
   if(B.ph==='over'){ BT.overT=isNum(B.ot)?B.ot:BT.overT; if(BT.ph!=='over'){ BT.ph='over'; btEnterOver(); } } else if(B.ph==='fight'&&BT.ph==='count') BT.ph='fight';
   const now=performance.now();
@@ -4466,6 +4471,82 @@ tutEl('tutEndMenu').addEventListener('click',()=>toMenu());
 window.addEventListener('keydown',e=>{ if(!TUT.on||!TUT.talk||paused) return; if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); e.stopPropagation(); if(!e.repeat) tutAdvance(); } },true);
 setInterval(tutMenuSync,1000); tutMenuSync();
 /*DEBUG-START*/window.__tut={TUT,TUT_STEPS,tutStart,tutStop,tutAdvance,tutNext,tutGain,ring:()=>TUT.ring,botSpot:d=>tutBotSpot(d)};/*DEBUG-END*/
+
+// ================= THE SECRET: shoot the centre piece on Skyfort or the Neon maps =================
+// Hit the floating crystal (Skyfort) or the wireframe orb (Neon City, Neon Crossroads) and you get a stack of blaster
+// cards. One holder at a time, and each player only gets it once per match. While you hold it you can't pick cards;
+// get knocked out and you lose it, your own cards come back, and picking works as normal again.
+// Online, whoever runs the match (the host) decides who gets it, so two people can't both win it.
+const SECRET_CARDS=['barrage','bigbullets','buckshot','burst','spray','combine','carefulplanning','windup','fastball','quickshot','steadyshot','quickreload',
+  'scavenger','poison','parasite','explosive','timeddetonation','coldbullets','dazzle','grow','thruster','arcshot','demonicpact'];
+const SEC={ on:false, saved:null, had:false, claim:0, holder:'', used:new Set(), since:0, gotAt:0, wp:V3(), halo:null, glow:null, hf:null, told:0 };
+var SEC_READY=true;
+const secKey=()=>NET.on?myPeerId():'me';
+function secRef(){ if(!NET.on) return true; if(matchKind==='battle') return btHost(); return NET.role==='host'; }
+function secObj(){ return curMap&&curMap.secret||null; }
+function secLive(){ return !!secObj()&&state==='fight'&&!(tutHook&&tutHook.on())&&!(matchKind==='battle'&&BT.ph==='over'); }
+function secName(k){ if(k===secKey()) return 'You'; const f=fighters.find(x=>x.peer===k); return f?f.name:'Someone'; }
+function secFighter(k){ if(!k) return null; if(k===secKey()) return player; return fighters.find(x=>x.peer===k)||null; }
+
+// your bullet touched the centre piece (checked from your own screen, like every other hit)
+function secretTouch(pos,r){ if(!SEC_READY) return false; const S=secObj(); if(!S||!secLive()) return false; return pos.distanceTo(SEC.wp)<S.r+r; }
+function secretShot(){ const now=performance.now();
+  flashAt(SEC.wp.clone(),0xffd23d,7,0.3); burst(SEC.wp.clone(),0xffd23d,14,6,0.1,0.5,0.2);
+  if(SEC.on||SEC.claim) return;
+  const me=secKey();
+  if(SEC.holder&&SEC.holder!==me){ if(now-SEC.told>2500){ SEC.told=now; toast(`<b>${esc(secName(SEC.holder))}</b> already has the secret`,'status'); } return; }
+  if(mode!=='sandbox'&&(SEC.had||SEC.used.has(me))){ if(now-SEC.told>2500){ SEC.told=now; toast('You already had the secret this match','status'); } return; }
+  if(secRef()){ secGrant(me); return; }
+  SEC.claim=now; } // ask the host; it answers in the match state it sends out
+
+// ---- the referee side (offline: you; online: the host) ----
+function secGrant(k){ SEC.holder=k; SEC.since=performance.now(); if(!(mode==='sandbox')) SEC.used.add(k); secAnnounce(k); if(k===secKey()) secTake(); }
+function secRelease(){ SEC.holder=''; }
+function secretSeen(k,sx){ if(!SEC_READY||!secRef()||!secObj()) return; const now=performance.now();
+  if(sx===1&&!SEC.holder&&!SEC.used.has(k)&&secLive()){ const f=secFighter(k); if(f&&!f.dead) secGrant(k); }
+  else if(SEC.holder===k&&sx!==2&&now-SEC.since>2500) secRelease(); }
+function secretState(){ if(!SEC_READY) return null; return { h:SEC.holder, u:[...SEC.used].slice(0,12) }; }
+function secretMine(){ if(!SEC_READY) return 0; return SEC.on?2:SEC.claim?1:0; }
+
+// ---- everyone: follow what the host says ----
+function secretApply(sx){ if(!SEC_READY||!sx||typeof sx!=='object') return; const me=secKey(), h=typeof sx.h==='string'?sx.h.slice(0,64):'';
+  if(Array.isArray(sx.u)){ SEC.used=new Set(sx.u.filter(x=>typeof x==='string').slice(0,12)); }
+  if(h!==SEC.holder){ const was=SEC.holder; SEC.holder=h; if(h&&h!==me) secAnnounce(h); if(SEC.claim&&h&&h!==me){ SEC.claim=0; toast(`Too slow! <b>${esc(secName(h))}</b> got the secret`,'status'); } if(was===me&&SEC.on&&performance.now()-SEC.gotAt>3000) secDrop(); }
+  if(h===me&&!SEC.on&&!SEC.had&&!player.dead&&state==='fight') secTake(); }
+function secAnnounce(k){ if(k===secKey()) return; toast(`<b>${esc(secName(k))}</b> found the secret!`,'status'); SFX.coin(); }
+
+// ---- you got it / you lost it ----
+function secTake(){ if(SEC.on) return; SEC.on=true; SEC.had=true; SEC.claim=0; SEC.gotAt=performance.now(); SEC.saved=player.cards.slice();
+  const frac=player.hp/Math.max(1,player.maxHp()); player.setCards(SECRET_CARDS); player.hp=Math.max(1,Math.round(player.maxHp()*frac)); player.ammo=player.stats.ammo; player.reloading=false;
+  updateCardStrips(); updateHUD(); showBanner('SECRET FOUND!','#ffd23d'); SFX.levelup(); setTimeout(()=>SFX.coin(),180);
+  burst(player.center().add(V3(0,1,0)),0xffd23d,40,9,0.14,0.9,0.6); shockRing(V3(player.pos.x,player.pos.y+0.1,player.pos.z),0xffd23d,6,0.5);
+  toast(`<b class="you">You</b> got ${SECRET_CARDS.length} blaster cards! No picks until you're knocked out`,'you'); }
+function secDrop(){ if(!SEC.on) return; SEC.on=false; const dead=player.dead; player.setCards(SEC.saved||[]); SEC.saved=null; if(dead) player.hp=0; else player.hp=Math.min(player.hp,player.maxHp());
+  if(secRef()&&SEC.holder===secKey()) secRelease(); updateCardStrips(); }
+function secretDied(){ if(!SEC_READY) return; if(SEC.on){ secDrop(); toast('<b class="you">You</b> lost the secret','you'); } }
+function secretReset(){ if(!SEC_READY) return; if(SEC.on) secDrop(); SEC.had=false; SEC.claim=0; SEC.holder=''; SEC.used=new Set(); SEC.since=0; }
+
+// ---- no picks while you hold it ----
+function secretDraft(){ if(!SEC_READY||!SEC.on||state!=='draft') return;
+  UI.draft.classList.add('secDraft'); UI.draftTitle.textContent='NO PICK THIS ROUND'; UI.draftSub.textContent='You hold the secret. Get knocked out and you lose it, then you can pick again.'; UI.coach.innerHTML='<b>COACH:</b> nice find! The secret is all yours until someone knocks you out.';
+  for(const el of [...UI.cards.children]){ const w=document.createElement('div'); w.className='tutOffWrap'; w.style.setProperty('--i',el.style.getPropertyValue('--i')||0); UI.cards.replaceChild(w,el); el.classList.add('tutOff'); w.appendChild(el); w.insertAdjacentHTML('beforeend','<div class="tutLock"><span>SECRET<br>HOLDER</span></div>'); }
+  state='picked'; draftT=1e9; if(NET.on){ netAfterPick(); UI.draftSub.textContent='You hold the secret, so no pick for you. Waiting for the others…'; return; }
+  setTimeout(()=>{ if(state!=='picked') return; show(UI.draft,false); requestLock(); beginRound(); },2600); }
+function secretBlocksCards(){ if(!SEC_READY||!SEC.on) return false; toast("You can't change cards while you hold the secret",'status'); return true; }
+
+// ---- every frame ----
+function secretTick(dt){ if(!SEC_READY) return; const S=secObj(), now=performance.now();
+  if(S) S.obj.getWorldPosition(SEC.wp);
+  if(SEC.on&&player.dead) secDrop();
+  if(SEC.claim&&now-SEC.claim>3000) SEC.claim=0;
+  if(secRef()&&SEC.holder&&SEC.holder!==secKey()){ const f=secFighter(SEC.holder); if(!f||(f.dead&&now-SEC.since>1200)) secRelease(); }
+  if(!S&&SEC.on) secDrop();
+  // a gold halo over whoever has it, so everyone knows who to chase
+  const hf=secFighter(SEC.holder), show2=!!(hf&&!hf.dead&&hf.mesh.visible&&state!=='menu');
+  if(!SEC.halo){ SEC.halo=new T.Mesh(new T.TorusGeometry(0.5,0.07,8,28),new T.MeshBasicMaterial({color:col(0xffd23d)})); SEC.halo.rotation.x=Math.PI/2; SEC.glow=sprite(0xffd23d,2.2,0.45); scene.add(SEC.halo); scene.add(SEC.glow); }
+  SEC.halo.visible=SEC.glow.visible=show2;
+  if(show2){ const top=hf.center().y+1.0*(hf.mesh.scale.y||1); SEC.halo.position.set(hf.pos.x,top+Math.sin(gameT*3)*0.05,hf.pos.z); SEC.halo.rotation.z+=dt*2; SEC.glow.position.copy(SEC.halo.position); SEC.glow.material.opacity=0.4+Math.sin(gameT*4)*0.15; } }
+/*DEBUG-START*/window.__sec={SEC,SECRET_CARDS,secretShot,secTake,secDrop,secretReset,secObj,secKey,wp:()=>SEC.wp.toArray(), shoot:()=>{ const o=player.center(); spawnBullet(player,o,V3().subVectors(SEC.wp,o).normalize()); }, kill:f=>{ NET.allowKill=true; try{ killFighter(f||player,null); } finally{ NET.allowKill=false; } }, draft:()=>startDraft(), openSbx:()=>openSandbox(), fire:()=>{ player.fireCd=0; player.ammo=Math.max(1,player.ammo); player.reloading=false; const n0=bullets.length; tryFire(player,true); return bullets.length-n0; }, nb:()=>bullets.length};/*DEBUG-END*/
 
 }
 let __started=false; function __go(){ if(__started) return; __started=true; try{ __boot(); }catch(e){ console.error(e); const l=document.getElementById('loading'); if(l) l.textContent='Something broke while loading: '+e.message; } }

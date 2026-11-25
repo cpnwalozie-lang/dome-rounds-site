@@ -454,7 +454,7 @@
   body.touch #botPanel,body.touch #ffaBoard{right:calc(env(safe-area-inset-right,0px) + 10px);top:calc(env(safe-area-inset-top,0px) + 8px);transform:scale(.82);transform-origin:top right}
   body.touch .topbar{transform:translateX(-50%) scale(.8);transform-origin:top center;top:6px}
   body.touch .pips{gap:3px} body.touch .pips>*{width:15px!important;height:15px!important;min-width:0!important}
-  body.touch #toasts{top:calc(var(--st,0px) + 84px);bottom:auto;right:auto;left:calc(env(safe-area-inset-left,0px) + 66px);transform:none;align-items:flex-start;max-width:44vw;gap:4px}
+  body.touch #toasts{top:calc(env(safe-area-inset-top,0px) + 72px);bottom:auto;right:auto;left:50%;transform:translateX(-50%);align-items:center;max-width:46vw;gap:4px}
   body.touch .toast{font-size:11.5px;padding:3px 10px 4px}
   body.touch #toasts .toast:nth-last-child(n+4){display:none}
   body.touch #steer{bottom:auto;top:20%}
@@ -629,6 +629,7 @@
   body.tutOn #touchUI #tPowers{display:none!important}
   #hud.tutmode #tips{display:none!important}
   #draft.tutDraft #draftClock,#draft.tutDraft #coach,#draft.tutDraft #statbar,#draft.tutDraft .hintk{display:none!important}
+  #draft.secDraft #draftClock,#draft.secDraft .hintk,#draft.secDraft .coachtag{display:none!important}
   #draft.tutDraft{justify-content:flex-start;padding-top:4vh}
   #draft.tutDraft .card{--cw:min(200px,17vw,36vh)}
   #draft .tutOffWrap{position:relative;flex:none;cursor:not-allowed}
@@ -695,7 +696,7 @@
   .fb-row.bt{gap:7px} .fb-row .fb-rk{font-family:var(--disp);font-size:14px;color:#c9c2e8;min-width:14px;text-align:center}
   .fb-row .fb-k{margin-left:auto;font-family:var(--disp);font-size:18px;line-height:1} .fb-row .fb-k small{font-size:11px;opacity:.6}
   #hud.battlemode #ffaBoard{width:min(28vw,250px)}
-  #hud.battlemode #toasts{top:226px} body.touch #hud.battlemode #toasts{top:calc(env(safe-area-inset-top,0px) + 84px)} #hud.battlemode .fb-row{padding:3px 9px} #hud.battlemode .fb-row.out{opacity:.55}
+  #hud.battlemode #toasts{top:226px} body.touch #hud.battlemode #toasts{top:calc(env(safe-area-inset-top,0px) + 74px)} #hud.battlemode .fb-row{padding:3px 9px} #hud.battlemode .fb-row.out{opacity:.55}
   #draft.bpick{background:radial-gradient(ellipse at 50% 55%,rgba(48,18,92,.42),rgba(15,6,28,.7))}
   .btOverP{min-width:min(440px,86vw)}
   #btRows{display:flex;flex-direction:column;gap:4px}
@@ -896,7 +897,7 @@
 </div>
 
 <div id="start" class="overlay">
-  <div class="stamp">Version 1.17.4<br>© 2026 Nitor Digital</div>
+  <div class="stamp">Version 1.18.0<br>© 2026 Nitor Digital</div>
   <div id="tutPop"><div class="tutFace"></div><div class="tutBub"><button id="tutPopX" type="button" aria-label="No thanks">×</button><h4>New here?</h4><p>I'm Coach Kip. Give me two minutes and I'll show you how to play.</p><button class="btn" id="tutPopGo" type="button">START TUTORIAL</button></div></div>
   <div class="shade"></div>
   <div class="side">
