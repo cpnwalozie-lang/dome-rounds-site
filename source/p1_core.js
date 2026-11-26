@@ -138,17 +138,10 @@ function computeStats(ids){
   return s;
 }
 
-// ================= AUDIO: sfx + synth music =================
+// ================= AUDIO: sound effects (the game has no music) =================
 const SFX=(()=>{
-  let ctx=null, master=null, musicGain=null;
-  function ensure(){ if(ctx) return ctx; try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=settings.vol; master.connect(ctx.destination); musicGain=ctx.createGain(); musicGain.gain.value=settings.music*0.9; musicGain.connect(ctx.destination); }catch(e){ ctx=null; } return ctx; }
-  // ---- the theme song (music.mp3 next to the game): loud on the menu, quiet under the fight. The synth tracks are the fallback ----
-  const SONG={el:null,g:null,failed:false,want:'off'}; const SONG_LV={menu:1.6,draft:1.0,fight:0.6,off:0};
-  function songOn(m){ if(SONG.failed||!ctx) return false; SONG.want=m;
-    if(!SONG.el){ try{ const a=new Audio(); a.loop=true; a.preload='auto'; a.src='music.mp3?v=2'; a.addEventListener('error',()=>{ SONG.failed=true; const w=SONG.want; mode=null; if(SONG.g) SONG.g.disconnect(); SFX.music(w); }); SONG.el=a; const src=ctx.createMediaElementSource(a); SONG.g=ctx.createGain(); SONG.g.gain.value=0; src.connect(SONG.g); SONG.g.connect(musicGain); }catch(e){ SONG.failed=true; return false; } }
-    const lv=SONG_LV[m]===undefined?1:SONG_LV[m], g=SONG.g.gain, t=ctx.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value,t); g.linearRampToValueAtTime(lv,t+(lv>g.value?0.8:1.4));
-    if(lv>0){ if(SONG.el.paused) SONG.el.play().catch(()=>{}); } else setTimeout(()=>{ if(SONG.want==='off'&&SONG.el) SONG.el.pause(); },1500);
-    return true; }
+  let ctx=null, master=null;
+  function ensure(){ if(ctx) return ctx; try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=settings.vol; master.connect(ctx.destination); }catch(e){ ctx=null; } return ctx; }
   function tone(f0,f1,dur,type='square',vol=0.08,when=0,dest=null){
     const c=ensure(); if(!c) return; try{
       if(c.state==='suspended') c.resume();
@@ -186,37 +179,7 @@ const SFX=(()=>{
     f.frequency.setValueAtTime(f0*k,t); if(f1!==f0) f.frequency.exponentialRampToValueAtTime(Math.max(40,f1*k),t+dur);
     g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(dur,a+0.01));
     src.connect(f); f.connect(g); out(g,o.rv); src.start(t,Math.random()*0.5,dur+0.05); }catch(e){} }
-  // ---- music: upbeat synthwave step sequencer (128 BPM, 8-bar loop) ----
-  const BPM=128, STEP=60/BPM/4; let mode='off', nextT=0, step=0, timer=null, delay=null, duck=null;
-  const mf=m=>440*Math.pow(2,(m-69)/12);
-  const CH=[[45,[57,60,64,69]],[45,[57,60,64,69]],[41,[57,60,65,69]],[41,[57,60,65,69]],[48,[55,60,64,67]],[48,[55,60,64,67]],[43,[55,59,62,67]],[40,[55,59,64,67]]];
-  const LEAD=[[76,0,0,76,0,74,0,72,0,0,74,0,76,0,0,0],[79,0,0,76,0,0,74,0,72,0,74,0,69,0,0,0],[77,0,0,77,0,76,0,72,0,0,76,0,77,0,0,0],[81,0,79,0,76,0,0,74,0,72,0,74,0,0,0,0],[79,0,0,79,0,76,0,72,0,0,76,0,79,0,0,0],[84,0,0,79,0,0,76,0,79,0,76,0,72,0,0,0],[74,0,0,74,0,79,0,83,0,0,79,0,74,0,0,0],[76,0,79,0,83,0,0,79,0,76,0,71,0,74,76,0]];
-  const ARP=[0,2,1,2,3,2,1,2,0,2,1,3,2,1,3,2];
-  function chain(){ if(delay||!ctx) return; try{ duck=ctx.createGain(); duck.connect(musicGain); delay=ctx.createDelay(1); delay.delayTime.value=STEP*3; const fb=ctx.createGain(); fb.gain.value=0.34; const wet=ctx.createGain(); wet.gain.value=0.5; delay.connect(fb).connect(delay); delay.connect(wet).connect(musicGain); }catch(e){ delay=null; } }
-  function voice(type,f,t,dur,vol,cut,dest,slideFrom){ try{ const o=ctx.createOscillator(), g=ctx.createGain(), fl=ctx.createBiquadFilter(); o.type=type; if(slideFrom){ o.frequency.setValueAtTime(slideFrom,t); o.frequency.exponentialRampToValueAtTime(f,t+0.05); } else o.frequency.value=f; fl.type='lowpass'; fl.frequency.setValueAtTime(cut,t); fl.frequency.exponentialRampToValueAtTime(Math.max(120,cut*0.25),t+dur); fl.Q.value=4; g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(fl).connect(g); g.connect(dest); if(dest!==musicGain&&dest!==duck&&delay){} o.start(t); o.stop(t+dur+0.05); return g; }catch(e){ return null; } }
-  function sched(){ const c=ctx; if(!c||mode==='off') return; chain(); if(nextT<c.currentTime) nextT=c.currentTime+0.05;
-    while(nextT<c.currentTime+0.2){ const bar=Math.floor(step/16)%8, s=step%16, t=nextT, ch=CH[bar], fight=mode==='fight', draft=mode==='draft', menu=mode==='menu';
-      // sidechain pump on every beat
-      if(duck&&s%4===0&&!menu){ duck.gain.cancelScheduledValues(t); duck.gain.setValueAtTime(0.35,t); duck.gain.linearRampToValueAtTime(1,t+STEP*3.2); }
-      // pad stab at bar start
-      if(s===0){ for(const m of ch[1]) for(const d of [-6,6]){ try{ const o=c.createOscillator(), g=c.createGain(), fl=c.createBiquadFilter(); o.type='sawtooth'; o.frequency.value=mf(m); o.detune.value=d; fl.type='lowpass'; fl.frequency.value=fight?1500:900; g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.016,t+0.12); g.gain.setValueAtTime(0.016,t+STEP*13); g.gain.linearRampToValueAtTime(0.0001,t+STEP*16); o.connect(fl).connect(g).connect(duck||musicGain); o.start(t); o.stop(t+STEP*16+0.05); }catch(e){} } }
-      // bass: driving offbeat eighths with an octave hop
-      if(s%2===0&&(s%4===2||fight||(draft&&s%8===0)||(menu&&s%8===0))){ const oct=(s===6||s===14)?12:0; voice('sawtooth',mf(ch[0]+oct),t,STEP*1.7,fight?0.15:0.11,fight?900:600,duck||musicGain); voice('square',mf(ch[0]-12+oct),t,STEP*1.5,0.05,400,duck||musicGain); }
-      // plucky arp through the delay
-      if(!draft||s%2===0){ const m=ch[1][ARP[s]]+(s%8>=4?12:0); const g=voice('square',mf(m),t,STEP*1.1,menu?0.03:0.026,2600,musicGain); if(g&&delay) g.connect(delay); }
-      // lead hook
-      if(fight){ const n=LEAD[bar][s]; if(n){ const g=voice('sawtooth',mf(n),t,STEP*2.6,0.05,3200,musicGain,mf(n-2)); if(g&&delay) g.connect(delay); voice('triangle',mf(n-12),t,STEP*2.2,0.03,2000,musicGain); } }
-      // drums
-      if(s%4===0&&!menu&&(fight||s%8===0)){ tone(170,40,0.2,'sine',fight?0.38:0.2,t,musicGain); noise(0.02,0.06,3000,t,musicGain,'highpass'); }
-      if(fight&&(s===4||s===12)){ noise(0.16,0.16,1700,t,musicGain,'bandpass'); noise(0.1,0.06,5000,t+0.012,musicGain,'highpass'); }
-      if(fight&&bar===7&&s>=12) noise(0.06,0.09,2400,t,musicGain,'bandpass');
-      if(!menu&&s%4===2) noise(0.09,fight?0.07:0.04,8000,t,musicGain,'highpass');
-      if(fight&&s%2===1) noise(0.03,0.03,9000,t,musicGain,'highpass');
-      if(menu&&s%4===2) noise(0.03,0.02,7000,t,musicGain,'highpass');
-      step++; nextT+=STEP; }
-  }
-  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, tap:()=>{ const c=ctx; return c&&master?{ctx:c,node:master}:null; }, songState:()=>SONG.el?{paused:SONG.el.paused,t:+SONG.el.currentTime.toFixed(1),ready:SONG.el.readyState,failed:SONG.failed,g:+SONG.g.gain.value.toFixed(2)}:{failed:SONG.failed,none:1}, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
-    music(m){ if(m==='fight'||m==='draft') m='off'; /* no music in matches at all: menu only */ ensure(); if(songOn(m)){ mode=m; if(timer){ clearInterval(timer); timer=null; } return; } if(mode===m&&(timer||m==='off')) return; mode=m; if(m!=='off'&&!timer&&ctx){ nextT=ctx.currentTime+0.08; timer=setInterval(sched,50); } if(m==='off'&&timer){ clearInterval(timer); timer=null; } },
+  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, tap:()=>{ const c=ctx; return c&&master?{ctx:c,node:master}:null; }, setVol(v){ if(master) master.gain.value=v; },
     // ---- layered sound effects (see osc / nz below): a body, a transient and some air on each ----
     shoot:()=>{ osc('sine',190,55,0.11,0.375,{a:0.002}); osc('sawtooth',1500,240,0.15,0.138,{lp:[5200,700],q:3,rand:0.05,rv:0.25}); osc('square',2600,900,0.05,0.062,{rand:0.05}); nz(0.03,0.15,6000,3000,{ft:'highpass'}); },
     shootBot:()=>{ osc('sine',150,50,0.11,0.2,{a:0.002}); osc('sawtooth',900,170,0.16,0.09,{lp:[2800,500],q:3,rand:0.05,rv:0.3}); nz(0.03,0.07,4000,2000,{ft:'highpass'}); },

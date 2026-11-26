@@ -83,7 +83,7 @@ function btNewMatch(mid){ secretReset(); btChampHide(); btCaughtHide(); BT.mid=m
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
   BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
-  state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); SFX.music('fight'); ffaBoardKey='';
+  state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); ffaBoardKey='';
   if(!BT.introDone){ BT.introDone=true; tipsT=0; setTimeout(()=>{ if(BT.on) toast('<b>First to 10 knockouts wins.</b> Get knocked out and you pick a card','status'); },3300); } }
 function btEnd(w){ BT.ph='over'; BT.w=w?w.slot:-1; BT.overT=BT_OVER; btEnterOver(); }
 function btEnterOver(){ if(state==='bover') return; state='bover'; btClosePick(); btCaughtHide(); exitLock(); slowMoT=0.9; shakeT=Math.max(shakeT,0.3); BT.overShown=false; firePressed=false; fireHeld=false;
@@ -326,7 +326,7 @@ function btFollow(others){ const h=others.find(p=>p.peer===NET.hostPeer&&p.prese
 function btJoin(k,B){ secretReset(); btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|0; BT.t=+B.t||0; BT.ph=B.ph==='over'?'fight':B.ph||'fight';
   btApplySeats(B,true); player.life=(Array.isArray(B.l)&&B.l[k])|0; BT.joinLife=player.life; btHide(player);
   for(let j=0;j<BT_N;j++){ if(j===k||!BT.seats[j]) continue; const f=btF(j); f.life=(B.l&&B.l[j])|0; if(B.x&&B.x[j]===0) btRevive(f,f.life); }
-  state='fight'; resetInputs(); btHudOn(); updateHUD(); SFX.music('fight'); btMsg(''); BT.kfShown=Math.max(0,...(B.kf||[]).map(e=>Array.isArray(e)?e[0]|0:0)); BT.deadT=0.2; BT.first=true;
+  state='fight'; resetInputs(); btHudOn(); updateHUD(); btMsg(''); BT.kfShown=Math.max(0,...(B.kf||[]).map(e=>Array.isArray(e)?e[0]|0:0)); BT.deadT=0.2; BT.first=true;
   toast(`<b>You're in match #${BT.no}.</b> First to ${BT_WIN} knockouts wins`,'status'); }
 function btApplySeats(B,first){ for(let k=0;k<BT_N;k++){ const a=B.st[k]; const cur=BT.seats[k];
     if(!Array.isArray(a)){ if(cur&&k!==BT.me) btUnseat(k); continue; }

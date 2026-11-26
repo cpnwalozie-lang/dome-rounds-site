@@ -141,17 +141,10 @@ function computeStats(ids){
   return s;
 }
 
-// ================= AUDIO: sfx + synth music =================
+// ================= AUDIO: sound effects (the game has no music) =================
 const SFX=(()=>{
-  let ctx=null, master=null, musicGain=null;
-  function ensure(){ if(ctx) return ctx; try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=settings.vol; master.connect(ctx.destination); musicGain=ctx.createGain(); musicGain.gain.value=settings.music*0.9; musicGain.connect(ctx.destination); }catch(e){ ctx=null; } return ctx; }
-  // ---- the theme song (music.mp3 next to the game): loud on the menu, quiet under the fight. The synth tracks are the fallback ----
-  const SONG={el:null,g:null,failed:false,want:'off'}; const SONG_LV={menu:1.6,draft:1.0,fight:0.6,off:0};
-  function songOn(m){ if(SONG.failed||!ctx) return false; SONG.want=m;
-    if(!SONG.el){ try{ const a=new Audio(); a.loop=true; a.preload='auto'; a.src='music.mp3?v=2'; a.addEventListener('error',()=>{ SONG.failed=true; const w=SONG.want; mode=null; if(SONG.g) SONG.g.disconnect(); SFX.music(w); }); SONG.el=a; const src=ctx.createMediaElementSource(a); SONG.g=ctx.createGain(); SONG.g.gain.value=0; src.connect(SONG.g); SONG.g.connect(musicGain); }catch(e){ SONG.failed=true; return false; } }
-    const lv=SONG_LV[m]===undefined?1:SONG_LV[m], g=SONG.g.gain, t=ctx.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value,t); g.linearRampToValueAtTime(lv,t+(lv>g.value?0.8:1.4));
-    if(lv>0){ if(SONG.el.paused) SONG.el.play().catch(()=>{}); } else setTimeout(()=>{ if(SONG.want==='off'&&SONG.el) SONG.el.pause(); },1500);
-    return true; }
+  let ctx=null, master=null;
+  function ensure(){ if(ctx) return ctx; try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=settings.vol; master.connect(ctx.destination); }catch(e){ ctx=null; } return ctx; }
   function tone(f0,f1,dur,type='square',vol=0.08,when=0,dest=null){
     const c=ensure(); if(!c) return; try{
       if(c.state==='suspended') c.resume();
@@ -189,37 +182,7 @@ const SFX=(()=>{
     f.frequency.setValueAtTime(f0*k,t); if(f1!==f0) f.frequency.exponentialRampToValueAtTime(Math.max(40,f1*k),t+dur);
     g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(dur,a+0.01));
     src.connect(f); f.connect(g); out(g,o.rv); src.start(t,Math.random()*0.5,dur+0.05); }catch(e){} }
-  // ---- music: upbeat synthwave step sequencer (128 BPM, 8-bar loop) ----
-  const BPM=128, STEP=60/BPM/4; let mode='off', nextT=0, step=0, timer=null, delay=null, duck=null;
-  const mf=m=>440*Math.pow(2,(m-69)/12);
-  const CH=[[45,[57,60,64,69]],[45,[57,60,64,69]],[41,[57,60,65,69]],[41,[57,60,65,69]],[48,[55,60,64,67]],[48,[55,60,64,67]],[43,[55,59,62,67]],[40,[55,59,64,67]]];
-  const LEAD=[[76,0,0,76,0,74,0,72,0,0,74,0,76,0,0,0],[79,0,0,76,0,0,74,0,72,0,74,0,69,0,0,0],[77,0,0,77,0,76,0,72,0,0,76,0,77,0,0,0],[81,0,79,0,76,0,0,74,0,72,0,74,0,0,0,0],[79,0,0,79,0,76,0,72,0,0,76,0,79,0,0,0],[84,0,0,79,0,0,76,0,79,0,76,0,72,0,0,0],[74,0,0,74,0,79,0,83,0,0,79,0,74,0,0,0],[76,0,79,0,83,0,0,79,0,76,0,71,0,74,76,0]];
-  const ARP=[0,2,1,2,3,2,1,2,0,2,1,3,2,1,3,2];
-  function chain(){ if(delay||!ctx) return; try{ duck=ctx.createGain(); duck.connect(musicGain); delay=ctx.createDelay(1); delay.delayTime.value=STEP*3; const fb=ctx.createGain(); fb.gain.value=0.34; const wet=ctx.createGain(); wet.gain.value=0.5; delay.connect(fb).connect(delay); delay.connect(wet).connect(musicGain); }catch(e){ delay=null; } }
-  function voice(type,f,t,dur,vol,cut,dest,slideFrom){ try{ const o=ctx.createOscillator(), g=ctx.createGain(), fl=ctx.createBiquadFilter(); o.type=type; if(slideFrom){ o.frequency.setValueAtTime(slideFrom,t); o.frequency.exponentialRampToValueAtTime(f,t+0.05); } else o.frequency.value=f; fl.type='lowpass'; fl.frequency.setValueAtTime(cut,t); fl.frequency.exponentialRampToValueAtTime(Math.max(120,cut*0.25),t+dur); fl.Q.value=4; g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(fl).connect(g); g.connect(dest); if(dest!==musicGain&&dest!==duck&&delay){} o.start(t); o.stop(t+dur+0.05); return g; }catch(e){ return null; } }
-  function sched(){ const c=ctx; if(!c||mode==='off') return; chain(); if(nextT<c.currentTime) nextT=c.currentTime+0.05;
-    while(nextT<c.currentTime+0.2){ const bar=Math.floor(step/16)%8, s=step%16, t=nextT, ch=CH[bar], fight=mode==='fight', draft=mode==='draft', menu=mode==='menu';
-      // sidechain pump on every beat
-      if(duck&&s%4===0&&!menu){ duck.gain.cancelScheduledValues(t); duck.gain.setValueAtTime(0.35,t); duck.gain.linearRampToValueAtTime(1,t+STEP*3.2); }
-      // pad stab at bar start
-      if(s===0){ for(const m of ch[1]) for(const d of [-6,6]){ try{ const o=c.createOscillator(), g=c.createGain(), fl=c.createBiquadFilter(); o.type='sawtooth'; o.frequency.value=mf(m); o.detune.value=d; fl.type='lowpass'; fl.frequency.value=fight?1500:900; g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.016,t+0.12); g.gain.setValueAtTime(0.016,t+STEP*13); g.gain.linearRampToValueAtTime(0.0001,t+STEP*16); o.connect(fl).connect(g).connect(duck||musicGain); o.start(t); o.stop(t+STEP*16+0.05); }catch(e){} } }
-      // bass: driving offbeat eighths with an octave hop
-      if(s%2===0&&(s%4===2||fight||(draft&&s%8===0)||(menu&&s%8===0))){ const oct=(s===6||s===14)?12:0; voice('sawtooth',mf(ch[0]+oct),t,STEP*1.7,fight?0.15:0.11,fight?900:600,duck||musicGain); voice('square',mf(ch[0]-12+oct),t,STEP*1.5,0.05,400,duck||musicGain); }
-      // plucky arp through the delay
-      if(!draft||s%2===0){ const m=ch[1][ARP[s]]+(s%8>=4?12:0); const g=voice('square',mf(m),t,STEP*1.1,menu?0.03:0.026,2600,musicGain); if(g&&delay) g.connect(delay); }
-      // lead hook
-      if(fight){ const n=LEAD[bar][s]; if(n){ const g=voice('sawtooth',mf(n),t,STEP*2.6,0.05,3200,musicGain,mf(n-2)); if(g&&delay) g.connect(delay); voice('triangle',mf(n-12),t,STEP*2.2,0.03,2000,musicGain); } }
-      // drums
-      if(s%4===0&&!menu&&(fight||s%8===0)){ tone(170,40,0.2,'sine',fight?0.38:0.2,t,musicGain); noise(0.02,0.06,3000,t,musicGain,'highpass'); }
-      if(fight&&(s===4||s===12)){ noise(0.16,0.16,1700,t,musicGain,'bandpass'); noise(0.1,0.06,5000,t+0.012,musicGain,'highpass'); }
-      if(fight&&bar===7&&s>=12) noise(0.06,0.09,2400,t,musicGain,'bandpass');
-      if(!menu&&s%4===2) noise(0.09,fight?0.07:0.04,8000,t,musicGain,'highpass');
-      if(fight&&s%2===1) noise(0.03,0.03,9000,t,musicGain,'highpass');
-      if(menu&&s%4===2) noise(0.03,0.02,7000,t,musicGain,'highpass');
-      step++; nextT+=STEP; }
-  }
-  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, tap:()=>{ const c=ctx; return c&&master?{ctx:c,node:master}:null; }, songState:()=>SONG.el?{paused:SONG.el.paused,t:+SONG.el.currentTime.toFixed(1),ready:SONG.el.readyState,failed:SONG.failed,g:+SONG.g.gain.value.toFixed(2)}:{failed:SONG.failed,none:1}, setVol(v){ if(master) master.gain.value=v; }, setMusicVol(v){ if(musicGain) musicGain.gain.value=v*0.9; },
-    music(m){ if(m==='fight'||m==='draft') m='off'; /* no music in matches at all: menu only */ ensure(); if(songOn(m)){ mode=m; if(timer){ clearInterval(timer); timer=null; } return; } if(mode===m&&(timer||m==='off')) return; mode=m; if(m!=='off'&&!timer&&ctx){ nextT=ctx.currentTime+0.08; timer=setInterval(sched,50); } if(m==='off'&&timer){ clearInterval(timer); timer=null; } },
+  return { _o:(...a)=>osc(...a), _n:(...a)=>nz(...a), _off:v=>{ sfxOff=v; }, unlock:ensure, tap:()=>{ const c=ctx; return c&&master?{ctx:c,node:master}:null; }, setVol(v){ if(master) master.gain.value=v; },
     // ---- layered sound effects (see osc / nz below): a body, a transient and some air on each ----
     shoot:()=>{ osc('sine',190,55,0.11,0.375,{a:0.002}); osc('sawtooth',1500,240,0.15,0.138,{lp:[5200,700],q:3,rand:0.05,rv:0.25}); osc('square',2600,900,0.05,0.062,{rand:0.05}); nz(0.03,0.15,6000,3000,{ft:'highpass'}); },
     shootBot:()=>{ osc('sine',150,50,0.11,0.2,{a:0.002}); osc('sawtooth',900,170,0.16,0.09,{lp:[2800,500],q:3,rand:0.05,rv:0.3}); nz(0.03,0.07,4000,2000,{ft:'highpass'}); },
@@ -2715,7 +2678,7 @@ function show(el,on,disp){ el.style.display=on?(disp||'flex'):'none'; }
 function syncSettingsUI(){ document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!settings[k]; else el.value=String(settings[k]); });
   document.querySelectorAll('.k-shoot').forEach(e=>e.textContent=settings.swap?'RMB':'LMB'); document.querySelectorAll('.k-block').forEach(e=>e.textContent=settings.swap?'LMB':'RMB');
   document.querySelectorAll('[data-seg]').forEach(seg=>{ const k=seg.dataset.seg; const v=k==='sbot'?sandbox.bot:settings[k]; seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); }); }
-document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='clips'&&clipSet) clipSet(settings.clips); if(k==='music') SFX.setMusicVol(settings.music); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
+document.querySelectorAll('[data-k]').forEach(el=>{ el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.k; settings[k]= el.type==='checkbox'? el.checked : (el.tagName==='SELECT'? el.value : parseFloat(el.value)); if(k==='vol') SFX.setVol(settings.vol); if(k==='clips'&&clipSet) clipSet(settings.clips); if(k==='quality'){ perfLevel=0; applyQuality(settings.quality==='auto'?((TOUCH.on||GPU_WEAK)?'medium':'high'):settings.quality); } saveSettings(); syncSettingsUI(); }); });
 document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('click',()=>{ const k=b.parentElement.dataset.seg, v=b.dataset.v; SFX.unlock(); SFX.hover();
   if(k==='sbot'){ sandbox.bot=v; } else { settings[k]=v; saveSettings(); if(k==='map'&&(state==='menu'||sandbox.open)&&!(state==='menu'&&settings.gm==='ffa')){ applyMap(v); if(state==='menu'){ placeAtBases(); } else sandbox.remap=true; }
     if((k==='gm'||k==='ffaBots')&&state==='menu'&&!sandbox.open){ const mp=gmMap(); if(curMapId!==mp) applyMap(mp); menuRoster(); for(const f of fighters){ f.resetRound(); f.setCards([]); } placeAtBases(); } if(k==='gm'){ lobbyRender(); if(btHook) btHook.menuUI(); } }
@@ -2723,7 +2686,7 @@ document.querySelectorAll('[data-seg] button').forEach(b=>{ b.addEventListener('
 syncSettingsUI();
 UI.howBtn.addEventListener('click',()=>{ UI.how.classList.toggle('open'); if(UI.how.classList.contains('open')) setTimeout(()=>{ try{ UI.how.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },30); }); // on short laptop screens the panel opens below the fold
 UI.fsBtn.addEventListener('click',()=>{ try{ if(document.fullscreenElement) document.exitFullscreen(); else { const p=document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(()=>{}); } }catch(e){} });
-const firstGesture=()=>{ SFX.unlock(); if(state==='menu') SFX.music('menu'); window.removeEventListener('pointerdown',firstGesture); window.removeEventListener('keydown',firstGesture); };
+const firstGesture=()=>{ SFX.unlock(); window.removeEventListener('pointerdown',firstGesture); window.removeEventListener('keydown',firstGesture); };
 window.addEventListener('pointerdown',firstGesture); window.addEventListener('keydown',firstGesture);
 
 // ================= INPUT =================
@@ -2787,7 +2750,7 @@ function resetInputs(){ fireHeld=false; firePressed=false; blockBuf=0; wantDash=
 function beginRound(){ UI.draft.classList.remove('secDraft'); bakeHook(scene);
   clearProjectiles(); for(const f of fighters){ f.resetRound(); aiReset(f); } placeAtBases(); resetInputs();
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; roundInfo.botHpFrac=1;
-  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind!=='1v1'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips(); SFX.music('fight');
+  clockTick=-1; state='countdown'; countdownT=3.2; countdownStep=-1; show(UI.hud,true,'block'); UI.hud.classList.remove('sandboxmode'); UI.hud.classList.toggle('ffamode',matchKind!=='1v1'); hurtT=0; dmgDirT=0; if(roundNum===1) tipsT=9; buildPips(); updateHUD(); updateCardStrips();
 }
 function startMatch(){ secretReset(); NET.pk=0; for(const f of fighters) f.nrPk=undefined;
   mode='match'; sandbox.open=false; show(UI.sandbox,false); if(!NET.on){ if(settings.gm==='ffa') rosterFFASolo(); else if(settings.gm==='2v2') roster2v2Solo(); else roster1v1(); }
@@ -2798,7 +2761,7 @@ function startMatch(){ secretReset(); NET.pk=0; for(const f of fighters) f.nrPk=
   show(UI.matchover,false); show(UI.start,false); show(UI.draft,false); paused=false; show(UI.pause,false); beginRound();
 }
 const menuCam={key:'',a:0};
-function toMenu(){ secretReset(); if(tutHook) tutHook.stop(); hideTags(); if(btHook) btHook.stop(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=gmMap(); if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); SFX.music('menu'); }
+function toMenu(){ secretReset(); if(tutHook) tutHook.stop(); hideTags(); if(btHook) btHook.stop(); if(NET.on) netLeave(); paused=false; sandbox.open=false; mode='match'; show(UI.sandbox,false); show(UI.pause,false); show(UI.hud,false); show(UI.countdown,false); show(UI.draft,false); show(UI.matchover,false); clearProjectiles(); for(const f of fighters) f.setCards([]); roster1v1(); player.resetRound(); bot.resetRound(); { const mp=gmMap(); if(curMapId!==mp) applyMap(mp); } menuRoster(); placeAtBases(); state='menu'; show(UI.start,true,'block'); exitLock(); }
 const ROUND_LIMIT=300, DRAFT_LIMIT=60; let draftT=0, draftTick=-1, clockTick=-1;
 function timeUp(){ if(matchKind==='2v2'){ const al=fighters.filter(f=>!f.dead&&f.active!==false); const tot=s=>al.filter(f=>f.side===s).reduce((a,f)=>a+f.hp/f.maxHp(),0); const keep=tot(0)>=tot(1)?0:1; toast(`<b>TIME!</b> The team with more health left takes the round`,'status'); for(const f of al) if(f.side!==keep&&state==='fight'){ if(f===player) roundInfo.cause='time'; killFighter(f,al.find(x=>x.side===keep)); } return; }
   if(matchKind==='ffa'){ const al=fighters.filter(f=>!f.dead&&f.active!==false).sort((a,b)=>b.hp/b.maxHp()-a.hp/a.maxHp()); toast(`<b>TIME!</b> Most health left takes the round`,'status'); const keep=al[0]; for(const f of al.slice(1)){ if(f===player) roundInfo.cause='time'; if(state==='fight') killFighter(f,keep); } return; }
@@ -2852,7 +2815,7 @@ function startSandbox(){ secretReset();
   show(UI.sandbox,false); show(UI.start,false); show(UI.matchover,false); show(UI.draft,false); show(UI.pause,false); show(UI.countdown,false);
   for(const k in matchStats) matchStats[k]=0; score.player=0; score.bot=0; roundNum=1; clearProjectiles(); resetInputs();
   player.setCards(sandbox.cards); player.resetRound(); placeAtBases(); sandbox.botWas=sandbox.bot; setupSandboxBot();
-  state='fight'; show(UI.hud,true,'block'); UI.hud.classList.add('sandboxmode'); UI.roundPill.textContent='SANDBOX'; UI.roundSub.textContent=TOUCH.on?'CARDS BUTTON = CHANGE POWERS':'TAB = CHANGE POWERS'; tipsT=9; updateCardStrips(); updateHUD(); SFX.music('fight'); requestLock(); last=performance.now();
+  state='fight'; show(UI.hud,true,'block'); UI.hud.classList.add('sandboxmode'); UI.roundPill.textContent='SANDBOX'; UI.roundSub.textContent=TOUCH.on?'CARDS BUTTON = CHANGE POWERS':'TAB = CHANGE POWERS'; tipsT=9; updateCardStrips(); updateHUD(); requestLock(); last=performance.now();
 }
 function respawn(f){ const keepCd=f.dashCdT; f.resetRound(); if(f.isPlayer){ f.pos.copy(BASE_POS.player); f.yaw=-Math.PI/2; f.pitch=0; } else if(sandbox.bot==='dummy') f.pos.copy(sandboxBotSpot()); else f.pos.copy(BASE_POS.bot); f.vel.set(0,0,0); f.invulnT=1; burst(f.center(),f.team.light,14,5,0.1,0.5,0); shockRing(V3(f.pos.x,f.pos.y+0.06,f.pos.z),f.team.light,2,0.4); }
 
@@ -2897,7 +2860,7 @@ function renderStatbar(previewId){ const cur=statRows(player.stats); const nxt=p
 function cardHTML(id,i,owned,coach){ const c=CARDS[id];
   return `${coach?'<div class="coachtag">★ COACH PICK</div>':''}<div class="card-in"><div class="face back"><div class="backlogo">DOMES</div></div><div class="face front"><i class="br tl"></i><i class="br tr"></i><i class="br bl"></i><i class="br brr"></i><div class="ctitle">${c.name}</div><div class="cmeta"><span class="ctype">${typeIcon(c.type)}${TYPE_LABEL[c.type]}</span></div><div class="art">${ART.svg(id)}<div class="glare"></div></div><div class="cdesc">${c.tag}</div><div class="lines">${c.lines.map(l=>`<div><b class="${l[2]?'good':'bad'}">${l[0]}</b> ${l[1]}</div>`).join('')}</div><div class="cfoot"><span class="ckey">${i+1}</span>${owned?`<span class="owned">STACK ×${owned+1}</span>`:'<span class="new">NEW</span>'}</div></div></div>`; }
 function startDraft(){
-  UI.draft.classList.remove('secDraft'); state='draft'; clearProjectiles(); for(const f of fighters) f.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner'; SFX.music('draft');
+  UI.draft.classList.remove('secDraft'); state='draft'; clearProjectiles(); for(const f of fighters) f.resetRound(); placeAtBases(); roundNum++; exitLock(); show(UI.hud,false); UI.banner.className='banner';
   const ffa=matchKind!=='1v1'; // FFA and 2v2: everyone picks every round
   const playerLost = matchKind==='2v2'? !(lastWinner&&lastWinner.side===player.side) : ffa? lastWinner!==player : lastWinner===bot; for(const f of fighters) f.setMood(f===lastWinner?'happy':'worried',999);
   if(ffa){ for(const f of fighters) if(f.ctl==='ai'&&(!NET.on||NET.role==='host')) botPick(f); }
@@ -2918,7 +2881,7 @@ function startDraft(){
   UI.statbar._id=null; show(UI.draft,true); updateCardStrips(); secretDraft();
 }
 function endMatch(){
-  state='matchover'; exitLock(); SFX.music('menu');
+  state='matchover'; exitLock();
   let won=score.player>score.bot; if(matchKind==='2v2'){ const op=fighters.find(f=>f.side!==player.side); won=player.score>(op?op.score:0); UI.moTitle.textContent=won?'YOUR TEAM WINS!':'ORANGE TEAM WINS'; UI.moSub.textContent=`${player.score} – ${op?op.score:0}. `+(won?'Great teamwork.':'Regroup and run it back.'); }
   else if(matchKind==='ffa'){ const top=fighters.slice().sort((a,b)=>b.score-a.score)[0]; won=top===player; UI.moTitle.textContent=won?'YOU WIN!':esc(top.name).toUpperCase()+' WINS'; UI.moSub.textContent=fighters.slice().sort((a,b)=>b.score-a.score).map((f,i)=>`${i+1}. ${f===player?myName():f.name}  ${f.score}`).join('   '); }
   else { UI.moTitle.textContent=won?'YOU WIN!':(NET.on?'RIVAL WINS':'BOT WINS'); UI.moSub.textContent=won?'Champion of the arena. Try a harder bot next?':'So close. Try the Easy bot, or practise your build in the sandbox.'; } UI.moTitle.className='title stroke '+(won?'win':'lose');
@@ -3913,7 +3876,7 @@ function btNewMatch(mid){ secretReset(); btChampHide(); btCaughtHide(); BT.mid=m
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
   BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
-  state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); SFX.music('fight'); ffaBoardKey='';
+  state='countdown'; countdownT=3.2; countdownStep=-1; resetInputs(); btHudOn(); hurtT=0; dmgDirT=0; specT=null; updateHUD(); updateCardStrips(); ffaBoardKey='';
   if(!BT.introDone){ BT.introDone=true; tipsT=0; setTimeout(()=>{ if(BT.on) toast('<b>First to 10 knockouts wins.</b> Get knocked out and you pick a card','status'); },3300); } }
 function btEnd(w){ BT.ph='over'; BT.w=w?w.slot:-1; BT.overT=BT_OVER; btEnterOver(); }
 function btEnterOver(){ if(state==='bover') return; state='bover'; btClosePick(); btCaughtHide(); exitLock(); slowMoT=0.9; shakeT=Math.max(shakeT,0.3); BT.overShown=false; firePressed=false; fireHeld=false;
@@ -4156,7 +4119,7 @@ function btFollow(others){ const h=others.find(p=>p.peer===NET.hostPeer&&p.prese
 function btJoin(k,B){ secretReset(); btArena(); BT.on=true; BT.me=k; BT.first=true; BT.mid=B.m|0; BT.t=+B.t||0; BT.ph=B.ph==='over'?'fight':B.ph||'fight';
   btApplySeats(B,true); player.life=(Array.isArray(B.l)&&B.l[k])|0; BT.joinLife=player.life; btHide(player);
   for(let j=0;j<BT_N;j++){ if(j===k||!BT.seats[j]) continue; const f=btF(j); f.life=(B.l&&B.l[j])|0; if(B.x&&B.x[j]===0) btRevive(f,f.life); }
-  state='fight'; resetInputs(); btHudOn(); updateHUD(); SFX.music('fight'); btMsg(''); BT.kfShown=Math.max(0,...(B.kf||[]).map(e=>Array.isArray(e)?e[0]|0:0)); BT.deadT=0.2; BT.first=true;
+  state='fight'; resetInputs(); btHudOn(); updateHUD(); btMsg(''); BT.kfShown=Math.max(0,...(B.kf||[]).map(e=>Array.isArray(e)?e[0]|0:0)); BT.deadT=0.2; BT.first=true;
   toast(`<b>You're in match #${BT.no}.</b> First to ${BT_WIN} knockouts wins`,'status'); }
 function btApplySeats(B,first){ for(let k=0;k<BT_N;k++){ const a=B.st[k]; const cur=BT.seats[k];
     if(!Array.isArray(a)){ if(cur&&k!==BT.me) btUnseat(k); continue; }
