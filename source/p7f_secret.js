@@ -51,7 +51,7 @@ function secTake(){ if(SEC.on) return; SEC.on=true; SEC.had=true; SEC.claim=0; S
 function secDrop(){ if(!SEC.on) return; SEC.on=false; const dead=player.dead; player.setCards(SEC.saved||[]); SEC.saved=null; if(dead) player.hp=0; else player.hp=Math.min(player.hp,player.maxHp());
   if(secRef()&&SEC.holder===secKey()) secRelease(); updateCardStrips(); }
 function secretDied(){ if(!SEC_READY) return; if(SEC.on){ secDrop(); toast('<b class="you">You</b> lost the secret','you'); } }
-function secretReset(){ if(!SEC_READY) return; if(SEC.on) secDrop(); SEC.had=false; SEC.claim=0; SEC.holder=''; SEC.used=new Set(); SEC.since=0; }
+function secretReset(){ if(!SEC_READY) return; UI.draft.classList.remove('secDraft'); if(SEC.on) secDrop(); SEC.had=false; SEC.claim=0; SEC.holder=''; SEC.used=new Set(); SEC.since=0; }
 
 // ---- no picks while you hold it ----
 function secretDraft(){ if(!SEC_READY||!SEC.on||state!=='draft') return; // no cards to look at, just a short wait

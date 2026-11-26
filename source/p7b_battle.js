@@ -136,7 +136,7 @@ function btOpenPick(first){ if(BT.picking) return; BT.picking=true; BT.first=fir
     el.addEventListener('mouseenter',()=>{ SFX.hover(); el._hover(); }); el.addEventListener('mouseleave',()=>{ UI.statbar._id=null; renderStatbar(null); });
     el.addEventListener('click',()=>{ if(!BT.picking||el.classList.contains('picked')) return; el.classList.add('picked'); for(const o of UI.cards.children) if(o!==el) o.classList.add('gone'); btPicked(id); });
     UI.cards.appendChild(el); setTimeout(()=>SFX.deal(),80+i*110); });
-  UI.statbar._id=null; UI.draft.classList.add('bpick'); show(UI.draft,true); UI.banner.className='banner'; exitLock(); }
+  UI.statbar._id=null; UI.draft.classList.remove('secDraft','tutDraft'); UI.draft.classList.add('bpick'); show(UI.draft,true); UI.banner.className='banner'; exitLock(); }
 function btPicked(id){ player.addCard(id); SFX.pick(); BT.picking=false; BT.first=false; setTimeout(()=>{ if(!BT.picking){ show(UI.draft,false); UI.draft.classList.remove('bpick'); } },380);
   if(!paused) requestLock(); if(state==='fight'||state==='countdown') btSpawn(player); else if(state!=='bover'){ btSpawn(player); } updateCardStrips(); ffaBoardKey=''; }
 function btClosePick(){ BT.picking=false; UI.draft.classList.remove('bpick'); if(state!=='draft') show(UI.draft,false); }

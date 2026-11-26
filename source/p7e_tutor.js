@@ -93,7 +93,7 @@ function tutTypeEnd(){ const T2=TUT.typing; if(!T2) return; for(const [node,full
 
 // ---------- a card screen with just one card ----------
 function tutCard(id,html){ TUT.card=true; TUT.task=null; exitLock(); state='draft'; draftT=1e9; clearProjectiles(); show(UI.hud,false); tutRingOff(); tutEl('tutNow').classList.remove('on');
-  UI.draftTitle.textContent='PICK A CARD'; UI.draftSub.textContent='Tutorial: only the bright card is open'; UI.draft.classList.add('tutDraft'); UI.cards.innerHTML='';
+  UI.draftTitle.textContent='PICK A CARD'; UI.draftSub.textContent='Tutorial: only the bright card is open'; UI.draft.classList.remove('secDraft','bpick'); UI.draft.classList.add('tutDraft'); UI.cards.innerHTML='';
   // a real pick shows 3 cards; in practice the other two are greyed out and locked
   const lesson=['buckshot','thruster','teleport','supernova'], pool=ALL_CARDS.filter(k=>!lesson.includes(k)), grey=[];
   while(grey.length<2&&pool.length) grey.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
