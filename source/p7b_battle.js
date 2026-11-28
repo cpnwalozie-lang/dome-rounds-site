@@ -16,7 +16,7 @@ const btName=()=>{ const n=(settings.name||'').trim(); return n||('Player'+(100+
 let btMyName='';
 
 // ---------- seats ----------
-function btNetReset(f){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; }
+function btNetReset(f){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; f.myHit=0; }
 function btHide(f){ f.dead=true; f.hp=0; f.mesh.visible=false; for(const k of ['dome','dome2','domeRing','sawRing','aura','auraRing','statusRing']) if(f[k]) f[k].visible=false; }
 function btSeat(k,seat){ BT.seats[k]=seat; const f=btF(k), me=k===BT.me;
   f.slot=k; f.side=k; f.name=me?btMyName:seat.n; f.lv=seat.b?(DIFF[seat.lv]||DIFF.normal):null; f.peer=(!me&&!seat.b)?seat.p:null; f.ctl=me?'local':(seat.b&&btHost()?'ai':'net');
@@ -300,7 +300,7 @@ function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.roun
   r.presence(o).catch(()=>{}); }
 function btState(){ const A=fn=>BT.seats.map((s,k)=>s?fn(btF(k)):0);
   return { m:BT.mid, ph:BT.ph, t:Math.round(BT.t*10)/10, w:BT.w, ot:Math.round(BT.overT*10)/10, st:BT.seats.map(s=>s?[s.b?'':s.p,s.n,s.b?1:0,s.lv||'']:0),
-    k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6), sx:secretState() }; }
+    k:A(f=>f.score|0), d:A(f=>f.deaths|0), l:A(f=>f.life|0), x:A(f=>f.dead?1:0), hp:A(f=>Math.max(0,Math.round(f.hp))), kf:BT.kf.slice(-6), sx:secretState(), ak:netAck(BT.seats.map(s=>s&&!s.b?s.p:null)), rj:NET.hitRej, px:A(f=>f.phoenixUsed|0) }; }
 
 // ---------- what we receive ----------
 function btPeers(ch){ const others=ch.peers.filter(p=>!p.sameTab&&p.presence&&p.presence.v===3); const now=performance.now(); for(const p of others) NET.rx[p.peer]=now;
@@ -343,10 +343,11 @@ function btApplyState(B){ if(isNum(B.m)&&B.m!==BT.mid){ btNewMatch(B.m); return;
     if(f===player){ if(X===1&&L===(player.life|0)&&!player.dead&&state==='fight'){ NET.allowKill=true; try{ killFighter(player,player.lastHitBy); } finally{ NET.allowKill=false; } } }
     else if(X===1){ if(!f.dead&&L>=(f.life|0)&&state==='fight'){ f.life=L; NET.allowKill=true; try{ killFighter(f,f.lastHitBy); } finally{ NET.allowKill=false; } } else f.life=Math.max(f.life|0,L); }
     else if(L>(f.life|0)) btRevive(f,L);
-    if(!f.dead&&f!==player&&isNum(B.hp&&B.hp[k])&&now-(f.lastLocalHit||0)>400) f.hp=B.hp[k];
+    if(!f.dead&&f!==player&&isNum(B.hp&&B.hp[k])) netSetHp(f,B.hp[k],B.ak,now);
     else if(f===player&&!player.dead&&isNum(B.hp&&B.hp[k])&&L===(player.life|0)&&X===0) player.hp=B.hp[k]; }
+  netGotRej(B.rj,B.ak); if(Array.isArray(B.px)) B.px.forEach((v,k)=>{ if(BT.seats[k]) netPhoenix(btF(k),v); });
   if(Array.isArray(B.kf)){ const seen=new Set(BT.kf.map(e=>e[0])); for(const e of B.kf) if(Array.isArray(e)&&!seen.has(e[0])){ BT.kf.push(e); BT.kfSeq=Math.max(BT.kfSeq,e[0]|0); } if(BT.kf.length>12) BT.kf.splice(0,BT.kf.length-12); btFeed(); } }
-function btRx(peer,pr){ verSeen(peer,pr);
+function btRx(peer,pr){ verSeen(peer,pr); if(typeof pr.vr==='string') NET.dbg.vr=pr.vr.slice(0,12);
   if(Array.isArray(pr.cl)){ const now=performance.now(); for(const c of pr.cl) if(Array.isArray(c)&&isNum(c[0])&&isNum(c[1])&&c[1]>=0&&c[1]<5000){ const t=now-c[1], o=BT_CLAIM.get(c[0]); if(!o||t>o) BT_CLAIM.set(c[0],t); } } const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
   if(Array.isArray(pr.cl)&&pr.cl.length) btClash(f,pr.cl);
   if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }

@@ -110,11 +110,14 @@ function onDeal(source,target,amount){
   if(s.refresh>0&&source.refreshCd<=0&&source.blockCdT>0){ source.blockCdT=0; source.refreshCd=Math.max(0.8,2.4/s.refresh); if(source.isPlayer) floatText(source.center().add(V3(0,1.4,0)),'BLOCK READY','heal'); }
   if(s.scavenger>0&&(source.ammo<s.ammo||source.reloading)){ source.ammo=s.ammo; source.reloading=false; if(source.isPlayer) SFX.tick(); }
 }
+// Phoenix: back on your feet at half health, untouchable for a moment. Also played on other screens when the host says it happened.
+function phoenixRise(target){ target.hp=Math.round(target.maxHp()*0.5); target.invulnT=1.6; target.poisons.length=0; target.decayPool=0; target.thrusters.length=0; target.stunT=0; target.slowT=0;
+  const c=target.center(); burst(c,0xff9a3d,30,9,0.18,0.9,-0.4); burst(c,0xffe14d,14,6,0.12,0.7,-0.6); flashAt(c,0xff9a3d,8,0.4); shockRing(V3(target.pos.x,target.pos.y+0.08,target.pos.z),0xff9a3d,4,0.5); floatText(c.add(V3(0,1.4,0)),'PHOENIX!','status'); SFX.revive(); }
 function fatal(target,source,cause){
   if(NET.on&&NET.role==='guest'&&!NET.allowKill){ if(target.hp<1) target.hp=1; return; } // the host decides knockouts
-  if(target.stats.phoenix>target.phoenixUsed){ target.phoenixUsed++; target.hp=Math.round(target.maxHp()*0.5); target.invulnT=1.6; target.poisons.length=0; target.decayPool=0; target.thrusters.length=0; target.stunT=0; target.slowT=0;
+  if(target.stats.phoenix>target.phoenixUsed){ target.phoenixUsed++; phoenixRise(target);
     if(cause==='fall'){ target.pos.copy(target.spawn); target.vel.set(0,0,0); }
-    const c=target.center(); burst(c,0xff9a3d,30,9,0.18,0.9,-0.4); burst(c,0xffe14d,14,6,0.12,0.7,-0.6); flashAt(c,0xff9a3d,8,0.4); shockRing(V3(target.pos.x,target.pos.y+0.08,target.pos.z),0xff9a3d,4,0.5); floatText(c.add(V3(0,1.4,0)),'PHOENIX!','status'); SFX.revive(); return; }
+    return; }
   if(target.isPlayer) roundInfo.cause=cause||'shot';
   killFighter(target,source);
 }
@@ -215,7 +218,7 @@ function findBlinkSpot(f,dist){ const base=f.forward(); for(const ang of [0,0.3,
 function doBlock(f,isEcho,afterBlink){
   const s=f.stats;
   if(s.teleport>0&&!isEcho&&!afterBlink){ const dest=findBlinkSpot(f,7+3*s.teleport); if(!dest&&f.isPlayer) floatText(f.center().add(V3(0,1.2,0)),'NO ROOM TO BLINK','status'); if(dest){ floatText(f.center().add(V3(0,1.2,0)),'BLINK!','status'); blinkFx(f,f.pos.clone(),dest.clone()); SFX.shatter(); f.blinkPending=0.36; f.invulnT=Math.max(f.invulnT,0.4); f.pos.copy(dest); f.visY=dest.y; f.onGround=true; f.dashT=0; f.vel.x=0; f.vel.z=0; f.vel.y=0; SFX.teleport(); if(!isEcho) f.blockCdT=s.blockCd; return; } }
-  /*DEBUG-START*/if(window.__aiTap&&!isEcho) window.__aiTap('block',f);/*DEBUG-END*/ f.blockActive=true; f.blockT=CFG.blockDuration; if(!isEcho&&!afterBlink) f.blockCdT=s.blockCd;
+  /*DEBUG-START*/if(window.__aiTap&&!isEcho) window.__aiTap('block',f);/*DEBUG-END*/ f.blockActive=true; f.domeAt=performance.now(); f.blockT=CFG.blockDuration; if(!isEcho&&!afterBlink) f.blockCdT=s.blockCd;
   SFX.block(); const c=f.domeC(), R=f.domeR(); if(f.isPlayer&&!isEcho) matchStats.blocks++;
   shockRing(V3(c.x,c.y+0.05,c.z),f.team.light,R*1.3,0.5,R*0.2); shockRing(V3(c.x,c.y+0.07,c.z),0xffffff,R*1.05,0.3,R*0.1); flashAt(V3(c.x,c.y+R*0.5,c.z),f.team.light,R*2.4,0.25); burst(f.center(),f.team.light,12,R*2.4,0.08,0.35,0);
   for(let i=bullets.length-1;i>=0;i--){ const b=bullets[i]; if(b.owner!==f && b.pos.distanceTo(c)<R+b.r) reflectBullet(b,f); }

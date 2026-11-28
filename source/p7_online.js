@@ -119,26 +119,46 @@ function guestLobby(others){ const h=others.find(p=>p.presence.r==='host');
 function netDrop(why){ const inGame=state!=='menu'; netLeave(); if(inGame){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); },1200); } else { olView('main'); olMsg(why,true); } }
 // seats -> fighters on this screen (you're always 'player'; the others fill the remaining fighters)
 function netBuildRoster(){ const me=myPeerId(); let k=1; const list=NET.seats.map((st,i)=>{ const mine=st.p===me; const f=mine?player:seatFighter(k++); return {f,slot:i,side:NET.kind==='2v2'?i%2:i,ctl:mine?'local':(st.b&&NET.role==='host'?'ai':'net'),name:mine?myName():st.n,peer:st.b?null:st.p}; });
-  matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; } NET.hits=[]; NET.hitSeen={}; NET.clk={}; /* hitSeq keeps counting up */
+  matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; f.myHit=0; } NET.hits=[]; NET.hitRej=[]; NET.hitSeen={}; NET.clk={}; /* hitSeq keeps counting up */
   if(NET.kind==='1v1'){ player.setTeam(TEAM.player); for(const f of fighters) if(f!==player) f.setTeam(TEAM.bot); } setRivalNames(true); }
 // ---------- hits: the shooter's screen decides ----------
 // A bullet belongs to whichever screen runs its owner. Only that screen decides if it hit someone; everyone else waits for the call.
 function netRemoteBullet(b){ return NET.on&&NET.started&&b.owner&&b.owner.ctl==='net'; }
-function netRecordHit(b,e){ if(!NET.on||!NET.started||b.owner.ctl==='net') return; NET.hits.push([++NET.hitSeq,b.owner.slot,b.sid|0,b.pi|0,e.slot,R2(b.pos.x),R2(b.pos.y),R2(b.pos.z),b.reflected?1:0]); if(NET.hits.length>14) NET.hits.shift(); }
+function netRecordHit(b,e){ if(!NET.on||!NET.started||b.owner.ctl==='net') return; /*DEBUG-START*/if(window.__recTap) try{ window.__recTap(NET.hitSeq+1,e.slot,b.owner.slot); }catch(x){}/*DEBUG-END*/ NET.dbg.sent++; e.myHit=NET.hitSeq+1; NET.hits.push([++NET.hitSeq,b.owner.slot,b.sid|0,b.pi|0,e.slot,R2(b.pos.x),R2(b.pos.y),R2(b.pos.z),b.reflected?1:0]); if(NET.hits.length>14) NET.hits.shift(); }
 // Each hit list carries the match it belongs to. A list left over from an earlier match (the other player's game
 // hasn't started the new one yet) is ignored completely: before, it made this screen think it had already seen that
 // player's next hits, so the first hits of the new match were thrown away (they showed on the shooter's screen, then
 // the health bar jumped back).
+// ---------- hit receipts ----------
+// The host (the referee) sends back, for each player, the number of the last hit of theirs it has dealt with (ak), and
+// the last few hits it turned down and why (rj). Your screen keeps showing your hit on someone until the host has dealt
+// with it. Before, it waited a fixed 0.4s and then took the host's number, which on a slow connection was still from
+// before the hit arrived, so the health bar jumped back up on the shooter's screen even though the hit counted.
+NET.dbg={sent:0,got:0,old:0,turned:0,snap:0,rej:{},ack:0}; NET.hitRej=[];
+function netAck(peers){ const o={}; for(const p of peers) if(p) o[p]=NET.hitSeen[p]|0; return o; }
+function netHpOk(f,ak,now){ const mine=f.myHit|0, ago=now-(f.lastLocalHit||0); if(!mine) return ago>400;
+  if(ak&&typeof ak==='object'){ const a=ak[myPeerId()]; return (isNum(a)&&a>=mine)||ago>2500; } return ago>400; } // an older host sends no receipts: old rule
+function netSetHp(f,v,ak,now){ if(!netHpOk(f,ak,now)) return; if(v>f.hp+1&&(f.myHit|0)&&now-(f.lastLocalHit||0)<3000) NET.dbg.snap++; f.hp=v; }
+function netRej(peer,h,code){ if(!peer) return; NET.hitRej.push([peer,h[0]|0,h[4]|0,code]); if(NET.hitRej.length>8) NET.hitRej.shift(); NET.dbg.rej[code]=(NET.dbg.rej[code]||0)+1; }
+// the host says someone used a Phoenix: show it here too (this screen never knocks anyone out itself, so it never sees it happen)
+function netPhoenix(f,n){ if(!f||!isNum(n)||state!=='fight'||n<=(f.phoenixUsed|0)) return; f.phoenixUsed=n; if(!f.dead){ phoenixRise(f); f.myHit=0; } }
+function netGotRej(rj,ak){ const me=myPeerId(); if(ak&&typeof ak==='object'&&isNum(ak[me])) NET.dbg.ack=ak[me]; if(!Array.isArray(rj)) return;
+  for(const e of rj){ if(!Array.isArray(e)||e[0]!==me||!isNum(e[1])||e[1]<=(NET.rjSeen|0)) continue; NET.rjSeen=e[1]; NET.dbg.turned++;
+    const f=fighters.find(x=>x.slot===e[2]); if(f&&!f.dead&&e[3]===1&&state==='fight') floatText(f.center().add(V3(0,1.1,0)),'BLOCKED','status'); } }
+// A dome only stops a hit if it had been up for a moment on the host's screen. The shooter saw the target a little in
+// the past, so a dome raised in the last 0.3s wasn't up yet on their screen when the shot landed.
+const DOME_GRACE=300;
 function netMatchId(){ return NET.kind==='battle'?BT.mid:(NET.role==='host'?NET.mid:NET.rMid); }
-function netApplyHits(peer,list,hm){ if(isNum(hm)&&hm!==netMatchId()) return; if(!Array.isArray(list)||!(state==='fight')) { if(Array.isArray(list)) NET.hitSeen[peer]=Math.max(NET.hitSeen[peer]||0,...list.map(h=>Array.isArray(h)?h[0]|0:0)); return; }
+/*DEBUG-START*/const netTap=(k,h,x)=>{ if(window.__hitTap) try{ window.__hitTap(k,h,x); }catch(e){} };/*DEBUG-END*/
+function netApplyHits(peer,list,hm){ if(isNum(hm)&&hm!==netMatchId()){ NET.dbg.old++; /*DEBUG-START*/if(Array.isArray(list)) for(const h of list) netTap('oldmatch',h,hm);/*DEBUG-END*/ return; } if(!Array.isArray(list)||!(state==='fight')) { /*DEBUG-START*/if(Array.isArray(list)) for(const h of list) if(Array.isArray(h)&&(h[0]|0)>(NET.hitSeen[peer]||0)) netTap('notfight:'+state,h);/*DEBUG-END*/ if(Array.isArray(list)&&state!=='fight') for(const h of list) if(Array.isArray(h)&&(h[0]|0)>(NET.hitSeen[peer]||0)) netRej(peer,h,2); if(Array.isArray(list)) NET.hitSeen[peer]=Math.max(NET.hitSeen[peer]||0,...list.map(h=>Array.isArray(h)?h[0]|0:0)); return; }
   const last=NET.hitSeen[peer]||0; let mx=last;
-  for(const h of list){ if(!Array.isArray(h)||h.length<9||!h.every(isNum)||h[0]<=last) continue; mx=Math.max(mx,h[0]);
-    const owner=fighters.find(f=>f.slot===h[1]), tgt=fighters.find(f=>f.slot===h[4]); if(!owner||!tgt||tgt.dead) continue;
+  for(const h of list){ if(!Array.isArray(h)||h.length<9||!h.every(isNum)||h[0]<=last){ /*DEBUG-START*/if(Array.isArray(h)&&!(h[0]<=last)) netTap('bad',h);/*DEBUG-END*/ continue; } mx=Math.max(mx,h[0]);
+    const owner=fighters.find(f=>f.slot===h[1]), tgt=fighters.find(f=>f.slot===h[4]); if(!owner||!tgt||tgt.dead){ /*DEBUG-START*/netTap(!owner?'noowner':!tgt?'notgt':'dead',h);/*DEBUG-END*/ netRej(peer,h,2); continue; }
     const pos=V3(h[5],h[6],h[7]);
-    if(tgt.blockActive){ let bi=bullets.findIndex(b=>b.owner===owner&&b.sid===h[2]&&b.pi===h[3]); if(bi>=0) removeBullet(bi); burst(pos,0xffffff,5,3,0.08,0.3,0); continue; } // their dome was up on the referee's screen: blocked
+    if(tgt.blockActive&&performance.now()-(tgt.domeAt||0)>DOME_GRACE){ /*DEBUG-START*/netTap('blocked',h);/*DEBUG-END*/ netRej(peer,h,1); let bi=bullets.findIndex(b=>b.owner===owner&&b.sid===h[2]&&b.pi===h[3]); if(bi>=0) removeBullet(bi); burst(pos,0xffffff,5,3,0.08,0.3,0); continue; } // their dome was up on the referee's screen: blocked
     let i=bullets.findIndex(b=>b.sid===h[2]&&b.pi===h[3]&&(b.owner===owner||b.ownerSlot0===h[1]));
     let b; if(i>=0) b=bullets[i]; else { b=spawnBullet(owner,pos,V3().subVectors(tgt.center(),pos).normalize().lengthSq()?V3().subVectors(tgt.center(),pos).normalize():V3(0,0,1),{}); i=bullets.indexOf(b); }
-    b.pos.copy(pos); b.mesh.position.copy(pos); hitFighter(b,tgt); if(i>=0&&bullets[i]===b) removeBullet(i); }
+    b.pos.copy(pos); b.mesh.position.copy(pos); /*DEBUG-START*/const hp0=tgt.hp, iv=tgt.invulnT;/*DEBUG-END*/ NET.dbg.got++; hitFighter(b,tgt); /*DEBUG-START*/netTap(tgt.hp<hp0||tgt.dead?'applied':'nodmg',h,{iv,st:state});/*DEBUG-END*/ if(i>=0&&bullets[i]===b) removeBullet(i); }
   NET.hitSeen[peer]=mx; }
 // ---------- outgoing ----------
 function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(o.z),R3(d.x),R3(d.y),R3(d.z)]; if(!f||f===player){ NET.shots.push([++NET.shotId,...sh]); player.lastSid=NET.shotId; if(NET.shots.length>8) NET.shots.shift(); } else { f.nShots=f.nShots||[]; f.nShotId=(f.nShotId||0)+1; f.nShots.push([f.nShotId,...sh]); f.lastSid=f.nShotId; if(f.nShots.length>8) f.nShots.shift(); } }
@@ -150,13 +170,13 @@ function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='bat
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
       const col=fn=>Array.from({length:n},(_,k)=>{ const f=by(k); return f?fn(f):0; });
-      o.h={ m:NET.mid, ph:state, rn:roundNum, sc:col(f=>f.score), hp:col(f=>Math.max(0,Math.round(f.hp))), dd:col(f=>f.dead?1:0), w:lastWinner?lastWinner.slot:-1, t:Math.round(roundInfo.t*10)/10, mo:matchOverPending?1:0, sx:secretState() };
+      o.h={ m:NET.mid, ph:state, rn:roundNum, sc:col(f=>f.score), hp:col(f=>Math.max(0,Math.round(f.hp))), dd:col(f=>f.dead?1:0), w:lastWinner?lastWinner.slot:-1, t:Math.round(roundInfo.t*10)/10, mo:matchOverPending?1:0, sx:secretState(), ak:netAck(NET.seats.map(st=>st.b?null:st.p)), rj:NET.hitRej, px:col(f=>f.phoenixUsed|0) };
       o.bots=fighters.filter(f=>f.ctl==='ai').map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts:o.ts})); } }
   r.presence(o).catch(()=>{}); }
 // ---------- incoming ----------
 const isNum=v=>typeof v==='number'&&isFinite(v);
 function netRx(peer,pr){
-  verSeen(peer,pr);
+  verSeen(peer,pr); if(typeof pr.vr==='string') NET.dbg.vr=pr.vr.slice(0,12);
   const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f){ netRxFighter(f,pr); if(isNum(pr.pk)) f.nrPk=pr.pk; }
   netApplyHits(peer,pr.ht,pr.hm);
   if(NET.role==='host') secretSeen(peer,pr.sx);
@@ -183,7 +203,8 @@ function netGuestFollow(h){
   if(!NET.started) return;
   if(ph==='countdown'&&rn===roundNum&&(state==='picked'||state==='draft')&&(NET.pk|0)===(rn-1)){ show(UI.draft,false); beginRound(); }
   const by=k=>fighters.find(f=>f.slot===k);
-  if((state==='fight'||state==='roundover')&&Array.isArray(h.hp)){ const now=performance.now(); h.hp.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&!f.dead&&now-(f.lastLocalHit||0)>400) f.hp=v; }); }
+  if((state==='fight'||state==='roundover')&&Array.isArray(h.hp)){ const now=performance.now(); h.hp.forEach((v,k)=>{ const f=by(k); if(f&&isNum(v)&&!f.dead) netSetHp(f,v,h.ak,now); }); }
+  netGotRej(h.rj,h.ak); if(Array.isArray(h.px)) h.px.forEach((v,k)=>netPhoenix(by(k),v));
   if(state==='fight'&&isNum(h.t)) roundInfo.t=Math.max(roundInfo.t,h.t);
   if(state==='fight'&&NET.kind!=='1v1'&&Array.isArray(h.dd)){ NET.allowKill=true; try{ h.dd.forEach((v,k)=>{ const f=by(k); if(v===1&&f&&!f.dead&&state==='fight') killFighter(f,f.lastHitBy); }); } finally { NET.allowKill=false; } }
   if(ph==='roundover'&&state==='fight'&&isNum(h.w)&&h.w>=0){ const w=by(h.w); if(w){ NET.allowKill=true; try{ if(NET.kind==='1v1') killFighter(other(w),w); else for(const f of fighters) if(f.side!==w.side&&!f.dead&&state==='fight') killFighter(f,null); } finally { NET.allowKill=false; } } }
@@ -248,3 +269,13 @@ $id('olLink').addEventListener('click',()=>{ if(!NET.on) return; const L=inviteL
   setTimeout(()=>{ menuFriends(); olView('main'); codeIn.value=c; olMsg('Joining room '+c+'…'); doJoin(); },400); })();
 $id('olCancel').addEventListener('click',()=>{ netLeave(); olView('main'); olMsg(''); });
 netReset();
+// ---------- connection panel: add ?netdebug=1 to the address. Shows what happens to every hit, for tracking down problems ----------
+(()=>{ if(!/[?&]netdebug=1/.test(location.search)) return; const el=document.createElement('div');
+  el.style.cssText='position:fixed;left:8px;top:50%;transform:translateY(-50%);z-index:9999;background:rgba(12,5,28,.86);color:#e6dcff;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;padding:8px 11px;border-radius:7px;pointer-events:none;white-space:pre;max-width:46vw';
+  document.body.appendChild(el);
+  setInterval(()=>{ const D=NET.dbg, R=D.rej||{}, host=NET.role==='host'||(NET.kind==='battle'&&typeof btHost==='function'&&btHost());
+    el.textContent=['Domes '+GAME_VER+(D.vr?'  |  rival '+D.vr:''), (NET.on?(host?'host':'guest')+' via '+((NET.room&&NET.room.via)||'direct link'):'not online')+'  |  '+state+' round '+roundNum,
+      'match '+netMatchId(),
+      'my hits sent '+D.sent+(host?'':'  |  host has dealt with up to #'+D.ack+' of #'+NET.hitSeq),
+      (host?'':'host turned down '+D.turned+'  |  bar jumped back '+D.snap),
+      'hits from others: counted '+D.got+'  blocked '+(R[1]||0)+'  too late '+(R[2]||0)+'  old match '+D.old].filter(Boolean).join('\n'); },300); })();
