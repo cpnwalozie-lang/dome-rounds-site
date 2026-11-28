@@ -79,7 +79,7 @@ function btArena(){ if(curMapId!=='skyfort') applyMap('skyfort'); matchKind='bat
 function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true,lv:btLv()});
   btNewMatch(1); }
-function btNewMatch(mid){ secretReset(); btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
+function btNewMatch(mid){ secretReset(); NET.hits=[]; btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
   BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
@@ -294,7 +294,7 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0, sx:secretMine() };
+  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, hm:BT.mid, ts, lf:p.life|0, dd:p.dead?1:0, sx:secretMine() };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
@@ -350,7 +350,7 @@ function btRx(peer,pr){ verSeen(peer,pr);
   if(Array.isArray(pr.cl)){ const now=performance.now(); for(const c of pr.cl) if(Array.isArray(c)&&isNum(c[0])&&isNum(c[1])&&c[1]>=0&&c[1]<5000){ const t=now-c[1], o=BT_CLAIM.get(c[0]); if(!o||t>o) BT_CLAIM.set(c[0],t); } } const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
   if(Array.isArray(pr.cl)&&pr.cl.length) btClash(f,pr.cl);
   if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }
-  netApplyHits(peer,pr.ht);
+  netApplyHits(peer,pr.ht,pr.hm);
   if(!btHost()&&peer===NET.hostPeer&&Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const s=BT.seats[b.s]; if(!s||!s.b) continue; const bf=btF(b.s); if(bf.ctl==='net') netRxFighter(bf,b); } }
 function btNetTick(dt){ btSend(); const now=performance.now();
   if(!btHost()){ if(!BT.on){ BT.waitT+=dt; if(BT.waitT>9){ btStartOffline('<b>That match didn\'t answer</b>, so this is an offline match with bots.'); } return; }

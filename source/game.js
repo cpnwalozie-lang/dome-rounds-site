@@ -3621,7 +3621,7 @@ const seatCap=()=>NET.kind==='1v1'?2:4; const seatsNeeded=()=>NET.kind==='2v2'?4
 const seatTeam=i=>NET.kind==='2v2'?(i%2===0?TEAM.player:TEAM.bot):TEAM[SLOT_TEAMS[i]];
 function olMsg(t,bad){ const m=$id('olMsg'); m.textContent=t||''; m.classList.toggle('bad',!!bad); }
 function olView(v){ $id('olMain').style.display=v==='main'?'':'none'; $id('olWait').style.display=v==='wait'?'':'none'; }
-function netReset(){ Object.assign(NET,{on:false,role:null,code:'',room:null,kind:'1v1',seats:[],seated:false,hostPeer:null,rx:{},shots:[],shotId:0,blockN:0,mid:0,rMid:0,lastRx:0,started:false,hostMap:null,joinT:0,leaving:false,rs:null}); setRivalNames(false); lobbyRender(); }
+function netReset(){ Object.assign(NET,{on:false,role:null,code:'',room:null,kind:'1v1',seats:[],seated:false,hostPeer:null,rx:{},shots:[],shotId:0,blockN:0,mid:1+Math.floor(Math.random()*1e6),rMid:0,lastRx:0,started:false,hostMap:null,joinT:0,leaving:false,rs:null}); setRivalNames(false); lobbyRender(); }
 function setRivalNames(on){ const r=on&&fighters.find(f=>f!==player&&f.peer); const n=on?(r?r.name.toUpperCase():'RIVAL'):'BOT'; const a=$id('botName'), b=$id('botTagName'); if(a) a.textContent=n; if(b) b.textContent=n; }
 async function netLeave(){ const r=NET.room; netReset(); if(r){ try{ await r.leave(); }catch(e){} } }
 async function netOpen(code,role){
@@ -3666,13 +3666,18 @@ function guestLobby(others){ const h=others.find(p=>p.presence.r==='host');
 function netDrop(why){ const inGame=state!=='menu'; netLeave(); if(inGame){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); },1200); } else { olView('main'); olMsg(why,true); } }
 // seats -> fighters on this screen (you're always 'player'; the others fill the remaining fighters)
 function netBuildRoster(){ const me=myPeerId(); let k=1; const list=NET.seats.map((st,i)=>{ const mine=st.p===me; const f=mine?player:seatFighter(k++); return {f,slot:i,side:NET.kind==='2v2'?i%2:i,ctl:mine?'local':(st.b&&NET.role==='host'?'ai':'net'),name:mine?myName():st.n,peer:st.b?null:st.p}; });
-  matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; } NET.hits=[]; NET.hitSeq=0; NET.hitSeen={}; NET.clk={};
+  matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; } NET.hits=[]; NET.hitSeen={}; NET.clk={}; /* hitSeq keeps counting up */
   if(NET.kind==='1v1'){ player.setTeam(TEAM.player); for(const f of fighters) if(f!==player) f.setTeam(TEAM.bot); } setRivalNames(true); }
 // ---------- hits: the shooter's screen decides ----------
 // A bullet belongs to whichever screen runs its owner. Only that screen decides if it hit someone; everyone else waits for the call.
 function netRemoteBullet(b){ return NET.on&&NET.started&&b.owner&&b.owner.ctl==='net'; }
 function netRecordHit(b,e){ if(!NET.on||!NET.started||b.owner.ctl==='net') return; NET.hits.push([++NET.hitSeq,b.owner.slot,b.sid|0,b.pi|0,e.slot,R2(b.pos.x),R2(b.pos.y),R2(b.pos.z),b.reflected?1:0]); if(NET.hits.length>14) NET.hits.shift(); }
-function netApplyHits(peer,list){ if(!Array.isArray(list)||!(state==='fight')) { if(Array.isArray(list)) NET.hitSeen[peer]=Math.max(NET.hitSeen[peer]||0,...list.map(h=>Array.isArray(h)?h[0]|0:0)); return; }
+// Each hit list carries the match it belongs to. A list left over from an earlier match (the other player's game
+// hasn't started the new one yet) is ignored completely: before, it made this screen think it had already seen that
+// player's next hits, so the first hits of the new match were thrown away (they showed on the shooter's screen, then
+// the health bar jumped back).
+function netMatchId(){ return NET.kind==='battle'?BT.mid:(NET.role==='host'?NET.mid:NET.rMid); }
+function netApplyHits(peer,list,hm){ if(isNum(hm)&&hm!==netMatchId()) return; if(!Array.isArray(list)||!(state==='fight')) { if(Array.isArray(list)) NET.hitSeen[peer]=Math.max(NET.hitSeen[peer]||0,...list.map(h=>Array.isArray(h)?h[0]|0:0)); return; }
   const last=NET.hitSeen[peer]||0; let mx=last;
   for(const h of list){ if(!Array.isArray(h)||h.length<9||!h.every(isNum)||h[0]<=last) continue; mx=Math.max(mx,h[0]);
     const owner=fighters.find(f=>f.slot===h[1]), tgt=fighters.find(f=>f.slot===h[4]); if(!owner||!tgt||tgt.dead) continue;
@@ -3687,7 +3692,7 @@ function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
 function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
-  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()), sx:secretMine(), pk:NET.pk|0 };
+  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, hm:netMatchId(), ts:Math.round(performance.now()), sx:secretMine(), pk:NET.pk|0 };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
@@ -3700,7 +3705,7 @@ const isNum=v=>typeof v==='number'&&isFinite(v);
 function netRx(peer,pr){
   verSeen(peer,pr);
   const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f){ netRxFighter(f,pr); if(isNum(pr.pk)) f.nrPk=pr.pk; }
-  netApplyHits(peer,pr.ht);
+  netApplyHits(peer,pr.ht,pr.hm);
   if(NET.role==='host') secretSeen(peer,pr.sx);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
     if(pr.h&&typeof pr.h==='object') netGuestFollow(pr.h); } }
@@ -3872,7 +3877,7 @@ function btArena(){ if(curMapId!=='skyfort') applyMap('skyfort'); matchKind='bat
 function btBegin(){ btArena(); BT.on=true; BT.me=0; const names=BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   btSeat(0,{p:BT.online?myPeerId():'me',n:btMyName,b:false}); let j=0; for(let k=1;k<BT_N;k++) btSeat(k,{p:null,n:names[j++%names.length],b:true,lv:btLv()});
   btNewMatch(1); }
-function btNewMatch(mid){ secretReset(); btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
+function btNewMatch(mid){ secretReset(); NET.hits=[]; btChampHide(); btCaughtHide(); BT.mid=mid; BT.streak=0; BT.best=0; BT.sus=0; BT.ph='count'; BT.t=0; BT.w=-1; BT.overT=0; BT.overShown=false; btClosePick(); show(UI.btOver,false); UI.banner.className='banner'; clearTimeout(UI.banner._t);
   clearProjectiles(); for(const f of fighters){ f.score=0; f.deaths=0; f.setCards([]); f.lastHitBy=null; }
   BT_CLAIM.clear(); BT_MINE.length=0; for(const f of fighters) if(btOwns(f)) btSpawn(f,true);
   roundInfo.shots=0; roundInfo.hits=0; roundInfo.dmg=0; roundInfo.botBlocked=0; roundInfo.t=0; roundInfo.cause=''; for(const k in matchStats) matchStats[k]=0; roundNum=1;
@@ -4087,7 +4092,7 @@ function btLeft(k){ const s=BT.seats[k]; if(!s) return; toast(`<b>${esc(s.n)}</b
 
 // ---------- what we send ----------
 function btSend(){ const r=NET.room; if(!r) return; const p=player, ts=Math.round(performance.now());
-  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts, lf:p.life|0, dd:p.dead?1:0, sx:secretMine() };
+  const now=performance.now(), o={ v:3, vr:GAME_VER, cl:BT_MINE.filter(c=>now-c[1]<3500).map(c=>[c[0],Math.round(now-c[1])]), r:NET.role, nm:btMyName, ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, hm:BT.mid, ts, lf:p.life|0, dd:p.dead?1:0, sx:secretMine() };
   if(btHost()&&BT.on){ o.B=btState(); o.bots=fighters.filter(f=>f.ctl==='ai'&&f.active!==false).map(f=>({s:f.slot,f:fstate(f),sh:f.nShots||[],bk:f.nBlock||0,c:f.cards,ts,lf:f.life|0})); }
   else { o.B=null; o.bots=null; }
   r.presence(o).catch(()=>{}); }
@@ -4143,7 +4148,7 @@ function btRx(peer,pr){ verSeen(peer,pr);
   if(Array.isArray(pr.cl)){ const now=performance.now(); for(const c of pr.cl) if(Array.isArray(c)&&isNum(c[0])&&isNum(c[1])&&c[1]>=0&&c[1]<5000){ const t=now-c[1], o=BT_CLAIM.get(c[0]); if(!o||t>o) BT_CLAIM.set(c[0],t); } } const f=fighters.find(x=>x.peer===peer&&x.ctl==='net');
   if(Array.isArray(pr.cl)&&pr.cl.length) btClash(f,pr.cl);
   if(f){ netRxFighter(f,pr); if(isNum(pr.lf)&&pr.lf>(f.life|0)&&!pr.dd) btRevive(f,pr.lf); }
-  netApplyHits(peer,pr.ht);
+  netApplyHits(peer,pr.ht,pr.hm);
   if(!btHost()&&peer===NET.hostPeer&&Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const s=BT.seats[b.s]; if(!s||!s.b) continue; const bf=btF(b.s); if(bf.ctl==='net') netRxFighter(bf,b); } }
 function btNetTick(dt){ btSend(); const now=performance.now();
   if(!btHost()){ if(!BT.on){ BT.waitT+=dt; if(BT.waitT>9){ btStartOffline('<b>That match didn\'t answer</b>, so this is an offline match with bots.'); } return; }

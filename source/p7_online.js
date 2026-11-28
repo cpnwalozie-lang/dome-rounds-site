@@ -74,7 +74,7 @@ const seatCap=()=>NET.kind==='1v1'?2:4; const seatsNeeded=()=>NET.kind==='2v2'?4
 const seatTeam=i=>NET.kind==='2v2'?(i%2===0?TEAM.player:TEAM.bot):TEAM[SLOT_TEAMS[i]];
 function olMsg(t,bad){ const m=$id('olMsg'); m.textContent=t||''; m.classList.toggle('bad',!!bad); }
 function olView(v){ $id('olMain').style.display=v==='main'?'':'none'; $id('olWait').style.display=v==='wait'?'':'none'; }
-function netReset(){ Object.assign(NET,{on:false,role:null,code:'',room:null,kind:'1v1',seats:[],seated:false,hostPeer:null,rx:{},shots:[],shotId:0,blockN:0,mid:0,rMid:0,lastRx:0,started:false,hostMap:null,joinT:0,leaving:false,rs:null}); setRivalNames(false); lobbyRender(); }
+function netReset(){ Object.assign(NET,{on:false,role:null,code:'',room:null,kind:'1v1',seats:[],seated:false,hostPeer:null,rx:{},shots:[],shotId:0,blockN:0,mid:1+Math.floor(Math.random()*1e6),rMid:0,lastRx:0,started:false,hostMap:null,joinT:0,leaving:false,rs:null}); setRivalNames(false); lobbyRender(); }
 function setRivalNames(on){ const r=on&&fighters.find(f=>f!==player&&f.peer); const n=on?(r?r.name.toUpperCase():'RIVAL'):'BOT'; const a=$id('botName'), b=$id('botTagName'); if(a) a.textContent=n; if(b) b.textContent=n; }
 async function netLeave(){ const r=NET.room; netReset(); if(r){ try{ await r.leave(); }catch(e){} } }
 async function netOpen(code,role){
@@ -119,13 +119,18 @@ function guestLobby(others){ const h=others.find(p=>p.presence.r==='host');
 function netDrop(why){ const inGame=state!=='menu'; netLeave(); if(inGame){ toast(`<b>${why}</b>`,'status'); setTimeout(()=>{ toMenu(); },1200); } else { olView('main'); olMsg(why,true); } }
 // seats -> fighters on this screen (you're always 'player'; the others fill the remaining fighters)
 function netBuildRoster(){ const me=myPeerId(); let k=1; const list=NET.seats.map((st,i)=>{ const mine=st.p===me; const f=mine?player:seatFighter(k++); return {f,slot:i,side:NET.kind==='2v2'?i%2:i,ctl:mine?'local':(st.b&&NET.role==='host'?'ai':'net'),name:mine?myName():st.n,peer:st.b?null:st.p}; });
-  matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; } NET.hits=[]; NET.hitSeq=0; NET.hitSeen={}; NET.clk={};
+  matchKind=NET.kind; setRoster(list); for(const f of fighters){ f.rs=null; f.nrShot=-1; f.nrBlock=-1; f.nrCards=''; f.nShots=[]; f.nShotId=0; f.nBlock=0; f.leaving=false; f.snaps=[]; f.lastLocalHit=0; } NET.hits=[]; NET.hitSeen={}; NET.clk={}; /* hitSeq keeps counting up */
   if(NET.kind==='1v1'){ player.setTeam(TEAM.player); for(const f of fighters) if(f!==player) f.setTeam(TEAM.bot); } setRivalNames(true); }
 // ---------- hits: the shooter's screen decides ----------
 // A bullet belongs to whichever screen runs its owner. Only that screen decides if it hit someone; everyone else waits for the call.
 function netRemoteBullet(b){ return NET.on&&NET.started&&b.owner&&b.owner.ctl==='net'; }
 function netRecordHit(b,e){ if(!NET.on||!NET.started||b.owner.ctl==='net') return; NET.hits.push([++NET.hitSeq,b.owner.slot,b.sid|0,b.pi|0,e.slot,R2(b.pos.x),R2(b.pos.y),R2(b.pos.z),b.reflected?1:0]); if(NET.hits.length>14) NET.hits.shift(); }
-function netApplyHits(peer,list){ if(!Array.isArray(list)||!(state==='fight')) { if(Array.isArray(list)) NET.hitSeen[peer]=Math.max(NET.hitSeen[peer]||0,...list.map(h=>Array.isArray(h)?h[0]|0:0)); return; }
+// Each hit list carries the match it belongs to. A list left over from an earlier match (the other player's game
+// hasn't started the new one yet) is ignored completely: before, it made this screen think it had already seen that
+// player's next hits, so the first hits of the new match were thrown away (they showed on the shooter's screen, then
+// the health bar jumped back).
+function netMatchId(){ return NET.kind==='battle'?BT.mid:(NET.role==='host'?NET.mid:NET.rMid); }
+function netApplyHits(peer,list,hm){ if(isNum(hm)&&hm!==netMatchId()) return; if(!Array.isArray(list)||!(state==='fight')) { if(Array.isArray(list)) NET.hitSeen[peer]=Math.max(NET.hitSeen[peer]||0,...list.map(h=>Array.isArray(h)?h[0]|0:0)); return; }
   const last=NET.hitSeen[peer]||0; let mx=last;
   for(const h of list){ if(!Array.isArray(h)||h.length<9||!h.every(isNum)||h[0]<=last) continue; mx=Math.max(mx,h[0]);
     const owner=fighters.find(f=>f.slot===h[1]), tgt=fighters.find(f=>f.slot===h[4]); if(!owner||!tgt||tgt.dead) continue;
@@ -140,7 +145,7 @@ function netRecordShot(o,d,f){ if(!NET.on) return; const sh=[R2(o.x),R2(o.y),R2(
 function netRecordBlock(f){ if(!NET.on) return; if(!f||f===player) NET.blockN++; else f.nBlock=(f.nBlock||0)+1; }
 const fstate=f=>[R2(f.pos.x),R2(f.pos.y),R2(f.pos.z),R2(f.vel.x),R2(f.vel.y),R2(f.vel.z),R3(f.yaw),R3(f.pitch),(f.dashT>0?1:0)|(f.onGround?2:0)];
 function netSend(){ const r=NET.room; if(!r||!NET.on) return; if(NET.kind==='battle'){ if(btHook) btHook.send(); return; } const p=player;
-  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, ts:Math.round(performance.now()), sx:secretMine(), pk:NET.pk|0 };
+  const o={ v:2, vr:GAME_VER, r:NET.role, nm:myName(), ds:[settings.domeSkin|0,settings.domeCol||''], f:fstate(p), sh:NET.shots, bk:NET.blockN, c:p.cards, ht:NET.hits, hm:netMatchId(), ts:Math.round(performance.now()), sx:secretMine(), pk:NET.pk|0 };
   if(NET.role==='guest') o.want=NET.code;
   if(NET.role==='host'){ o.k=NET.kind; o.map=NET.kind==='ffa'?'ffa':curMapId; o.lob={seats:NET.seats.map(st=>[st.b?null:st.p,st.n,st.b?1:0]),st:NET.started?1:0};
     if(NET.started){ const S=fighters.slice().sort((a,b)=>a.slot-b.slot), n=Math.max(...S.map(f=>f.slot))+1, by=k=>S.find(f=>f.slot===k);
@@ -153,7 +158,7 @@ const isNum=v=>typeof v==='number'&&isFinite(v);
 function netRx(peer,pr){
   verSeen(peer,pr);
   const f=fighters.find(x=>x.peer===peer&&x.ctl==='net'); if(f){ netRxFighter(f,pr); if(isNum(pr.pk)) f.nrPk=pr.pk; }
-  netApplyHits(peer,pr.ht);
+  netApplyHits(peer,pr.ht,pr.hm);
   if(NET.role==='host') secretSeen(peer,pr.sx);
   if(NET.role==='guest'&&peer===NET.hostPeer){ if(Array.isArray(pr.bots)) for(const b of pr.bots){ if(!b||!isNum(b.s)) continue; const bf=fighters.find(x=>x.slot===b.s&&x.ctl==='net'&&!x.peer); if(bf) netRxFighter(bf,b); }
     if(pr.h&&typeof pr.h==='object') netGuestFollow(pr.h); } }
